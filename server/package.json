@@ -1,0 +1,20 @@
+{
+  "name": "menler-lms-server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Menler LMS API — standalone backend, shares the Atlas cluster (lms_* collections only).",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js",
+    "seed": "node scripts/seed.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.2",
+    "cors": "^2.8.5",
+    "dotenv": "^17.0.0",
+    "express": "^5.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.20.0"
+  }
+}
