@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react';
-import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import { api, getToken, setToken } from './api.js';
+import { navFor } from './nav.jsx';
+import AppShell from './components/AppShell.jsx';
 import Login from './pages/Login.jsx';
-import Dashboard from './pages/Dashboard.jsx';
 
 export default function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // On load, if we have a token, resolve the current user (picks the dashboard).
+  // On load, resolve the current user from a stored token (picks the dashboard).
   useEffect(() => {
     if (!getToken()) { setLoading(false); return; }
     api('/me')
@@ -17,12 +18,23 @@ export default function App() {
       .finally(() => setLoading(false));
   }, []);
 
+  const logout = () => { setToken(''); setUser(null); };
+
   if (loading) return <div className="center">Loading…</div>;
+
+  const tabs = user ? navFor(user.role) : [];
 
   return (
     <Routes>
       <Route path="/login" element={user ? <Navigate to="/app" /> : <Login onLogin={setUser} />} />
-      <Route path="/app/*" element={user ? <Dashboard user={user} onLogout={() => { setToken(''); setUser(null); }} /> : <Navigate to="/login" />} />
+      <Route
+        path="/app"
+        element={user ? <AppShell user={user} setUser={setUser} logout={logout} /> : <Navigate to="/login" />}
+      >
+        {tabs.map((t) => (
+          <Route key={t.path} index={t.path === ''} path={t.path || undefined} element={<t.Component />} />
+        ))}
+      </Route>
       <Route path="*" element={<Navigate to={user ? '/app' : '/login'} />} />
     </Routes>
   );
