@@ -3,6 +3,9 @@ import Profile from './pages/Profile.jsx';
 import Learning from './pages/Learning.jsx';
 import ProgramsManage from './pages/ProgramsManage.jsx';
 import StudentHome from './pages/StudentHome.jsx';
+import AdminBatches from './pages/admin/Batches.jsx';
+import AdminMentors from './pages/admin/Mentors.jsx';
+import MentorBatches from './pages/mentor/Batches.jsx';
 
 // A placeholder page factory — renders the spec's sections for screens whose
 // backend is Phase 2.
@@ -39,7 +42,7 @@ export function navFor(role) {
           S('Programs', ''), S('Assignments', ''), S('Projects', ''), S('NPS', 'Mentor rating'),
         ], 'Calendar + batch-wise stats.') },
         { label: 'Learning', path: 'learning', Component: Learning },
-        { label: 'Programs', path: 'programs', Component: ProgramsManage },
+        { label: 'Programs', path: 'programs', Component: MentorBatches },
         { label: 'Forum', path: 'forum', Component: ph('Forum', [
           S('Announcements', 'Post & manage'), S('Doubts', 'Answer'), S('Chat', 'Moderate batch chat'),
         ]) },
@@ -55,13 +58,8 @@ export function navFor(role) {
           S('Total students', ''), S('Active batches', ''), S('Mentors', ''), S('Completion', 'Engagement charts'),
         ], 'Platform overview.') },
         { label: 'Programs', path: 'programs', Component: ProgramsManage },
-        { label: 'Batches', path: 'batches', Component: ph('Batches', [
-          S('Create batch', 'Under a program, with cohort dates + schedule'),
-          S('Assign mentors', ''), S('Enroll students', ''), S('Status', 'Ongoing / past'),
-        ]) },
-        { label: 'Mentors', path: 'mentors', Component: ph('Mentors', [
-          S('Invite', ''), S('Assign to batches', ''), S('NPS / performance', ''),
-        ]) },
+        { label: 'Batches', path: 'batches', Component: AdminBatches },
+        { label: 'Mentors', path: 'mentors', Component: AdminMentors },
         { label: 'Forum', path: 'forum', Component: ph('Forum', [
           S('Announcements', 'Global'), S('Moderation', 'Remove content across batches'),
         ]) },

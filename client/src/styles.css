@@ -78,10 +78,36 @@ h3 { margin: 0 0 10px; font-size: 15px; }
 .list { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; }
 .list-row { display: flex; align-items: center; justify-content: space-between; }
 
+/* ── Phase 2: tabs, batch workspace, forms ── */
+.tabs { display: flex; gap: 6px; margin-bottom: 16px; border-bottom: 1px solid #e5e7eb; }
+.tab { background: none; border: 0; padding: 10px 14px; cursor: pointer; font-size: 14px; color: #6b7280; border-bottom: 2px solid transparent; }
+.tab.active { color: #4f46e5; border-bottom-color: #4f46e5; font-weight: 600; }
+
+.btn.sm { padding: 7px 12px; font-size: 13px; }
+.inline-form { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 8px; }
+.inline-form input, .inline-form select { padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 13.5px; }
+.inline-form input { min-width: 200px; }
+
+.roster { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.chip { display: inline-block; background: #f3f4f6; border-radius: 999px; padding: 4px 12px; margin: 4px 4px 0 0; font-size: 13px; }
+
+.attend { display: flex; flex-direction: column; gap: 4px; background: #f9fafb; padding: 10px; border-radius: 8px; margin-top: 6px; }
+.attend-row { display: flex; align-items: center; gap: 8px; font-size: 13.5px; }
+.assignment { border-top: 1px solid #eef0f4; padding-top: 12px; margin-top: 12px; }
+.subs { margin-top: 8px; }
+.grade-row { background: #f9fafb; padding: 10px 12px; border-radius: 8px; margin-top: 8px; }
+.grade-row .inline-form { margin-top: 6px; }
+
+.tempbox { background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 12px; margin-top: 12px; font-size: 14px; }
+.tempbox code { background: #d1fae5; padding: 2px 8px; border-radius: 6px; }
+.mini-row { padding: 6px 0; border-bottom: 1px solid #f3f4f6; font-size: 14px; }
+.graded { display: flex; align-items: center; gap: 16px; margin-top: 8px; }
+.graded .tile-value { color: #166534; }
+
 @media (max-width: 820px) {
   .app { grid-template-columns: 1fr; }
   .nav { flex-direction: row; overflow-x: auto; }
   .logout { margin-top: 0; }
   .tiles, .home-row { grid-template-columns: 1fr 1fr; }
-  .learn-grid { grid-template-columns: 1fr; }
+  .learn-grid, .roster { grid-template-columns: 1fr; }
 }
