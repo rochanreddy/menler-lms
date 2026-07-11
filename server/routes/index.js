@@ -14,6 +14,7 @@ import forumRoutes from './forum.js';
 import libraryRoutes from './library.js';
 import webinarRoutes from './webinars.js';
 import statsRoutes from './stats.js';
+import jobRoutes from './jobs.js';
 
 const router = Router();
 
@@ -36,7 +37,6 @@ router.use('/forum', forumRoutes);
 router.use('/library', libraryRoutes);
 router.use('/webinars', webinarRoutes);
 router.use('/stats', statsRoutes);
-
-// Phase 3+ : /jobs
+router.use('/jobs', jobRoutes);
 
 export default router;

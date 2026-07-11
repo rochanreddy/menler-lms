@@ -11,6 +11,9 @@ import Forum from './pages/Forum.jsx';
 import Library from './pages/Library.jsx';
 import Webinar from './pages/mentor/Webinar.jsx';
 import AdminHome from './pages/admin/Home.jsx';
+import JobBoard from './pages/student/JobBoard.jsx';
+import PostJob from './pages/partner/PostJob.jsx';
+import Applicants from './pages/partner/Applicants.jsx';
 
 // A placeholder page factory — renders the spec's sections for screens whose
 // backend is Phase 2.
@@ -28,10 +31,7 @@ export function navFor(role) {
         { label: 'Learning', path: 'learning', Component: Learning },
         { label: 'Library', path: 'library', Component: Library },
         { label: 'Forum', path: 'forum', Component: Forum },
-        { label: 'Job Board', path: 'jobs', Component: ph('Job Board', [
-          S('Openings', 'Scraped / manual / partner-posted, with filters'),
-          S('My Applications', 'Track application status'),
-        ]) },
+        { label: 'Job Board', path: 'jobs', Component: JobBoard },
         { label: 'Profile', path: 'profile', Component: Profile },
       ];
     case 'mentor':
@@ -57,14 +57,8 @@ export function navFor(role) {
       ];
     case 'partner':
       return [
-        { label: 'Post a Job', path: '', Component: ph('Post a Job', [
-          S('Job form', 'Title, company, description, location, apply flow'),
-          S('Publish', 'Appears on the student Job Board'),
-        ]) },
-        { label: 'Applicants', path: 'applicants', Component: ph('Applicants', [
-          S('Per job', 'List of student applicants + status'),
-          S('Resume / profile', 'View applicant details'),
-        ]) },
+        { label: 'Post a Job', path: '', Component: PostJob },
+        { label: 'Applicants', path: 'applicants', Component: Applicants },
         { label: 'Profile', path: 'profile', Component: Profile },
       ];
     default:

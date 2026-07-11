@@ -14,6 +14,8 @@ import { Quiz } from '../models/Quiz.js';
 import { QuizAttempt } from '../models/QuizAttempt.js';
 import { Message } from '../models/Message.js';
 import { Doubt } from '../models/Doubt.js';
+import { Job } from '../models/Job.js';
+import { Application } from '../models/Application.js';
 
 const DEMO_DOMAIN = '@demo.menler.in';
 const STUDENTS = [
@@ -39,6 +41,13 @@ async function run() {
   await Doubt.deleteMany({ batchId: { $in: oldBatchIds } });
   await Session.deleteMany({ batchId: { $in: oldBatchIds } });
   await Batch.deleteMany({ _id: { $in: oldBatchIds } });
+  const oldPartner = await User.findOne({ email: 'partner@menler.in' });
+  if (oldPartner) {
+    const oldJobs = await Job.find({ postedBy: oldPartner._id }).select('_id');
+    await Application.deleteMany({ jobId: { $in: oldJobs.map((j) => j._id) } });
+    await Job.deleteMany({ postedBy: oldPartner._id });
+  }
+  await Application.deleteMany({ studentId: { $in: oldStudentIds } });
   await User.deleteMany({ _id: { $in: oldStudentIds } });
   console.log('• cleared previous demo data');
 
@@ -126,6 +135,16 @@ async function run() {
     comments: [{ authorId: mentor._id, text: 'Great question — a prompt is input at run-time; fine-tuning changes the model weights.' }],
   });
   console.log('✓ forum: chat messages + a doubt with a comment');
+
+  // ── Partner + jobs + an application ──
+  let partner = await User.findOne({ email: 'partner@menler.in' });
+  if (!partner) {
+    partner = await User.create({ email: 'partner@menler.in', fullName: 'Acme Talent', role: 'partner', company: 'Acme AI', emailVerified: true, passwordHash: await bcrypt.hash('partner123', 12) });
+  } else { partner.passwordHash = await bcrypt.hash('partner123', 12); await partner.save(); }
+  const job1 = await Job.create({ title: 'AI Automation Associate', company: 'Acme AI', location: 'Bengaluru (Hybrid)', description: 'Build Claude-powered workflows for enterprise clients.', postedBy: partner._id });
+  await Job.create({ title: 'AI Product Analyst', company: 'Acme AI', location: 'Remote', description: 'Turn user insights into AI-native product specs.', postedBy: partner._id });
+  await Application.create({ jobId: job1._id, studentId: julStudents[0]._id, status: 'applied' });
+  console.log('✓ partner (partner@menler.in / partner123) + 2 jobs + 1 application');
 
   console.log('\n✅ Demo data ready.');
   console.log('   Mentor  → mentor@menler.in / mentor123');
