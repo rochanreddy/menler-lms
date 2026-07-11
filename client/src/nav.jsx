@@ -6,6 +6,7 @@ import StudentHome from './pages/StudentHome.jsx';
 import AdminBatches from './pages/admin/Batches.jsx';
 import AdminMentors from './pages/admin/Mentors.jsx';
 import MentorBatches from './pages/mentor/Batches.jsx';
+import MentorHome from './pages/mentor/Home.jsx';
 
 // A placeholder page factory — renders the spec's sections for screens whose
 // backend is Phase 2.
@@ -38,9 +39,7 @@ export function navFor(role) {
       ];
     case 'mentor':
       return [
-        { label: 'Home', path: '', Component: ph('Home', [
-          S('Programs', ''), S('Assignments', ''), S('Projects', ''), S('NPS', 'Mentor rating'),
-        ], 'Calendar + batch-wise stats.') },
+        { label: 'Home', path: '', Component: MentorHome },
         { label: 'Learning', path: 'learning', Component: Learning },
         { label: 'Programs', path: 'programs', Component: MentorBatches },
         { label: 'Forum', path: 'forum', Component: ph('Forum', [

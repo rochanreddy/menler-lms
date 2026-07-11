@@ -26,16 +26,42 @@ export default function Login({ onLogin }) {
   }
 
   return (
-    <div className="center">
-      <form className="card" onSubmit={submit}>
-        <h1>Menler LMS</h1>
-        <p className="muted">Sign in to continue</p>
-        <input type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-        <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} required />
-        {err && <div className="error">{err}</div>}
-        <button disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
-        <p className="muted" style={{ textAlign: 'center' }}>New student? <Link to="/signup">Create an account</Link></p>
-      </form>
+    <div className="auth">
+      <div className="auth-hero">
+        <div className="auth-brand"><span className="logo">🎓</span> Menler</div>
+        <div className="auth-hero-copy">
+          <h2>Teach without the busywork.</h2>
+          <p>Batches, attendance, quizzes, sessions and analytics — one board, zero spreadsheets.</p>
+        </div>
+        <div />
+      </div>
+
+      <div className="auth-form-wrap">
+        <form className="auth-form" onSubmit={submit}>
+          <h1>Sign in to Menler</h1>
+          <p className="sub">Welcome back — pick up exactly where you left off.</p>
+
+          <div className="field">
+            <label>Email</label>
+            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+          </div>
+          <div className="field">
+            <label>Password</label>
+            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+          </div>
+          {err && <div className="error" style={{ marginBottom: 12 }}>{err}</div>}
+          <button className="btn" disabled={busy}>{busy ? 'Signing in…' : 'Sign in →'}</button>
+
+          <p className="auth-alt">New student? <Link to="/signup">Create an account</Link></p>
+
+          <div className="demo-box">
+            <div className="eyebrow">Demo accounts</div>
+            <div className="demo-row"><span>Admin</span><code>admin@menler.in / ChangeMe123!</code></div>
+            <div className="demo-row"><span>Mentor</span><code>mentor@menler.in / mentor123</code></div>
+            <div className="demo-row"><span>Student</span><code>aarav@demo.menler.in / student123</code></div>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

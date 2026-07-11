@@ -28,17 +28,39 @@ export default function Register({ onLogin }) {
   }
 
   return (
-    <div className="center">
-      <form className="card" onSubmit={submit}>
-        <h1>Create your account</h1>
-        <p className="muted">For students — join the Menler LMS</p>
-        <input placeholder="Full name" value={form.fullName} onChange={(e) => set('fullName', e.target.value)} required />
-        <input type="email" placeholder="Email" value={form.email} onChange={(e) => set('email', e.target.value)} required />
-        <input type="password" placeholder="Password (min 8 characters)" value={form.password} onChange={(e) => set('password', e.target.value)} minLength={8} required />
-        {err && <div className="error">{err}</div>}
-        <button disabled={busy}>{busy ? 'Creating…' : 'Create account'}</button>
-        <p className="muted" style={{ textAlign: 'center' }}>Already have an account? <Link to="/login">Sign in</Link></p>
-      </form>
+    <div className="auth">
+      <div className="auth-hero">
+        <div className="auth-brand"><span className="logo">🎓</span> Menler</div>
+        <div className="auth-hero-copy">
+          <h2>Start learning with Menler.</h2>
+          <p>Live sessions, quizzes, projects and mentor feedback — everything in one place.</p>
+        </div>
+        <div />
+      </div>
+
+      <div className="auth-form-wrap">
+        <form className="auth-form" onSubmit={submit}>
+          <h1>Create your account</h1>
+          <p className="sub">For students joining the Menler LMS.</p>
+
+          <div className="field">
+            <label>Full name</label>
+            <input value={form.fullName} onChange={(e) => set('fullName', e.target.value)} required />
+          </div>
+          <div className="field">
+            <label>Email</label>
+            <input type="email" value={form.email} onChange={(e) => set('email', e.target.value)} required />
+          </div>
+          <div className="field">
+            <label>Password</label>
+            <input type="password" value={form.password} onChange={(e) => set('password', e.target.value)} minLength={8} required placeholder="Min 8 characters" />
+          </div>
+          {err && <div className="error" style={{ marginBottom: 12 }}>{err}</div>}
+          <button className="btn" disabled={busy}>{busy ? 'Creating…' : 'Create account →'}</button>
+
+          <p className="auth-alt">Already have an account? <Link to="/login">Sign in</Link></p>
+        </form>
+      </div>
     </div>
   );
 }

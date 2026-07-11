@@ -2,9 +2,25 @@ import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
 import { Attendance } from '../models/Attendance.js';
 import { Session } from '../models/Session.js';
-import { isMentorOfBatch } from '../utils/access.js';
+import { Batch } from '../models/Batch.js';
+import { isMentorOfBatch, myBatchIds } from '../utils/access.js';
 
 const router = Router();
+
+// GET /api/lms/attendance/overview — attendance % per batch the user teaches/owns
+// (mentor/admin). Powers the "attendance by course" chart on the mentor board.
+router.get('/overview', requireAuth, async (req, res) => {
+  const ids = await myBatchIds(req.user);
+  const batches = await Batch.find({ _id: { $in: ids } }).select('name');
+  const overview = [];
+  for (const b of batches) {
+    const rows = await Attendance.find({ batchId: b._id });
+    const total = rows.length;
+    const present = rows.filter((r) => r.status === 'present').length;
+    overview.push({ batchId: b._id, name: b.name, pct: total ? Math.round((present / total) * 100) : 0, total });
+  }
+  res.json({ overview });
+});
 
 // POST /api/lms/attendance/session/:sessionId  { records: [{ studentId, status }] }
 // Mentor of the batch marks attendance for a session (upserts each record).

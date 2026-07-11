@@ -29,7 +29,13 @@ export default function StudentHome() {
 
   return (
     <div>
-      <h1>Welcome, {user.full_name || user.email}</h1>
+      <div className="page-head">
+        <div>
+          <div className="eyebrow">Student board</div>
+          <h1>Welcome, {(user.full_name || user.email).split(' ')[0]}.</h1>
+          <p>Your classes, attendance and work — all in one place.</p>
+        </div>
+      </div>
 
       <div className="cta-banner">
         Join the next session to crack your interview at your target company →
