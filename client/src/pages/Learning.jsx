@@ -11,8 +11,63 @@ export default function Learning() {
       <div className="tabs">
         <button className={`tab ${tab === 'content' ? 'active' : ''}`} onClick={() => setTab('content')}>Content</button>
         <button className={`tab ${tab === 'assignments' ? 'active' : ''}`} onClick={() => setTab('assignments')}>Assignments & Projects</button>
+        <button className={`tab ${tab === 'quizzes' ? 'active' : ''}`} onClick={() => setTab('quizzes')}>Quizzes</button>
       </div>
-      {tab === 'content' ? <Content /> : <Assignments />}
+      {tab === 'content' && <Content />}
+      {tab === 'assignments' && <Assignments />}
+      {tab === 'quizzes' && <Quizzes />}
+    </div>
+  );
+}
+
+function Quizzes() {
+  const [items, setItems] = useState([]);
+  const load = () => api('/quizzes?scope=mine').then((d) => setItems(d.quizzes || [])).catch(() => {});
+  useEffect(() => { load(); }, []);
+  if (items.length === 0) return <p className="muted">No quizzes yet. Your mentor will post them here.</p>;
+  return <div className="list">{items.map((q) => <QuizCard key={q._id} quiz={q} onDone={load} />)}</div>;
+}
+
+function QuizCard({ quiz, onDone }) {
+  const [answers, setAnswers] = useState({});
+  const [busy, setBusy] = useState(false);
+  const [open, setOpen] = useState(false);
+  const attempt = quiz.myAttempt;
+
+  async function submit(e) {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      const ordered = quiz.questions.map((_, i) => (answers[i] ?? -1));
+      await api(`/quizzes/${quiz._id}/attempt`, { method: 'POST', body: { answers: ordered } });
+      onDone();
+    } finally { setBusy(false); }
+  }
+
+  return (
+    <div className="panel">
+      <div className="row">
+        <strong>{quiz.title}</strong>
+        <span className="badge">{quiz.type}</span>
+        {attempt && <span className="badge badge-student">Scored {attempt.score}/{attempt.total}</span>}
+      </div>
+      {!attempt && !open && <button className="btn sm" onClick={() => setOpen(true)}>Take quiz</button>}
+      {!attempt && open && (
+        <form onSubmit={submit}>
+          {quiz.questions.map((q, qi) => (
+            <div key={q._id} className="quiz-take-q">
+              <p><strong>{qi + 1}. {q.text}</strong></p>
+              {q.options.map((o, oi) => (
+                <label key={oi} className="quiz-opt">
+                  <input type="radio" name={`q-${quiz._id}-${qi}`} checked={answers[qi] === oi} onChange={() => setAnswers((a) => ({ ...a, [qi]: oi }))} required />
+                  {o}
+                </label>
+              ))}
+            </div>
+          ))}
+          <button className="btn sm" disabled={busy}>{busy ? 'Submitting…' : 'Submit answers'}</button>
+        </form>
+      )}
     </div>
   );
 }

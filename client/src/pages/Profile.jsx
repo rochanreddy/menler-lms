@@ -61,11 +61,14 @@ export default function Profile() {
         <label>Experience<input value={form.professional.experience || ''} onChange={(e) => setPro('experience', e.target.value)} /></label>
       </section>
 
-      <section className="panel">
-        <h3>Resume</h3>
-        <label>Resume URL<input value={form.resumeUrl} onChange={(e) => set('resumeUrl', e.target.value)} placeholder="https://…" /></label>
-        <p className="muted">File upload comes in Phase 2 (S3/Cloudinary). For now paste a link.</p>
-      </section>
+      {/* Resume is student-facing; mentors just keep personal + professional info. */}
+      {user.role !== 'mentor' && (
+        <section className="panel">
+          <h3>Resume</h3>
+          <label>Resume URL<input value={form.resumeUrl} onChange={(e) => set('resumeUrl', e.target.value)} placeholder="https://…" /></label>
+          <p className="muted">File upload comes later (S3/Cloudinary). For now paste a link.</p>
+        </section>
+      )}
 
       <div className="row">
         <button className="btn" disabled={busy}>{busy ? 'Saving…' : 'Save changes'}</button>

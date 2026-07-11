@@ -9,6 +9,7 @@ import sessionRoutes from './sessions.js';
 import attendanceRoutes from './attendance.js';
 import assignmentRoutes from './assignments.js';
 import submissionRoutes from './submissions.js';
+import quizRoutes from './quizzes.js';
 
 const router = Router();
 
@@ -26,6 +27,7 @@ router.use('/sessions', sessionRoutes);
 router.use('/attendance', attendanceRoutes);
 router.use('/assignments', assignmentRoutes);
 router.use('/submissions', submissionRoutes);
+router.use('/quizzes', quizRoutes);
 
 // Phase 3+ : /library, /forum, /jobs, /webinars
 

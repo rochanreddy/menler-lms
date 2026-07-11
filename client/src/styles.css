@@ -104,6 +104,16 @@ h3 { margin: 0 0 10px; font-size: 15px; }
 .graded { display: flex; align-items: center; gap: 16px; margin-top: 8px; }
 .graded .tile-value { color: #166534; }
 
+/* ── Zoom + quizzes ── */
+.zoom-link { color: #2563eb; font-weight: 600; text-decoration: none; }
+.zoom-link:hover { text-decoration: underline; }
+.quiz-builder { background: #f9fafb; border: 1px solid #eef0f4; border-radius: 10px; padding: 14px; margin-top: 8px; }
+.quiz-q { background: #fff; border: 1px solid #eef0f4; border-radius: 8px; padding: 10px; margin: 10px 0; }
+.quiz-q > input { width: 100%; padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 8px; margin-bottom: 6px; }
+.quiz-opt { display: flex; align-items: center; gap: 8px; margin: 4px 0; font-size: 14px; }
+.quiz-opt input[type="text"] { flex: 1; padding: 6px 8px; border: 1px solid #d1d5db; border-radius: 6px; }
+.quiz-take-q { padding: 10px 0; border-bottom: 1px solid #f3f4f6; }
+
 @media (max-width: 820px) {
   .app { grid-template-columns: 1fr; }
   .nav { flex-direction: row; overflow-x: auto; }
