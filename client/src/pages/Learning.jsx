@@ -1,10 +1,25 @@
 import { useEffect, useState } from 'react';
+import { useOutletContext } from 'react-router-dom';
 import { api } from '../api.js';
 
-// Learning has two tabs (per spec): Content (Program>Module>Chapter>Topic tree)
-// and Assignments (submit + see grade). Projects share the assignments list.
+// Learning. For students: Content + Assignments (submit) + Quizzes (take).
+// For mentors/admins: just the course content to teach from — they create &
+// grade assignments/quizzes under Programs → a batch, not here.
 export default function Learning() {
+  const { user } = useOutletContext();
+  const isStudent = user.role === 'student';
   const [tab, setTab] = useState('content');
+
+  if (!isStudent) {
+    return (
+      <div>
+        <h1>Learning</h1>
+        <p className="muted">The course content your students see — teach from this. Create &amp; grade assignments and quizzes under <b>Programs → your batch</b>.</p>
+        <Content />
+      </div>
+    );
+  }
+
   return (
     <div>
       <h1>Learning</h1>
