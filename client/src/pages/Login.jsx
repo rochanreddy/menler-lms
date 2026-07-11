@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { api, setToken } from '../api.js';
 
 export default function Login({ onLogin }) {
@@ -34,6 +34,7 @@ export default function Login({ onLogin }) {
         <input type="password" placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} required />
         {err && <div className="error">{err}</div>}
         <button disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
+        <p className="muted" style={{ textAlign: 'center' }}>New student? <Link to="/signup">Create an account</Link></p>
       </form>
     </div>
   );

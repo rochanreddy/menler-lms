@@ -4,6 +4,7 @@ import { api, getToken, setToken } from './api.js';
 import { navFor } from './nav.jsx';
 import AppShell from './components/AppShell.jsx';
 import Login from './pages/Login.jsx';
+import Register from './pages/Register.jsx';
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -27,6 +28,7 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={user ? <Navigate to="/app" /> : <Login onLogin={setUser} />} />
+      <Route path="/signup" element={user ? <Navigate to="/app" /> : <Register onLogin={setUser} />} />
       <Route
         path="/app"
         element={user ? <AppShell user={user} setUser={setUser} logout={logout} /> : <Navigate to="/login" />}
