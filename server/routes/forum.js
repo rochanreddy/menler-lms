@@ -50,8 +50,9 @@ router.get('/doubts', requireAuth, async (req, res) => {
   res.json({ doubts: rows.map((d) => shapeDoubt(d, req.user._id.toString())) });
 });
 
-// POST /api/lms/forum/doubts { batchId, text }
+// POST /api/lms/forum/doubts { batchId, text } — only students ask doubts.
 router.post('/doubts', requireAuth, async (req, res) => {
+  if (req.user.role !== 'student') return res.status(403).json({ error: 'Only students can post doubts. Mentors answer them.' });
   const { batchId, text } = req.body || {};
   if (!batchId || !text?.trim()) return res.status(400).json({ error: 'batchId and text are required.' });
   if (!(await canAccessBatch(req.user, batchId))) return res.status(403).json({ error: 'Forbidden.' });

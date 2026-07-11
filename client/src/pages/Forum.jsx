@@ -99,9 +99,15 @@ function Chat({ batchId, me }) {
 function Doubts({ batchId, me }) {
   const [doubts, setDoubts] = useState([]);
   const [text, setText] = useState('');
+  const isStudent = me.role === 'student';
 
   const load = () => api(`/forum/doubts?batchId=${batchId}`).then((d) => setDoubts(d.doubts || [])).catch(() => {});
-  useEffect(() => { load(); }, [batchId]);
+  // Live: refresh every 5s so mentors see new doubts and everyone sees new answers.
+  useEffect(() => {
+    load();
+    const t = setInterval(load, 5000);
+    return () => clearInterval(t);
+  }, [batchId]);
 
   async function post(e) {
     e.preventDefault();
@@ -113,16 +119,20 @@ function Doubts({ batchId, me }) {
 
   return (
     <div>
-      <form className="panel" onSubmit={post}>
-        <h3>Ask a doubt</h3>
-        <div className="inline-form">
-          <input style={{ flex: 1, minWidth: 260 }} placeholder="What are you stuck on?" value={text} onChange={(e) => setText(e.target.value)} />
-          <button className="btn sm">Post doubt</button>
-        </div>
-      </form>
+      {isStudent ? (
+        <form className="panel" onSubmit={post}>
+          <h3>Ask a doubt</h3>
+          <div className="inline-form">
+            <input style={{ flex: 1, minWidth: 260 }} placeholder="What are you stuck on?" value={text} onChange={(e) => setText(e.target.value)} />
+            <button className="btn sm">Post doubt</button>
+          </div>
+        </form>
+      ) : (
+        <div className="panel"><h3>Student doubts</h3><p className="muted">Answer your students' questions below. New doubts appear here live.</p></div>
+      )}
 
       <div className="list">
-        {doubts.length === 0 && <p className="muted">No doubts yet. Be the first to ask.</p>}
+        {doubts.length === 0 && <p className="muted">{isStudent ? 'No doubts yet. Be the first to ask.' : 'No doubts yet — students will post them here.'}</p>}
         {doubts.map((d) => <DoubtCard key={d.id} doubt={d} me={me} onChange={load} />)}
       </div>
     </div>
@@ -166,8 +176,8 @@ function DoubtCard({ doubt, me, onChange }) {
             </div>
           ))}
           <form className="inline-form" onSubmit={addComment}>
-            <input style={{ flex: 1, minWidth: 220 }} placeholder="Add a comment…" value={comment} onChange={(e) => setComment(e.target.value)} />
-            <button className="btn sm">Reply</button>
+            <input style={{ flex: 1, minWidth: 220 }} placeholder={me.role === 'mentor' ? 'Write an answer…' : 'Add a comment…'} value={comment} onChange={(e) => setComment(e.target.value)} />
+            <button className="btn sm">{me.role === 'mentor' ? 'Answer' : 'Reply'}</button>
           </form>
         </div>
       )}
