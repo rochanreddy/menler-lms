@@ -15,6 +15,7 @@ import libraryRoutes from './library.js';
 import webinarRoutes from './webinars.js';
 import statsRoutes from './stats.js';
 import jobRoutes from './jobs.js';
+import uploadRoutes from './uploads.js';
 
 const router = Router();
 
@@ -38,5 +39,6 @@ router.use('/library', libraryRoutes);
 router.use('/webinars', webinarRoutes);
 router.use('/stats', statsRoutes);
 router.use('/jobs', jobRoutes);
+router.use('/uploads', uploadRoutes);
 
 export default router;

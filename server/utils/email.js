@@ -1,17 +1,29 @@
-// Minimal mailer. Until SMTP is wired (add nodemailer + SMTP_* env vars), it
-// logs the message to the console so password-reset links are testable in dev.
+// Mailer. Sends via SMTP (nodemailer) when SMTP_* is configured; otherwise logs
+// the message to the console so password-reset links stay testable in dev.
 export function isSmtpConfigured() {
   return !!(process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS);
 }
 
-export async function sendMail({ to, subject, text }) {
+let cachedTransport = null;
+async function getTransport() {
+  if (cachedTransport) return cachedTransport;
+  const nodemailer = (await import('nodemailer')).default;
+  const port = Number(process.env.SMTP_PORT || 587);
+  cachedTransport = nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port,
+    secure: port === 465, // 465 = implicit TLS; 587 = STARTTLS
+    auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+  });
+  return cachedTransport;
+}
+
+export async function sendMail({ to, subject, text, html }) {
   if (!isSmtpConfigured()) {
-    console.log(`\n[email:dev] to=${to}\nsubject=${subject}\n${text}\n`);
-    return;
+    console.log(`\n[email:dev] to=${to}\nsubject=${subject}\n${text || ''}\n`);
+    return { dev: true };
   }
-  // TODO: swap for nodemailer once SMTP_* is set:
-  //   const nodemailer = (await import('nodemailer')).default;
-  //   const t = nodemailer.createTransport({ host, port, auth: { user, pass } });
-  //   await t.sendMail({ from, to, subject, text });
-  console.log(`[email] would send to ${to}: ${subject}`);
+  const transport = await getTransport();
+  const from = process.env.SMTP_FROM || `Menler LMS <${process.env.SMTP_USER}>`;
+  return transport.sendMail({ from, to, subject, text, html });
 }

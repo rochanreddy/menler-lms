@@ -31,6 +31,8 @@ app.use(
 );
 
 app.get('/health', (_req, res) => res.json({ ok: true }));
+// Serve uploaded files (resumes, submissions). CORS-open so links open anywhere.
+app.use('/uploads', (req, res, next) => { res.setHeader('Access-Control-Allow-Origin', '*'); next(); }, express.static('uploads'));
 app.use('/api/lms', routes);
 
 async function start() {

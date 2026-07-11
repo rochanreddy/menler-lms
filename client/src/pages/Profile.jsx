@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { api } from '../api.js';
+import { api, uploadFile } from '../api.js';
 
 // Fully wired against GET/PATCH /api/lms/me. Sections from the spec:
 // Personal · Educational · Professional · Resume.
@@ -15,8 +15,19 @@ export default function Profile() {
   });
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
+  const [uploading, setUploading] = useState(false);
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+
+  async function onResumeFile(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    setMsg('');
+    try { const { url } = await uploadFile(file); set('resumeUrl', url); setMsg('Uploaded ✓ — click Save changes'); }
+    catch (e2) { setMsg(e2.message); }
+    finally { setUploading(false); }
+  }
   const setEdu = (k, v) => setForm((f) => ({ ...f, education: { ...f.education, [k]: v } }));
   const setPro = (k, v) => setForm((f) => ({ ...f, professional: { ...f.professional, [k]: v } }));
 
@@ -65,8 +76,12 @@ export default function Profile() {
       {user.role !== 'mentor' && (
         <section className="panel">
           <h3>Resume</h3>
-          <label>Resume URL<input value={form.resumeUrl} onChange={(e) => set('resumeUrl', e.target.value)} placeholder="https://…" /></label>
-          <p className="muted">File upload comes later (S3/Cloudinary). For now paste a link.</p>
+          <label>Upload a file (PDF/DOC, ≤ 8 MB)
+            <input type="file" accept=".pdf,.doc,.docx" onChange={onResumeFile} disabled={uploading} />
+          </label>
+          {uploading && <p className="muted">Uploading…</p>}
+          <label>…or paste a link<input value={form.resumeUrl} onChange={(e) => set('resumeUrl', e.target.value)} placeholder="https://…" /></label>
+          {form.resumeUrl && <p className="muted"><a href={form.resumeUrl} target="_blank" rel="noreferrer">View current resume →</a></p>}
         </section>
       )}
 
