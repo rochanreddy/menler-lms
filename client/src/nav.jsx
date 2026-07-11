@@ -8,6 +8,9 @@ import AdminMentors from './pages/admin/Mentors.jsx';
 import MentorBatches from './pages/mentor/Batches.jsx';
 import MentorHome from './pages/mentor/Home.jsx';
 import Forum from './pages/Forum.jsx';
+import Library from './pages/Library.jsx';
+import Webinar from './pages/mentor/Webinar.jsx';
+import AdminHome from './pages/admin/Home.jsx';
 
 // A placeholder page factory — renders the spec's sections for screens whose
 // backend is Phase 2.
@@ -23,10 +26,7 @@ export function navFor(role) {
       return [
         { label: 'Home', path: '', Component: StudentHome },
         { label: 'Learning', path: 'learning', Component: Learning },
-        { label: 'Library', path: 'library', Component: ph('Library', [
-          S('PPTs', 'Slide decks per session'), S('eBooks', 'Downloadable books'),
-          S('Learning Content', 'Notes & handouts'), S('Menler Library', 'Curated exclusive material'),
-        ], 'Exclusive downloadable material, gated by enrollment.') },
+        { label: 'Library', path: 'library', Component: Library },
         { label: 'Forum', path: 'forum', Component: Forum },
         { label: 'Job Board', path: 'jobs', Component: ph('Job Board', [
           S('Openings', 'Scraped / manual / partner-posted, with filters'),
@@ -40,20 +40,16 @@ export function navFor(role) {
         { label: 'Learning', path: 'learning', Component: Learning },
         { label: 'Programs', path: 'programs', Component: MentorBatches },
         { label: 'Forum', path: 'forum', Component: Forum },
-        { label: 'Webinar', path: 'webinar', Component: ph('Webinar', [
-          S('Past / Current', 'List of webinars'),
-          S('Content · PPT · Feedback', 'View attendee feedback + recording'),
-        ]) },
+        { label: 'Webinar', path: 'webinar', Component: Webinar },
         { label: 'Profile', path: 'profile', Component: Profile },
       ];
     case 'admin':
       return [
-        { label: 'Home', path: '', Component: ph('Home', [
-          S('Total students', ''), S('Active batches', ''), S('Mentors', ''), S('Completion', 'Engagement charts'),
-        ], 'Platform overview.') },
+        { label: 'Home', path: '', Component: AdminHome },
         { label: 'Programs', path: 'programs', Component: ProgramsManage },
         { label: 'Batches', path: 'batches', Component: AdminBatches },
         { label: 'Mentors', path: 'mentors', Component: AdminMentors },
+        { label: 'Library', path: 'library', Component: Library },
         { label: 'Forum', path: 'forum', Component: ph('Forum', [
           S('Announcements', 'Global'), S('Moderation', 'Remove content across batches'),
         ]) },

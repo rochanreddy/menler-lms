@@ -11,6 +11,9 @@ import assignmentRoutes from './assignments.js';
 import submissionRoutes from './submissions.js';
 import quizRoutes from './quizzes.js';
 import forumRoutes from './forum.js';
+import libraryRoutes from './library.js';
+import webinarRoutes from './webinars.js';
+import statsRoutes from './stats.js';
 
 const router = Router();
 
@@ -30,7 +33,10 @@ router.use('/assignments', assignmentRoutes);
 router.use('/submissions', submissionRoutes);
 router.use('/quizzes', quizRoutes);
 router.use('/forum', forumRoutes);
+router.use('/library', libraryRoutes);
+router.use('/webinars', webinarRoutes);
+router.use('/stats', statsRoutes);
 
-// Phase 3+ : /library, /jobs, /webinars
+// Phase 3+ : /jobs
 
 export default router;
