@@ -7,6 +7,7 @@ export default function AdminMentors() {
   const [mentors, setMentors] = useState([]);
   const [form, setForm] = useState({ email: '', fullName: '' });
   const [temp, setTemp] = useState(null);
+  const [reset, setReset] = useState(null); // { email, password } after a reset
   const [err, setErr] = useState('');
 
   const load = () => api('/users?role=mentor').then((d) => setMentors(d.users || [])).catch(() => {});
@@ -16,11 +17,23 @@ export default function AdminMentors() {
     e.preventDefault();
     setErr('');
     setTemp(null);
+    setReset(null);
     try {
       const res = await api('/users', { method: 'POST', body: { ...form, role: 'mentor' } });
       setTemp({ email: res.user.email, password: res.tempPassword });
       setForm({ email: '', fullName: '' });
       load();
+    } catch (e2) { setErr(e2.message); }
+  }
+
+  async function resetPassword(m) {
+    setErr('');
+    setTemp(null);
+    setReset(null);
+    if (!window.confirm(`Reset password for ${m.email}? Their current password stops working.`)) return;
+    try {
+      const res = await api(`/users/${m.id}/reset-password`, { method: 'POST' });
+      setReset({ email: m.email, password: res.tempPassword });
     } catch (e2) { setErr(e2.message); }
   }
 
@@ -44,11 +57,21 @@ export default function AdminMentors() {
         )}
       </form>
 
+      {reset && (
+        <div className="tempbox">
+          🔑 New password for <strong>{reset.email}</strong>: <code>{reset.password}</code>
+          <div className="muted">Share it with the mentor; they change it after signing in.</div>
+        </div>
+      )}
+
       <div className="list">
         {mentors.map((m) => (
           <div className="panel list-row" key={m.id}>
             <div><strong>{m.full_name || '—'}</strong><div className="muted">{m.email}</div></div>
-            <span className="badge badge-mentor">mentor</span>
+            <div className="row">
+              <span className="badge badge-mentor">mentor</span>
+              <button className="btn sm ghost" onClick={() => resetPassword(m)}>Reset password</button>
+            </div>
           </div>
         ))}
         {mentors.length === 0 && <p className="muted">No mentors yet.</p>}

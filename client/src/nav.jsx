@@ -63,6 +63,7 @@ export function navFor(role) {
         { label: 'Forum', path: 'forum', Component: ph('Forum', [
           S('Announcements', 'Global'), S('Moderation', 'Remove content across batches'),
         ]) },
+        { label: 'Account', path: 'account', Component: Profile },
       ];
     case 'partner':
       return [

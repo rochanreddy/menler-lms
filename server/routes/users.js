@@ -38,4 +38,18 @@ router.post('/', requireAuth, requireRole('admin'), async (req, res) => {
   res.status(201).json({ user: user.toPublic(), tempPassword: password ? undefined : temp });
 });
 
+// POST /api/lms/users/:id/reset-password — admin resets a user's password and
+// gets a fresh temp password to hand back (e.g. a mentor who lost theirs).
+router.post('/:id/reset-password', requireAuth, requireRole('admin'), async (req, res) => {
+  const user = await User.findById(req.params.id);
+  if (!user) return res.status(404).json({ error: 'User not found.' });
+  const { password } = req.body || {};
+  const temp = password || crypto.randomBytes(6).toString('hex');
+  user.passwordHash = await bcrypt.hash(temp, 12);
+  user.resetTokenHash = '';
+  user.resetExpires = null;
+  await user.save();
+  res.json({ ok: true, tempPassword: password ? undefined : temp });
+});
+
 export default router;

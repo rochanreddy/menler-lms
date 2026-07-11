@@ -36,8 +36,9 @@ export default function Profile() {
   }
 
   return (
-    <form onSubmit={save} className="stack">
+    <div className="stack">
       <h1>Profile</h1>
+      <form onSubmit={save} className="stack">
 
       <section className="panel">
         <h3>Personal</h3>
@@ -68,6 +69,46 @@ export default function Profile() {
 
       <div className="row">
         <button className="btn" disabled={busy}>{busy ? 'Saving…' : 'Save changes'}</button>
+        {msg && <span className="muted">{msg}</span>}
+      </div>
+      </form>
+
+      <ChangePassword />
+    </div>
+  );
+}
+
+// Change-password form — available to every role (a mentor uses this to replace
+// the temp password the admin gave them).
+function ChangePassword() {
+  const [cur, setCur] = useState('');
+  const [next, setNext] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState('');
+
+  async function submit(e) {
+    e.preventDefault();
+    setBusy(true);
+    setMsg('');
+    try {
+      await api('/me/password', { method: 'PATCH', body: { currentPassword: cur, newPassword: next } });
+      setMsg('Password changed ✓');
+      setCur('');
+      setNext('');
+    } catch (e2) {
+      setMsg(e2.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <form onSubmit={submit} className="panel">
+      <h3>Change password</h3>
+      <label>Current password<input type="password" value={cur} onChange={(e) => setCur(e.target.value)} required /></label>
+      <label>New password (min 8 characters)<input type="password" value={next} onChange={(e) => setNext(e.target.value)} minLength={8} required /></label>
+      <div className="row" style={{ marginTop: 12 }}>
+        <button className="btn" disabled={busy}>{busy ? 'Updating…' : 'Update password'}</button>
         {msg && <span className="muted">{msg}</span>}
       </div>
     </form>
