@@ -7,6 +7,7 @@ import AdminBatches from './pages/admin/Batches.jsx';
 import AdminMentors from './pages/admin/Mentors.jsx';
 import MentorBatches from './pages/mentor/Batches.jsx';
 import MentorHome from './pages/mentor/Home.jsx';
+import Forum from './pages/Forum.jsx';
 
 // A placeholder page factory — renders the spec's sections for screens whose
 // backend is Phase 2.
@@ -26,11 +27,7 @@ export function navFor(role) {
           S('PPTs', 'Slide decks per session'), S('eBooks', 'Downloadable books'),
           S('Learning Content', 'Notes & handouts'), S('Menler Library', 'Curated exclusive material'),
         ], 'Exclusive downloadable material, gated by enrollment.') },
-        { label: 'Forum', path: 'forum', Component: ph('Forum', [
-          S('Announcements', 'Pinned posts from mentors/admin (default view)'),
-          S('Doubts', 'Post a question, threaded replies'),
-          S('Chat', 'Batch group chat — open only around class windows'),
-        ]) },
+        { label: 'Forum', path: 'forum', Component: Forum },
         { label: 'Job Board', path: 'jobs', Component: ph('Job Board', [
           S('Openings', 'Scraped / manual / partner-posted, with filters'),
           S('My Applications', 'Track application status'),
@@ -42,9 +39,7 @@ export function navFor(role) {
         { label: 'Home', path: '', Component: MentorHome },
         { label: 'Learning', path: 'learning', Component: Learning },
         { label: 'Programs', path: 'programs', Component: MentorBatches },
-        { label: 'Forum', path: 'forum', Component: ph('Forum', [
-          S('Announcements', 'Post & manage'), S('Doubts', 'Answer'), S('Chat', 'Moderate batch chat'),
-        ]) },
+        { label: 'Forum', path: 'forum', Component: Forum },
         { label: 'Webinar', path: 'webinar', Component: ph('Webinar', [
           S('Past / Current', 'List of webinars'),
           S('Content · PPT · Feedback', 'View attendee feedback + recording'),

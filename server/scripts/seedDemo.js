@@ -12,6 +12,8 @@ import { Session } from '../models/Session.js';
 import { Attendance } from '../models/Attendance.js';
 import { Quiz } from '../models/Quiz.js';
 import { QuizAttempt } from '../models/QuizAttempt.js';
+import { Message } from '../models/Message.js';
+import { Doubt } from '../models/Doubt.js';
 
 const DEMO_DOMAIN = '@demo.menler.in';
 const STUDENTS = [
@@ -33,6 +35,8 @@ async function run() {
   await Attendance.deleteMany({ sessionId: { $in: oldSessions.map((s) => s._id) } });
   await QuizAttempt.deleteMany({ quizId: { $in: oldQuizzes.map((q) => q._id) } });
   await Quiz.deleteMany({ batchId: { $in: oldBatchIds } });
+  await Message.deleteMany({ batchId: { $in: oldBatchIds } });
+  await Doubt.deleteMany({ batchId: { $in: oldBatchIds } });
   await Session.deleteMany({ batchId: { $in: oldBatchIds } });
   await Batch.deleteMany({ _id: { $in: oldBatchIds } });
   await User.deleteMany({ _id: { $in: oldStudentIds } });
@@ -107,6 +111,21 @@ async function run() {
     await QuizAttempt.create({ quizId: quiz._id, studentId: julStudents[i]._id, answers, score, total: quiz.questions.length });
   }
   console.log('✓ quiz "Week 1 · AI basics" with attempts');
+
+  // ── Forum: group chat + a doubt with a comment + likes ──
+  const [a, b, c] = julStudents;
+  await Message.create([
+    { batchId: julBatch._id, authorId: mentor._id, text: 'Welcome to the Jul cohort! Drop a hi 👋' },
+    { batchId: julBatch._id, authorId: a._id, text: 'Hi everyone, excited to start!' },
+    { batchId: julBatch._id, authorId: b._id, text: 'Same here 🙌' },
+  ]);
+  await Doubt.create({
+    batchId: julBatch._id, authorId: a._id,
+    text: 'How is a prompt different from fine-tuning?',
+    likes: [b._id, c._id],
+    comments: [{ authorId: mentor._id, text: 'Great question — a prompt is input at run-time; fine-tuning changes the model weights.' }],
+  });
+  console.log('✓ forum: chat messages + a doubt with a comment');
 
   console.log('\n✅ Demo data ready.');
   console.log('   Mentor  → mentor@menler.in / mentor123');
