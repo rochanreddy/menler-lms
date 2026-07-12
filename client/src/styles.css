@@ -308,15 +308,33 @@ h1.md-h { font-size: 22px; } h2.md-h { font-size: 19px; } h3.md-h { font-size: 1
 .gb-cell.gb-pending { color: #c2c6cf; }
 .gb-cell.gb-submitted { color: #b5760f; font-weight: 700; }
 .gb-cell.gb-graded { color: #1c7a41; font-weight: 600; }
-.roster { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
-.chip { display: inline-flex; align-items: center; gap: 6px; background: #f4f5f8; border: 1px solid var(--line); border-radius: 999px; padding: 5px 13px; margin: 5px 5px 0 0; font-size: 13px; }
-.chip-x { border: 0; background: none; color: #9aa1ac; cursor: pointer; font-size: 15px; line-height: 1; padding: 0; }
+/* Batch workspace — full width with breathing room */
+.batch-ws { max-width: 1040px; gap: 22px; }
+.batch-ws .panel { padding: 26px 28px; }
+.batch-ws section h3 { font-size: 15px; margin: 0 0 18px; }
+.ws-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; margin-bottom: 2px; }
+.ws-tags { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+.ws-flash { font-size: 13px; color: #16a34a; background: #e7f6ec; border-radius: 20px; padding: 6px 14px; white-space: nowrap; }
+.ws-h3 { font-size: 15px; margin: 0 0 18px; }
+
+.roster { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+.roster-col-head { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 700; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+.roster-n { background: var(--brand-soft); color: var(--brand); border-radius: 20px; padding: 1px 9px; font-size: 12px; letter-spacing: 0; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { display: inline-flex; align-items: center; gap: 8px; background: var(--card); border: 1px solid var(--line); border-radius: 999px; padding: 5px 12px 5px 5px; font-size: 13.5px; box-shadow: 0 1px 2px rgba(16,20,36,.04); }
+.chip-av { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 700; color: #fff; background: #7c8aa5; }
+.chip-av-m { background: var(--brand); }
+.chip-x { border: 0; background: none; color: #9aa1ac; cursor: pointer; font-size: 16px; line-height: 1; padding: 0 2px; margin-left: 2px; }
 .chip-x:hover { color: #c0362c; }
-.roster-controls { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin-top: 16px; }
-.rc-field label { display: block; font-size: 12px; font-weight: 600; color: var(--ink-2); margin-bottom: 6px; }
-.rc-field select, .rc-field input { max-width: 100%; }
-.rc-field .inline-form input, .rc-field .inline-form select { min-width: 0; flex: 1; }
-@media (max-width: 820px) { .roster-controls { grid-template-columns: 1fr; } }
+.roster-empty { margin: 0; }
+
+.roster-controls { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 26px; padding-top: 22px; border-top: 1px solid #f0f1f5; }
+.rc-card { display: flex; flex-direction: column; background: #f9fafc; border: 1px solid #eef0f4; border-radius: 12px; padding: 16px; }
+.rc-card label { font-size: 12.5px; font-weight: 600; color: var(--ink-2); margin-bottom: 10px; }
+.rc-card .rc-select, .rc-card .rc-input { width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 9px; font-size: 13.5px; font-family: var(--font); background: var(--card); box-sizing: border-box; }
+.rc-form { display: contents; }
+.rc-btn { width: 100%; margin-top: 10px; padding: 9px; }
+@media (max-width: 820px) { .roster-controls { grid-template-columns: 1fr; } .roster { grid-template-columns: 1fr; gap: 20px; } }
 .attend { display: flex; flex-direction: column; gap: 5px; background: #f9fafb; padding: 12px; border-radius: 9px; margin-top: 6px; }
 .attend-row { display: flex; align-items: center; gap: 8px; font-size: 13.5px; }
 .assignment { border-top: 1px solid var(--line); padding-top: 14px; margin-top: 14px; }

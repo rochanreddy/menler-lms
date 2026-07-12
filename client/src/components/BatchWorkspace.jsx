@@ -67,68 +67,70 @@ export default function BatchWorkspace({ batchId, mode }) {
   const availableStudents = allStudents.filter((s) => !batch.studentIds.some((bs) => bs._id === s.id));
 
   return (
-    <div className="stack">
-      <div className="row">
-        <h2 style={{ margin: 0 }}>{batch.name}</h2>
-        {batch.programId?.title && <span className="badge badge-mentor">{batch.programId.title}</span>}
-        <span className="badge">{batch.status}</span>
-        {msg && <span className="muted">{msg}</span>}
+    <div className="stack batch-ws">
+      <div className="ws-head">
+        <div>
+          <h2 style={{ margin: 0 }}>{batch.name}</h2>
+          <div className="ws-tags">
+            {batch.programId?.title && <span className="badge badge-mentor">{batch.programId.title}</span>}
+            <span className="badge">{batch.status}</span>
+          </div>
+        </div>
+        {msg && <span className="ws-flash">{msg}</span>}
       </div>
 
       {/* Roster */}
       <section className="panel">
-        <h3>Roster</h3>
+        <h3 className="ws-h3">Roster</h3>
         <div className="roster">
-          <div>
-            <strong>Mentors ({batch.mentorIds.length})</strong>
-            <div>
+          <div className="roster-col">
+            <div className="roster-col-head">Mentors <span className="roster-n">{batch.mentorIds.length}</span></div>
+            <div className="chips">
               {batch.mentorIds.map((m) => (
-                <span key={m._id} className="chip">{m.fullName || m.email}{mode === 'admin' && <button type="button" className="chip-x" title="Remove" onClick={() => removeMember(m._id)}>×</button>}</span>
+                <span key={m._id} className="chip"><span className="chip-av chip-av-m">{(m.fullName || m.email)[0].toUpperCase()}</span>{m.fullName || m.email}{mode === 'admin' && <button type="button" className="chip-x" title="Remove" onClick={() => removeMember(m._id)}>×</button>}</span>
               ))}
-              {batch.mentorIds.length === 0 && <p className="muted">None yet.</p>}
+              {batch.mentorIds.length === 0 && <p className="muted roster-empty">No mentors assigned.</p>}
             </div>
           </div>
-          <div>
-            <strong>Students ({batch.studentIds.length})</strong>
-            <div>
+          <div className="roster-col">
+            <div className="roster-col-head">Students <span className="roster-n">{batch.studentIds.length}</span></div>
+            <div className="chips">
               {batch.studentIds.map((s) => (
-                <span key={s._id} className="chip">{s.fullName || s.email}{mode === 'admin' && <button type="button" className="chip-x" title="Remove" onClick={() => removeMember(s._id)}>×</button>}</span>
+                <span key={s._id} className="chip"><span className="chip-av">{(s.fullName || s.email)[0].toUpperCase()}</span>{s.fullName || s.email}{mode === 'admin' && <button type="button" className="chip-x" title="Remove" onClick={() => removeMember(s._id)}>×</button>}</span>
               ))}
-              {batch.studentIds.length === 0 && <p className="muted">None yet.</p>}
+              {batch.studentIds.length === 0 && <p className="muted roster-empty">No students enrolled yet.</p>}
             </div>
           </div>
         </div>
 
         {mode === 'admin' && (
-          <div className="roster-controls">
-            <div className="rc-field">
-              <label>Assign a mentor</label>
-              <div className="inline-form" style={{ marginTop: 0 }}>
-                <select value={pickMentor} onChange={(e) => setPickMentor(e.target.value)}>
+          <>
+            <div className="roster-controls">
+              <div className="rc-card">
+                <label>Assign a mentor</label>
+                <select className="rc-select" value={pickMentor} onChange={(e) => setPickMentor(e.target.value)}>
                   <option value="">Choose a mentor…</option>
-                  {availableMentors.map((m) => <option key={m.id} value={m.id}>{m.full_name || m.email} — {m.email}</option>)}
+                  {availableMentors.map((m) => <option key={m.id} value={m.id}>{m.full_name || m.email}</option>)}
                 </select>
-                <button className="btn sm" onClick={assignMentor} disabled={!pickMentor}>Assign</button>
+                <button className="btn sm rc-btn" onClick={assignMentor} disabled={!pickMentor}>Assign mentor</button>
               </div>
-            </div>
 
-            <div className="rc-field">
-              <label>Enrol an existing student</label>
-              <div className="inline-form" style={{ marginTop: 0 }}>
-                <select value={pickStudent} onChange={(e) => setPickStudent(e.target.value)}>
+              <div className="rc-card">
+                <label>Enrol an existing student</label>
+                <select className="rc-select" value={pickStudent} onChange={(e) => setPickStudent(e.target.value)}>
                   <option value="">Choose a student…</option>
-                  {availableStudents.map((s) => <option key={s.id} value={s.id}>{s.full_name || s.email} — {s.email}</option>)}
+                  {availableStudents.map((s) => <option key={s.id} value={s.id}>{s.full_name || s.email}</option>)}
                 </select>
-                <button className="btn sm" onClick={enrolExisting} disabled={!pickStudent}>Enrol</button>
+                <button className="btn sm rc-btn" onClick={enrolExisting} disabled={!pickStudent}>Enrol student</button>
               </div>
-            </div>
 
-            <div className="rc-field">
-              <label>New paid student (no account yet)</label>
-              <form className="inline-form" style={{ marginTop: 0 }} onSubmit={enrolNew}>
-                <input type="email" placeholder="Email they enrolled with" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} />
-                <button className="btn sm ghost">Create &amp; enrol</button>
-              </form>
+              <div className="rc-card">
+                <label>New paid student</label>
+                <form className="rc-form" onSubmit={enrolNew}>
+                  <input className="rc-input" type="email" placeholder="Email they enrolled with" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} />
+                  <button className="btn sm ghost rc-btn">Create &amp; enrol</button>
+                </form>
+              </div>
             </div>
 
             {newStudent && (
@@ -137,7 +139,7 @@ export default function BatchWorkspace({ batchId, mode }) {
                 <div className="muted">Share these; they'll set their own password on first login.</div>
               </div>
             )}
-          </div>
+          </>
         )}
       </section>
 
