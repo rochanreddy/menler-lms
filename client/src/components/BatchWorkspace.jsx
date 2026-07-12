@@ -192,13 +192,18 @@ function SessionForm({ onAdd }) {
   const [title, setTitle] = useState('');
   const [startsAt, setStartsAt] = useState('');
   const [joinUrl, setJoinUrl] = useState('');
+  const [zoomMeetingId, setZoomMeetingId] = useState('');
   return (
-    <form className="inline-form" onSubmit={(e) => { e.preventDefault(); if (title && startsAt) { onAdd({ title, startsAt: new Date(startsAt).toISOString(), joinUrl }); setTitle(''); setStartsAt(''); setJoinUrl(''); } }}>
-      <input placeholder="Session title" value={title} onChange={(e) => setTitle(e.target.value)} />
-      <input type="datetime-local" value={startsAt} onChange={(e) => setStartsAt(e.target.value)} />
-      <input placeholder="Zoom link (https://…)" value={joinUrl} onChange={(e) => setJoinUrl(e.target.value)} />
-      <button className="btn sm">Add session</button>
-    </form>
+    <>
+      <form className="inline-form" onSubmit={(e) => { e.preventDefault(); if (title && startsAt) { onAdd({ title, startsAt: new Date(startsAt).toISOString(), joinUrl, zoomMeetingId }); setTitle(''); setStartsAt(''); setJoinUrl(''); setZoomMeetingId(''); } }}>
+        <input placeholder="Session title" value={title} onChange={(e) => setTitle(e.target.value)} />
+        <input type="datetime-local" value={startsAt} onChange={(e) => setStartsAt(e.target.value)} />
+        <input placeholder="Zoom link (https://…)" value={joinUrl} onChange={(e) => setJoinUrl(e.target.value)} />
+        <input placeholder="Zoom meeting ID (optional)" value={zoomMeetingId} onChange={(e) => setZoomMeetingId(e.target.value)} />
+        <button className="btn sm">Add session</button>
+      </form>
+      <p className="muted" style={{ fontSize: 12, marginTop: 4 }}>Meeting ID auto-fills from a zoom.us/j/… link. For a registration link, paste the numeric Meeting ID so Zoom-join attendance can be matched.</p>
+    </>
   );
 }
 

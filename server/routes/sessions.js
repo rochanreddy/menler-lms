@@ -5,6 +5,14 @@ import { canAccessBatch, isMentorOfBatch, myBatchIds } from '../utils/access.js'
 
 const router = Router();
 
+// Pull a Zoom meeting id out of a join URL (…/j/8451234567?…). Registration
+// links don't contain it, so the mentor can also enter it manually.
+function extractMeetingId(url) {
+  const s = String(url || '');
+  const m = s.match(/\/j\/(\d{9,12})/) || s.match(/(\d{9,12})/);
+  return m ? m[1] : '';
+}
+
 // GET /api/lms/sessions?batchId=..  OR  ?scope=upcoming|past
 // - batchId: sessions for one batch (members only)
 // - otherwise: sessions across all the user's batches (for Home/calendar)
@@ -29,10 +37,11 @@ router.get('/', requireAuth, async (req, res) => {
 
 // POST /api/lms/sessions — mentor of the batch (or admin) schedules a class.
 router.post('/', requireAuth, async (req, res) => {
-  const { batchId, title, startsAt, endsAt, joinUrl } = req.body || {};
+  const { batchId, title, startsAt, endsAt, joinUrl, zoomMeetingId } = req.body || {};
   if (!batchId || !title || !startsAt) return res.status(400).json({ error: 'batchId, title and startsAt are required.' });
   if (!(await isMentorOfBatch(req.user, batchId))) return res.status(403).json({ error: 'Only a mentor of this batch can add sessions.' });
-  const session = await Session.create({ batchId, title, startsAt, endsAt: endsAt || null, joinUrl: joinUrl || '' });
+  const meetingId = String(zoomMeetingId || '').trim() || extractMeetingId(joinUrl);
+  const session = await Session.create({ batchId, title, startsAt, endsAt: endsAt || null, joinUrl: joinUrl || '', zoomMeetingId: meetingId });
   res.status(201).json({ session });
 });
 
@@ -41,8 +50,9 @@ router.patch('/:id', requireAuth, async (req, res) => {
   const session = await Session.findById(req.params.id);
   if (!session) return res.status(404).json({ error: 'Session not found.' });
   if (!(await isMentorOfBatch(req.user, session.batchId))) return res.status(403).json({ error: 'Forbidden.' });
-  const allowed = (({ title, startsAt, endsAt, joinUrl, recordingUrl }) => ({ title, startsAt, endsAt, joinUrl, recordingUrl }))(req.body || {});
+  const allowed = (({ title, startsAt, endsAt, joinUrl, recordingUrl, zoomMeetingId }) => ({ title, startsAt, endsAt, joinUrl, recordingUrl, zoomMeetingId }))(req.body || {});
   Object.keys(allowed).forEach((k) => allowed[k] === undefined && delete allowed[k]);
+  if (allowed.joinUrl && allowed.zoomMeetingId === undefined && !session.zoomMeetingId) allowed.zoomMeetingId = extractMeetingId(allowed.joinUrl);
   Object.assign(session, allowed);
   await session.save();
   res.json({ session });

@@ -9,6 +9,7 @@ const sessionSchema = new mongoose.Schema(
     startsAt: { type: Date, required: true },
     endsAt: { type: Date, default: null },
     joinUrl: { type: String, default: '' },
+    zoomMeetingId: { type: String, default: '', index: true }, // matches Zoom webhook events → attendance
     recordingUrl: { type: String, default: '' },
   },
   { timestamps: true },
