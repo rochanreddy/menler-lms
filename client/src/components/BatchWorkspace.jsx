@@ -10,6 +10,7 @@ export default function BatchWorkspace({ batchId, mode }) {
   const [assignments, setAssignments] = useState([]);
   const [quizzes, setQuizzes] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
+  const [gradebook, setGradebook] = useState(null);
   const [msg, setMsg] = useState('');
   const [newStudent, setNewStudent] = useState(null); // { email, password } if an account was auto-created
   const [allMentors, setAllMentors] = useState([]);
@@ -27,7 +28,8 @@ export default function BatchWorkspace({ batchId, mode }) {
     api('/users?role=student').then((d) => setAllStudents(d.users || [])).catch(() => {});
   };
   const loadAnnouncements = () => api(`/announcements?batchId=${batchId}`).then((d) => setAnnouncements(d.announcements || [])).catch(() => {});
-  useEffect(() => { loadBatch(); loadSessions(); loadAssignments(); loadQuizzes(); loadAnnouncements(); }, [batchId]);
+  const loadGradebook = () => api(`/grades/batch/${batchId}`).then(setGradebook).catch(() => setGradebook(null));
+  useEffect(() => { loadBatch(); loadSessions(); loadAssignments(); loadQuizzes(); loadAnnouncements(); loadGradebook(); }, [batchId]);
   useEffect(() => { if (mode === 'admin') loadPeople(); }, [mode]);
 
   const flash = (m) => { setMsg(m); setTimeout(() => setMsg(''), 2500); };
@@ -200,6 +202,43 @@ export default function BatchWorkspace({ batchId, mode }) {
           </div>
         ))}
         {quizzes.length === 0 && <p className="muted">No quizzes yet.</p>}
+      </section>
+
+      {/* Gradebook — students × assessments matrix */}
+      <section className="panel">
+        <h3>Gradebook</h3>
+        {!gradebook || gradebook.rows.length === 0 ? (
+          <p className="muted">No students to grade yet.</p>
+        ) : gradebook.columns.length === 0 ? (
+          <p className="muted">No assignments or quizzes yet — add some above and grades will appear here.</p>
+        ) : (
+          <div className="table-wrap">
+            <table className="grade-table">
+              <thead>
+                <tr>
+                  <th>Student</th>
+                  {gradebook.columns.map((c) => <th key={c.id} title={c.title}>{c.title.length > 14 ? c.title.slice(0, 13) + '…' : c.title}</th>)}
+                  <th>Avg</th>
+                </tr>
+              </thead>
+              <tbody>
+                {gradebook.rows.map((r) => (
+                  <tr key={r.studentId}>
+                    <td>{r.name}</td>
+                    {r.cells.map((cv, i) => (
+                      <td key={gradebook.columns[i].id} className={`gb-cell gb-${cv.status}`}>
+                        {cv.score == null
+                          ? (cv.status === 'submitted' ? '•' : '—')
+                          : (gradebook.columns[i].max ? `${cv.score}/${gradebook.columns[i].max}` : cv.score)}
+                      </td>
+                    ))}
+                    <td><strong>{r.avgPct != null ? `${r.avgPct}%` : '—'}</strong></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
     </div>
   );

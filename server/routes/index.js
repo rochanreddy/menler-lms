@@ -20,6 +20,7 @@ import zoomRoutes from './zoom.js';
 import progressRoutes from './progress.js';
 import notificationRoutes from './notifications.js';
 import announcementRoutes from './announcements.js';
+import gradeRoutes from './grades.js';
 
 const router = Router();
 
@@ -48,5 +49,6 @@ router.use('/zoom', zoomRoutes); // public webhook (signature-verified)
 router.use('/progress', progressRoutes);
 router.use('/notifications', notificationRoutes);
 router.use('/announcements', announcementRoutes);
+router.use('/grades', gradeRoutes);
 
 export default router;

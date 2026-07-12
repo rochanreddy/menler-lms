@@ -3,6 +3,7 @@ import Profile from './pages/Profile.jsx';
 import Learning from './pages/Learning.jsx';
 import ProgramsManage from './pages/ProgramsManage.jsx';
 import StudentHome from './pages/StudentHome.jsx';
+import StudentGrades from './pages/StudentGrades.jsx';
 import AdminBatches from './pages/admin/Batches.jsx';
 import AdminMentors from './pages/admin/Mentors.jsx';
 import MentorBatches from './pages/mentor/Batches.jsx';
@@ -30,6 +31,7 @@ export function navFor(role) {
       return [
         { label: 'Home', path: '', Component: StudentHome },
         { label: 'Learning', path: 'learning', Component: Learning },
+        { label: 'Grades', path: 'grades', Component: StudentGrades },
         { label: 'Library', path: 'library', Component: Library },
         { label: 'Forum', path: 'forum', Component: Forum },
         { label: 'Job Board', path: 'jobs', Component: JobBoard },
