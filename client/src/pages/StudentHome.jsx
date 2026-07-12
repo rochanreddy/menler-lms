@@ -37,9 +37,23 @@ export default function StudentHome() {
         </div>
       </div>
 
-      <div className="cta-banner">
-        Join the next session to crack your interview at your target company →
-      </div>
+      {next ? (
+        <div className="cta-banner session-banner">
+          <div>
+            <div className="sb-label">🎥 Upcoming live session</div>
+            <div className="sb-title">{next.title}</div>
+            <div className="sb-time">
+              {new Date(next.startsAt).toLocaleString([], { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+              {next.batchId?.name ? ` · ${next.batchId.name.replace(/^Demo — /, '')}` : ''}
+            </div>
+          </div>
+          {next.joinUrl
+            ? <a className="sb-join" href={next.joinUrl} target="_blank" rel="noreferrer">Join Zoom →</a>
+            : <span className="sb-join sb-join-off">Link coming soon</span>}
+        </div>
+      ) : (
+        <div className="cta-banner">No live session scheduled yet — your mentor will post one here soon.</div>
+      )}
 
       <div className="tiles">
         {tiles.map((t) => (

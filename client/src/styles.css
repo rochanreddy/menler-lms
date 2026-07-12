@@ -123,6 +123,13 @@ h3 { font-size: 15px; font-weight: 600; margin: 0 0 12px; }
 
 /* ── Student home extras ── */
 .cta-banner { background: linear-gradient(90deg, var(--brand), #4759d6); color: #fff; padding: 18px 22px; border-radius: var(--radius); margin-bottom: 22px; font-weight: 600; box-shadow: var(--shadow); }
+.session-banner { display: flex; align-items: center; justify-content: space-between; gap: 18px; flex-wrap: wrap; }
+.sb-label { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; opacity: .85; }
+.sb-title { font-family: var(--display); font-size: 22px; font-weight: 700; margin-top: 4px; }
+.sb-time { font-size: 14px; opacity: .9; margin-top: 3px; font-weight: 500; }
+.sb-join { background: #fff; color: var(--brand); padding: 11px 20px; border-radius: 10px; font-weight: 700; text-decoration: none; white-space: nowrap; }
+.sb-join:hover { background: #eef1fc; }
+.sb-join-off { background: rgba(255,255,255,.25); color: #fff; cursor: default; }
 .tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 22px; }
 .tile { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; box-shadow: var(--shadow); }
 .tile-value { font-family: var(--display); font-size: 26px; font-weight: 700; }
