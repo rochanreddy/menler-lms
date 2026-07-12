@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { Program } from '../models/Program.js';
+import { User } from '../models/User.js';
 
 const router = Router();
 
@@ -23,6 +24,24 @@ router.post('/', requireAuth, requireRole('admin'), async (req, res) => {
   if (!title) return res.status(400).json({ error: 'Title is required.' });
   const program = await Program.create({ title, type: type || '', description: description || '', slug: slug || '' });
   res.status(201).json({ program });
+});
+
+// POST /api/lms/programs/:id/mentors { userId | email } — admin assigns a mentor
+// to teach this program (grants access to all its batches).
+router.post('/:id/mentors', requireAuth, requireRole('admin'), async (req, res) => {
+  const { userId, email } = req.body || {};
+  const mentor = userId
+    ? await User.findById(userId)
+    : await User.findOne({ email: String(email || '').toLowerCase().trim() });
+  if (!mentor || mentor.role !== 'mentor') return res.status(404).json({ error: 'Mentor not found.' });
+  await Program.findByIdAndUpdate(req.params.id, { $addToSet: { mentorIds: mentor._id } });
+  res.json({ ok: true });
+});
+
+// DELETE /api/lms/programs/:id/mentors/:userId — admin un-assigns a mentor.
+router.delete('/:id/mentors/:userId', requireAuth, requireRole('admin'), async (req, res) => {
+  await Program.findByIdAndUpdate(req.params.id, { $pull: { mentorIds: req.params.userId } });
+  res.json({ ok: true });
 });
 
 // PATCH /api/lms/programs/:id — admin only (edit fields or the modules tree).
