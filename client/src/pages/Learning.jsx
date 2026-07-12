@@ -88,14 +88,29 @@ function QuizCard({ quiz, onDone }) {
 }
 
 function Content() {
+  const { user } = useOutletContext();
   const [programs, setPrograms] = useState([]);
   const [program, setProgram] = useState(null);
   const [topic, setTopic] = useState(null);
   const [open, setOpen] = useState({});
 
-  useEffect(() => { api('/programs').then((d) => setPrograms(d.programs || [])).catch(() => {}); }, []);
   async function pick(id) { const { program: p } = await api(`/programs/${id}`); setProgram(p); setTopic(null); }
   const toggle = (id) => setOpen((o) => ({ ...o, [id]: !o[id] }));
+
+  useEffect(() => {
+    // Students only see the program(s) of the batches they're enrolled in.
+    Promise.all([api('/programs'), user.role === 'student' ? api('/batches') : Promise.resolve({ batches: null })])
+      .then(([pd, bd]) => {
+        let list = pd.programs || [];
+        if (bd.batches) {
+          const mine = new Set(bd.batches.map((b) => b.programId).filter(Boolean));
+          list = list.filter((p) => mine.has(p._id));
+        }
+        setPrograms(list);
+        if (list.length === 1) pick(list[0]._id); // auto-open the only course
+      })
+      .catch(() => {});
+  }, []);
 
   return (
     <div>

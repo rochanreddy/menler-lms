@@ -11,17 +11,31 @@ export function setToken(t) {
 }
 
 export async function api(path, { method = 'GET', body } = {}) {
-  const res = await fetch(`${API}${path}`, {
-    method,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}),
-    },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
-  return data;
+  let lastErr;
+  // Retry transient NETWORK failures (connection reset before the request lands —
+  // common on localhost). HTTP error responses are NOT retried. All our writes
+  // are idempotent, so a retry is safe.
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      const res = await fetch(`${API}${path}`, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}),
+        },
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+      return data;
+    } catch (e) {
+      // An HTTP error we generated above → don't retry, surface it.
+      if (/^Request failed/.test(e.message || '')) throw e;
+      lastErr = e; // network error → retry
+      await new Promise((r) => setTimeout(r, 250 * (attempt + 1)));
+    }
+  }
+  throw lastErr;
 }
 
 // Upload a File (multipart) → returns { url, name }. Used for resume/submissions.
