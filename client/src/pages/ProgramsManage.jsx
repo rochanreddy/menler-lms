@@ -1,15 +1,17 @@
 import { useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { api } from '../api.js';
+import CurriculumEditor from '../components/CurriculumEditor.jsx';
 
-// Admin: create + list programs (wired to POST/GET /api/lms/programs).
-// Mentor: read-only list of programs/batches (batch grading arrives in Phase 2).
+// Admin: create + list programs, and manage each program's curriculum (upload
+// docs → auto-structured lessons students see in Learning).
 export default function ProgramsManage() {
   const { user } = useOutletContext();
   const isAdmin = user.role === 'admin';
   const [programs, setPrograms] = useState([]);
   const [title, setTitle] = useState('');
   const [err, setErr] = useState('');
+  const [editing, setEditing] = useState(null); // programId being edited
 
   const load = () => api('/programs').then((d) => setPrograms(d.programs || [])).catch(() => {});
   useEffect(() => { load(); }, []);
@@ -23,6 +25,10 @@ export default function ProgramsManage() {
       load();
     } catch (e2) { setErr(e2.message); }
   }
+
+  if (editing) return <CurriculumEditor programId={editing} onClose={() => { setEditing(null); load(); }} />;
+
+  const lessons = (p) => (p.modules || []).reduce((n, m) => n + (m.chapters || []).reduce((k, c) => k + (c.topics || []).length, 0), 0);
 
   return (
     <div>
@@ -41,9 +47,9 @@ export default function ProgramsManage() {
           <div className="panel list-row" key={p._id}>
             <div>
               <strong>{p.title}</strong>
-              <div className="muted">{p.modules?.length || 0} modules · {p.published ? 'published' : 'draft'}</div>
+              <div className="muted">{p.modules?.length || 0} modules · {lessons(p)} lessons · <span className={p.published ? 'pub-on' : 'pub-off'}>{p.published ? '● published' : '○ draft'}</span></div>
             </div>
-            <span className="muted">Batches & curriculum editor — Phase 2</span>
+            {isAdmin && <button className="btn sm" onClick={() => setEditing(p._id)}>Manage curriculum</button>}
           </div>
         ))}
         {programs.length === 0 && <p className="muted">No programs yet.{isAdmin ? ' Create one above.' : ''}</p>}

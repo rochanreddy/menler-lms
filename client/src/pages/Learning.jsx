@@ -1,6 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { api } from '../api.js';
+import Markdown from '../components/Markdown.jsx';
+
+const TYPE_ICON = { video: '▶', pdf: '📄', text: '📖' };
 
 // Learning. For students: Content + Assignments (submit) + Quizzes (take).
 // For mentors/admins: just the course content to teach from — they create &
@@ -92,18 +95,39 @@ function Content() {
   const isStudent = user.role === 'student';
   const [programs, setPrograms] = useState([]);
   const [program, setProgram] = useState(null);
-  const [topic, setTopic] = useState(null);
+  const [topicId, setTopicId] = useState(null);
   const [open, setOpen] = useState({});
   const [completed, setCompleted] = useState(new Set());
   const [total, setTotal] = useState(0);
   const [cert, setCert] = useState(null);
 
+  // Flatten the tree into an ordered lesson list for counting + prev/next.
+  const flat = useMemo(() => {
+    const arr = [];
+    (program?.modules || []).forEach((m) => (m.chapters || []).forEach((c) => (c.topics || []).forEach((t) => arr.push({ topic: t, modId: m._id, chapId: c._id, mod: m.title, chap: c.title }))));
+    return arr;
+  }, [program]);
+  const idx = flat.findIndex((f) => f.topic._id === topicId);
+  const current = idx >= 0 ? flat[idx] : null;
+  const topic = current?.topic || null;
+
   const loadProgress = (programId) => {
     if (!isStudent || !programId) return;
     api(`/progress/me?programId=${programId}`).then((d) => { setCompleted(new Set(d.completedTopics)); setTotal(d.total); }).catch(() => {});
   };
-  async function pick(id) { const { program: p } = await api(`/programs/${id}`); setProgram(p); setTopic(null); setCert(null); loadProgress(id); }
+  async function pick(id) {
+    const { program: p } = await api(`/programs/${id}`);
+    setProgram(p); setCert(null);
+    // Auto-open + select the very first lesson so the page is never empty.
+    const firstMod = (p.modules || [])[0];
+    const firstChap = firstMod?.chapters?.[0];
+    const firstTopic = firstChap?.topics?.[0];
+    setOpen(firstMod && firstChap ? { [firstMod._id]: true, [firstChap._id]: true } : {});
+    setTopicId(firstTopic?._id || null);
+    loadProgress(id);
+  }
   const toggle = (id) => setOpen((o) => ({ ...o, [id]: !o[id] }));
+  function selectTopic(f) { setTopicId(f.topic._id); setOpen((o) => ({ ...o, [f.modId]: true, [f.chapId]: true })); }
 
   useEffect(() => {
     // Students only see the program(s) of the batches they're enrolled in.
@@ -111,17 +135,18 @@ function Content() {
       .then(([pd, bd]) => {
         let list = pd.programs || [];
         if (bd.batches) {
+          // Students see only published programs of the batches they're enrolled in.
           const mine = new Set(bd.batches.map((b) => b.programId).filter(Boolean));
-          list = list.filter((p) => mine.has(p._id));
+          list = list.filter((p) => mine.has(p._id) && p.published);
         }
         setPrograms(list);
-        if (list.length === 1) pick(list[0]._id);
+        if (list.length >= 1) pick(list[0]._id);
       })
       .catch(() => {});
   }, []);
 
-  async function toggleComplete(topicId) {
-    const { completedTopics } = await api('/progress/toggle', { method: 'POST', body: { programId: program._id, topicId } });
+  async function toggleComplete(tid) {
+    const { completedTopics } = await api('/progress/toggle', { method: 'POST', body: { programId: program._id, topicId: tid } });
     setCompleted(new Set(completedTopics));
   }
   async function viewCertificate() {
@@ -129,61 +154,100 @@ function Content() {
     if (c.eligible) setCert(c);
   }
 
-  const pct = total ? Math.round((Math.min(completed.size, total) / total) * 100) : 0;
+  const done = Math.min(completed.size, total);
+  const pct = total ? Math.round((done / total) * 100) : 0;
+  const isDone = topic && completed.has(topic._id);
 
   return (
-    <div>
-      <div className="learn-select">
-        <label>Program{' '}
+    <div className="learn">
+      {/* Header: program picker + progress ring */}
+      <div className="learn-top">
+        <div className="learn-prog-pick">
+          <span className="learn-eyebrow">Program</span>
           <select value={program?._id || ''} onChange={(e) => e.target.value && pick(e.target.value)}>
             <option value="">Select a program…</option>
             {programs.map((p) => <option key={p._id} value={p._id}>{p.title}</option>)}
           </select>
-        </label>
+        </div>
+        {program && isStudent && total > 0 && (
+          <div className="learn-progress">
+            <Ring pct={pct} />
+            <div>
+              <div className="learn-progress-pct">{pct}% complete</div>
+              <div className="muted">{done} of {total} lessons</div>
+            </div>
+            {pct === 100 && <button className="btn sm" onClick={viewCertificate}>🎓 Certificate</button>}
+          </div>
+        )}
       </div>
 
-      {program && isStudent && total > 0 && (
-        <div className="progress-head">
-          <div className="progress-bar-wrap"><div className="progress-bar-fill" style={{ width: `${pct}%` }} /></div>
-          <span className="progress-pct">{pct}% · {Math.min(completed.size, total)}/{total} lessons</span>
-          {pct === 100 && <button className="btn sm" onClick={viewCertificate}>🎓 View certificate</button>}
-        </div>
-      )}
-
-      {program && (
+      {!program ? (
+        <div className="panel empty-state"><p className="muted">Choose a program above to start learning.</p></div>
+      ) : flat.length === 0 ? (
+        <div className="panel empty-state"><p className="muted">No lessons published yet.{!isStudent ? ' Add curriculum in Programs → Manage curriculum.' : ' Check back soon.'}</p></div>
+      ) : (
         <div className="learn-grid">
-          <aside className="tree">
-            {(program.modules || []).length === 0 && <p className="muted">No modules yet. An admin adds curriculum in Programs.</p>}
-            {(program.modules || []).map((m) => (
-              <div key={m._id} className="tree-mod">
-                <div className="tree-row" onClick={() => toggle(m._id)}>▸ {m.title}</div>
-                {open[m._id] && (m.chapters || []).map((c) => (
-                  <div key={c._id} className="tree-chap">
-                    <div className="tree-row" onClick={() => toggle(c._id)}>· {c.title}</div>
-                    {open[c._id] && (c.topics || []).map((t) => (
-                      <div key={t._id} className={`tree-topic ${topic?._id === t._id ? 'active' : ''} ${completed.has(t._id) ? 'done' : ''}`} onClick={() => setTopic(t)}>
-                        {completed.has(t._id) && <span className="topic-check">✓</span>}{t.title}
-                      </div>
-                    ))}
-                  </div>
-                ))}
-              </div>
-            ))}
+          {/* Curriculum sidebar */}
+          <aside className="curriculum">
+            {(program.modules || []).map((m, mi) => {
+              const mTopics = (m.chapters || []).flatMap((c) => c.topics || []);
+              const mDone = mTopics.filter((t) => completed.has(t._id)).length;
+              return (
+                <div key={m._id} className="cur-mod">
+                  <button className="cur-mod-head" onClick={() => toggle(m._id)}>
+                    <span className="cur-mod-idx">{String(mi + 1).padStart(2, '0')}</span>
+                    <span className="cur-mod-title">{m.title}</span>
+                    {isStudent && mTopics.length > 0 && <span className="cur-mod-count">{mDone}/{mTopics.length}</span>}
+                    <span className={`cur-caret ${open[m._id] ? 'up' : ''}`}>⌄</span>
+                  </button>
+                  {open[m._id] && (m.chapters || []).map((c) => (
+                    <div key={c._id} className="cur-chap">
+                      {(m.chapters.length > 1 || c.title !== 'Lessons') && <div className="cur-chap-title">{c.title}</div>}
+                      {(c.topics || []).map((t) => {
+                        const active = t._id === topicId;
+                        const tdone = completed.has(t._id);
+                        return (
+                          <button key={t._id} className={`cur-topic ${active ? 'active' : ''} ${tdone ? 'done' : ''}`} onClick={() => selectTopic({ topic: t, modId: m._id, chapId: c._id })}>
+                            <span className="cur-tick">{tdone ? '✓' : (TYPE_ICON[t.contentType] || '·')}</span>
+                            <span className="cur-topic-title">{t.title}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
           </aside>
 
-          <section className="viewer panel">
-            {!topic && <p className="muted">Select a topic to view its content.</p>}
+          {/* Lesson viewer */}
+          <section className="lesson">
             {topic && (
               <>
-                <h2>{topic.title}</h2>
-                {topic.contentType === 'video' && topic.contentUrl && <video src={topic.contentUrl} controls style={{ width: '100%', borderRadius: 8 }} />}
-                {topic.contentType === 'pdf' && topic.contentUrl && <a className="btn" href={topic.contentUrl} target="_blank" rel="noreferrer">Open PDF</a>}
-                {topic.contentType === 'text' && <p style={{ whiteSpace: 'pre-wrap' }}>{topic.body}</p>}
-                {isStudent && (
-                  <button className={`btn ${completed.has(topic._id) ? 'ghost' : ''}`} style={{ marginTop: 14 }} onClick={() => toggleComplete(topic._id)}>
-                    {completed.has(topic._id) ? '✓ Completed — mark as not done' : 'Mark complete'}
-                  </button>
-                )}
+                <div className="lesson-head">
+                  <div className="lesson-crumb">{current.mod}{current.chap && current.chap !== 'Lessons' ? ` · ${current.chap}` : ''}</div>
+                  <h1 className="lesson-title">{topic.title}</h1>
+                  <div className="lesson-meta">
+                    <span className="lesson-chip">{TYPE_ICON[topic.contentType] || '📖'} {topic.contentType || 'text'}</span>
+                    {isStudent && <span className={`lesson-chip ${isDone ? 'chip-done' : ''}`}>{isDone ? '✓ Completed' : 'Lesson ' + (idx + 1) + ' of ' + flat.length}</span>}
+                  </div>
+                </div>
+
+                <div className="lesson-body">
+                  {topic.contentType === 'video' && topic.contentUrl && <video src={topic.contentUrl} controls className="lesson-video" />}
+                  {topic.contentType === 'pdf' && topic.contentUrl && <a className="btn" href={topic.contentUrl} target="_blank" rel="noreferrer">📄 Open PDF</a>}
+                  {topic.body ? <Markdown text={topic.body} /> : (topic.contentType === 'text' && <p className="muted">No content for this lesson yet.</p>)}
+                </div>
+
+                <div className="lesson-foot">
+                  <button className="btn ghost sm" disabled={idx <= 0} onClick={() => flat[idx - 1] && selectTopic(flat[idx - 1])}>← Previous</button>
+                  {isStudent && (
+                    <button className={`btn ${isDone ? 'ghost' : ''}`} onClick={() => toggleComplete(topic._id)}>
+                      {isDone ? '✓ Completed' : 'Mark complete'}
+                    </button>
+                  )}
+                  <button className="btn ghost sm" disabled={idx >= flat.length - 1} onClick={() => flat[idx + 1] && selectTopic(flat[idx + 1])}>Next →</button>
+                </div>
               </>
             )}
           </section>
@@ -192,6 +256,18 @@ function Content() {
 
       {cert && <CertificateModal cert={cert} onClose={() => setCert(null)} />}
     </div>
+  );
+}
+
+// Circular progress indicator.
+function Ring({ pct }) {
+  const r = 20, c = 2 * Math.PI * r;
+  return (
+    <svg className="ring" width="52" height="52" viewBox="0 0 52 52">
+      <circle cx="26" cy="26" r={r} className="ring-bg" />
+      <circle cx="26" cy="26" r={r} className="ring-fg" strokeDasharray={c} strokeDashoffset={c * (1 - pct / 100)} transform="rotate(-90 26 26)" />
+      <text x="26" y="30" textAnchor="middle" className="ring-text">{pct}%</text>
+    </svg>
   );
 }
 

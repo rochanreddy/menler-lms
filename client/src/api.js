@@ -38,11 +38,11 @@ export async function api(path, { method = 'GET', body } = {}) {
   throw lastErr;
 }
 
-// Upload a File (multipart) → returns { url, name }. Used for resume/submissions.
-export async function uploadFile(file) {
+// POST a File (multipart, field "file") to any endpoint → parsed JSON.
+export async function postFile(path, file) {
   const fd = new FormData();
   fd.append('file', file);
-  const res = await fetch(`${API}/uploads`, {
+  const res = await fetch(`${API}${path}`, {
     method: 'POST',
     headers: { ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}) },
     body: fd,
@@ -51,3 +51,6 @@ export async function uploadFile(file) {
   if (!res.ok) throw new Error(data.error || 'Upload failed');
   return data;
 }
+
+// Upload a File → returns { url, name }. Used for resume/submissions.
+export const uploadFile = (file) => postFile('/uploads', file);
