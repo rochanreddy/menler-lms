@@ -89,17 +89,25 @@ function QuizCard({ quiz, onDone }) {
 
 function Content() {
   const { user } = useOutletContext();
+  const isStudent = user.role === 'student';
   const [programs, setPrograms] = useState([]);
   const [program, setProgram] = useState(null);
   const [topic, setTopic] = useState(null);
   const [open, setOpen] = useState({});
+  const [completed, setCompleted] = useState(new Set());
+  const [total, setTotal] = useState(0);
+  const [cert, setCert] = useState(null);
 
-  async function pick(id) { const { program: p } = await api(`/programs/${id}`); setProgram(p); setTopic(null); }
+  const loadProgress = (programId) => {
+    if (!isStudent || !programId) return;
+    api(`/progress/me?programId=${programId}`).then((d) => { setCompleted(new Set(d.completedTopics)); setTotal(d.total); }).catch(() => {});
+  };
+  async function pick(id) { const { program: p } = await api(`/programs/${id}`); setProgram(p); setTopic(null); setCert(null); loadProgress(id); }
   const toggle = (id) => setOpen((o) => ({ ...o, [id]: !o[id] }));
 
   useEffect(() => {
     // Students only see the program(s) of the batches they're enrolled in.
-    Promise.all([api('/programs'), user.role === 'student' ? api('/batches') : Promise.resolve({ batches: null })])
+    Promise.all([api('/programs'), isStudent ? api('/batches') : Promise.resolve({ batches: null })])
       .then(([pd, bd]) => {
         let list = pd.programs || [];
         if (bd.batches) {
@@ -107,10 +115,21 @@ function Content() {
           list = list.filter((p) => mine.has(p._id));
         }
         setPrograms(list);
-        if (list.length === 1) pick(list[0]._id); // auto-open the only course
+        if (list.length === 1) pick(list[0]._id);
       })
       .catch(() => {});
   }, []);
+
+  async function toggleComplete(topicId) {
+    const { completedTopics } = await api('/progress/toggle', { method: 'POST', body: { programId: program._id, topicId } });
+    setCompleted(new Set(completedTopics));
+  }
+  async function viewCertificate() {
+    const c = await api(`/progress/certificate?programId=${program._id}`);
+    if (c.eligible) setCert(c);
+  }
+
+  const pct = total ? Math.round((Math.min(completed.size, total) / total) * 100) : 0;
 
   return (
     <div>
@@ -123,6 +142,14 @@ function Content() {
         </label>
       </div>
 
+      {program && isStudent && total > 0 && (
+        <div className="progress-head">
+          <div className="progress-bar-wrap"><div className="progress-bar-fill" style={{ width: `${pct}%` }} /></div>
+          <span className="progress-pct">{pct}% · {Math.min(completed.size, total)}/{total} lessons</span>
+          {pct === 100 && <button className="btn sm" onClick={viewCertificate}>🎓 View certificate</button>}
+        </div>
+      )}
+
       {program && (
         <div className="learn-grid">
           <aside className="tree">
@@ -134,7 +161,9 @@ function Content() {
                   <div key={c._id} className="tree-chap">
                     <div className="tree-row" onClick={() => toggle(c._id)}>· {c.title}</div>
                     {open[c._id] && (c.topics || []).map((t) => (
-                      <div key={t._id} className={`tree-topic ${topic?._id === t._id ? 'active' : ''}`} onClick={() => setTopic(t)}>{t.title}</div>
+                      <div key={t._id} className={`tree-topic ${topic?._id === t._id ? 'active' : ''} ${completed.has(t._id) ? 'done' : ''}`} onClick={() => setTopic(t)}>
+                        {completed.has(t._id) && <span className="topic-check">✓</span>}{t.title}
+                      </div>
                     ))}
                   </div>
                 ))}
@@ -150,12 +179,42 @@ function Content() {
                 {topic.contentType === 'video' && topic.contentUrl && <video src={topic.contentUrl} controls style={{ width: '100%', borderRadius: 8 }} />}
                 {topic.contentType === 'pdf' && topic.contentUrl && <a className="btn" href={topic.contentUrl} target="_blank" rel="noreferrer">Open PDF</a>}
                 {topic.contentType === 'text' && <p style={{ whiteSpace: 'pre-wrap' }}>{topic.body}</p>}
-                <button className="btn ghost" disabled title="Phase 3">Mark complete</button>
+                {isStudent && (
+                  <button className={`btn ${completed.has(topic._id) ? 'ghost' : ''}`} style={{ marginTop: 14 }} onClick={() => toggleComplete(topic._id)}>
+                    {completed.has(topic._id) ? '✓ Completed — mark as not done' : 'Mark complete'}
+                  </button>
+                )}
               </>
             )}
           </section>
         </div>
       )}
+
+      {cert && <CertificateModal cert={cert} onClose={() => setCert(null)} />}
+    </div>
+  );
+}
+
+function CertificateModal({ cert, onClose }) {
+  return (
+    <div className="cert-overlay" onClick={onClose}>
+      <div className="cert" onClick={(e) => e.stopPropagation()}>
+        <div className="cert-inner">
+          <div className="cert-brand">🎓 Menler</div>
+          <div className="cert-kicker">Certificate of Completion</div>
+          <div className="cert-name">{cert.name}</div>
+          <p className="cert-body">has successfully completed</p>
+          <div className="cert-program">{cert.program}</div>
+          <div className="cert-meta">
+            <span>Issued {new Date(cert.issuedAt).toLocaleDateString()}</span>
+            <span>ID {cert.certId}</span>
+          </div>
+        </div>
+        <div className="cert-actions">
+          <button className="btn" onClick={() => window.print()}>Download / Print</button>
+          <button className="btn ghost" onClick={onClose}>Close</button>
+        </div>
+      </div>
     </div>
   );
 }

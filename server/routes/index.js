@@ -17,6 +17,7 @@ import statsRoutes from './stats.js';
 import jobRoutes from './jobs.js';
 import uploadRoutes from './uploads.js';
 import zoomRoutes from './zoom.js';
+import progressRoutes from './progress.js';
 
 const router = Router();
 
@@ -42,5 +43,6 @@ router.use('/stats', statsRoutes);
 router.use('/jobs', jobRoutes);
 router.use('/uploads', uploadRoutes);
 router.use('/zoom', zoomRoutes); // public webhook (signature-verified)
+router.use('/progress', progressRoutes);
 
 export default router;

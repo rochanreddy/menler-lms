@@ -11,17 +11,19 @@ export default function StudentHome() {
   const [quizzes, setQuizzes] = useState([]);
   const [sessions, setSessions] = useState([]);
   const [program, setProgram] = useState(null);
+  const [lessonProg, setLessonProg] = useState({ pct: 0, completed: 0, total: 0 });
 
   useEffect(() => {
     api('/attendance/me').then(setAtt).catch(() => {});
     api('/assignments?scope=mine').then((d) => setAssignments(d.assignments || [])).catch(() => {});
     api('/quizzes?scope=mine').then((d) => setQuizzes(d.quizzes || [])).catch(() => {});
     api('/sessions?scope=upcoming').then((d) => setSessions(d.sessions || [])).catch(() => {});
-    // enrolled program → used for the journey milestones
+    // enrolled program → journey milestones + real lesson progress
     Promise.all([api('/batches'), api('/programs')]).then(([bd, pd]) => {
       const progId = (bd.batches || [])[0]?.programId;
       const p = (pd.programs || []).find((x) => x._id === progId) || (pd.programs || [])[0];
       setProgram(p || null);
+      if (p) api(`/progress/me?programId=${p._id}`).then(setLessonProg).catch(() => {});
     }).catch(() => {});
   }, []);
 
@@ -43,15 +45,18 @@ export default function StudentHome() {
   if (assignments.length) signals.push(Math.round((assignmentsDone / assignments.length) * 100));
   if (quizzes.length) signals.push(Math.round((quizzesDone / quizzes.length) * 100));
   const progress = signals.length ? Math.round(signals.reduce((a, b) => a + b, 0) / signals.length) : 0;
+  // Real lesson completion is the source of truth for course progress when there
+  // are lessons; otherwise fall back to the attendance/work blend.
+  const courseProgress = lessonProg.total ? lessonProg.pct : progress;
 
   // Journey milestones: Enrolled → each module → Certificate.
   const moduleLabels = (program?.modules || []).map((m) => (m.title.split('·')[0] || m.title).trim());
   const milestones = ['Enrolled', ...moduleLabels, 'Certificate'];
-  const doneUpTo = Math.max(0, Math.round((progress / 100) * (milestones.length - 1)));
+  const doneUpTo = Math.max(0, Math.round((courseProgress / 100) * (milestones.length - 1)));
   const fillPct = milestones.length > 1 ? (doneUpTo / (milestones.length - 1)) * 100 : 0;
 
   const tiles = [
-    { label: 'Course progress', value: `${progress}%` },
+    { label: 'Course progress', value: `${courseProgress}%` },
     { label: 'Attendance', value: att.total ? `${att.pct}%` : '—' },
     { label: 'Assignments', value: `${assignmentsDone}/${assignments.length}` },
     { label: 'Quizzes', value: `${quizzesDone}/${quizzes.length}` },
@@ -89,7 +94,8 @@ export default function StudentHome() {
       {/* Learning journey */}
       <div className="panel">
         <div className="eyebrow">🚀 Learning journey</div>
-        <h2>{program?.title || 'Your course'} · {progress}% complete</h2>
+        <h2>{program?.title || 'Your course'} · {courseProgress}% complete</h2>
+        {lessonProg.total > 0 && <p className="muted" style={{ marginTop: 4 }}>{lessonProg.completed}/{lessonProg.total} lessons completed</p>}
         <div className="journey" style={{ marginTop: 24 }}>
           {milestones.map((m, i) => (
             <div key={`${m}-${i}`} className={`journey-step ${i <= doneUpTo ? 'done' : ''}`}>
