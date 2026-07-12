@@ -5,6 +5,7 @@ import { navFor } from './nav.jsx';
 import AppShell from './components/AppShell.jsx';
 import Login from './pages/Login.jsx';
 import Register from './pages/Register.jsx';
+import ForcePasswordChange from './pages/ForcePasswordChange.jsx';
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -22,6 +23,11 @@ export default function App() {
   const logout = () => { setToken(''); setUser(null); };
 
   if (loading) return <div className="center">Loading…</div>;
+
+  // Admin-provisioned / reset accounts must set their own password first.
+  if (user && user.must_change_password) {
+    return <ForcePasswordChange user={user} onDone={setUser} onLogout={logout} />;
+  }
 
   const tabs = user ? navFor(user.role) : [];
 

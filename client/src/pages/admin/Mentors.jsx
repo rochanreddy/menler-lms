@@ -5,7 +5,7 @@ import { api } from '../../api.js';
 // temp password shown once, for the admin to share.
 export default function AdminMentors() {
   const [mentors, setMentors] = useState([]);
-  const [form, setForm] = useState({ email: '', fullName: '' });
+  const [form, setForm] = useState({ email: '', fullName: '', password: '' });
   const [temp, setTemp] = useState(null);
   const [reset, setReset] = useState(null); // { email, password } after a reset
   const [err, setErr] = useState('');
@@ -20,8 +20,8 @@ export default function AdminMentors() {
     setReset(null);
     try {
       const res = await api('/users', { method: 'POST', body: { ...form, role: 'mentor' } });
-      setTemp({ email: res.user.email, password: res.tempPassword });
-      setForm({ email: '', fullName: '' });
+      setTemp({ email: res.user.email, password: res.tempPassword, custom: res.custom });
+      setForm({ email: '', fullName: '', password: '' });
       load();
     } catch (e2) { setErr(e2.message); }
   }
@@ -46,13 +46,15 @@ export default function AdminMentors() {
         <div className="inline-form">
           <input placeholder="Full name" value={form.fullName} onChange={(e) => setForm((f) => ({ ...f, fullName: e.target.value }))} />
           <input type="email" placeholder="Email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} required />
+          <input placeholder="Password (optional — auto if blank)" value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} />
           <button className="btn sm">Create mentor</button>
         </div>
+        <p className="muted" style={{ fontSize: 12, marginTop: 6 }}>Leave password blank to auto-generate one. Either way, the mentor must change it on first login.</p>
         {err && <span className="error">{err}</span>}
         {temp && (
           <div className="tempbox">
-            ✅ Created <strong>{temp.email}</strong> — temp password: <code>{temp.password}</code>
-            <div className="muted">Share this with the mentor; they change it after first login.</div>
+            ✅ Created <strong>{temp.email}</strong> — {temp.custom ? 'password' : 'temp password'}: <code>{temp.password}</code>
+            <div className="muted">Share this with the mentor; they'll be asked to set their own password on first login.</div>
           </div>
         )}
       </form>

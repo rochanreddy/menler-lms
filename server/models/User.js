@@ -22,6 +22,10 @@ const userSchema = new mongoose.Schema(
     emailVerified: { type: Boolean, default: false },
     resetTokenHash: { type: String, default: '' },
     resetExpires: { type: Date, default: null },
+
+    // Set when an admin provisions/resets the account: the user must set their
+    // own password before they can use the app.
+    mustChangePassword: { type: Boolean, default: false },
   },
   { timestamps: true },
 );
@@ -39,6 +43,7 @@ userSchema.methods.toPublic = function toPublic() {
     company: this.company,
     batch_ids: (this.batchIds || []).map((b) => b.toString()),
     email_verified: this.emailVerified,
+    must_change_password: this.mustChangePassword,
   };
 };
 

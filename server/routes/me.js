@@ -8,17 +8,22 @@ const router = Router();
 // (student/mentor/admin/partner) to render.
 router.get('/', requireAuth, (req, res) => res.json({ user: req.user.toPublic() }));
 
-// PATCH /api/lms/me/password — any logged-in user changes their own password
-// (e.g. a mentor swapping the temp password the admin gave them).
+// PATCH /api/lms/me/password — change your own password.
+// - Voluntary change: requires the current password.
+// - Forced first change (mustChangePassword, set by admin on provision/reset):
+//   no current password needed — the user is already authenticated this session.
 router.patch('/password', requireAuth, async (req, res) => {
   const { currentPassword, newPassword } = req.body || {};
   if (!newPassword || String(newPassword).length < 8) return res.status(400).json({ error: 'New password must be at least 8 characters.' });
   const u = req.user;
-  const ok = u.passwordHash && (await bcrypt.compare(String(currentPassword || ''), u.passwordHash));
-  if (!ok) return res.status(400).json({ error: 'Current password is incorrect.' });
+  if (!u.mustChangePassword) {
+    const ok = u.passwordHash && (await bcrypt.compare(String(currentPassword || ''), u.passwordHash));
+    if (!ok) return res.status(400).json({ error: 'Current password is incorrect.' });
+  }
   u.passwordHash = await bcrypt.hash(String(newPassword), 12);
+  u.mustChangePassword = false;
   await u.save();
-  res.json({ ok: true });
+  res.json({ ok: true, user: u.toPublic() });
 });
 
 // PATCH /api/lms/me — update own Profile tab.

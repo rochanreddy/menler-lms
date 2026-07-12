@@ -27,6 +27,8 @@ router.post('/', requireAuth, requireRole('admin'), async (req, res) => {
   const clean = String(email).toLowerCase().trim();
   if (await User.findOne({ email: clean })) return res.status(409).json({ error: 'That email already exists.' });
 
+  // Admin may set a custom password; otherwise a temp one is generated. Either
+  // way the user must change it on first login.
   const temp = password || crypto.randomBytes(6).toString('hex');
   const user = await User.create({
     email: clean,
@@ -34,8 +36,9 @@ router.post('/', requireAuth, requireRole('admin'), async (req, res) => {
     phone: phone || '',
     role,
     passwordHash: await bcrypt.hash(temp, 12),
+    mustChangePassword: true,
   });
-  res.status(201).json({ user: user.toPublic(), tempPassword: password ? undefined : temp });
+  res.status(201).json({ user: user.toPublic(), tempPassword: temp, custom: !!password });
 });
 
 // POST /api/lms/users/:id/reset-password — admin resets a user's password and
@@ -48,8 +51,9 @@ router.post('/:id/reset-password', requireAuth, requireRole('admin'), async (req
   user.passwordHash = await bcrypt.hash(temp, 12);
   user.resetTokenHash = '';
   user.resetExpires = null;
+  user.mustChangePassword = true; // force a fresh password on next login
   await user.save();
-  res.json({ ok: true, tempPassword: password ? undefined : temp });
+  res.json({ ok: true, tempPassword: temp, custom: !!password });
 });
 
 export default router;
