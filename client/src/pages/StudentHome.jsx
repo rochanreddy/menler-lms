@@ -25,6 +25,11 @@ export default function StudentHome() {
     }).catch(() => {});
   }, []);
 
+  // Clicking Join records attendance (backend only counts it within the session
+  // window) and refreshes the attendance tile. The link still opens normally.
+  const markJoin = (id) => api(`/attendance/join/${id}`, { method: 'POST' })
+    .then(() => api('/attendance/me').then(setAtt)).catch(() => {});
+
   const next = sessions[0];
   const assignmentsDone = assignments.filter((a) => a.mySubmission).length;
   const quizzesDone = quizzes.filter((q) => q.myAttempt).length;
@@ -74,7 +79,7 @@ export default function StudentHome() {
             </div>
           </div>
           {next.joinUrl
-            ? <a className="sb-join" href={next.joinUrl} target="_blank" rel="noreferrer">Join Zoom →</a>
+            ? <a className="sb-join" href={next.joinUrl} target="_blank" rel="noreferrer" onClick={() => markJoin(next._id)}>Join Zoom →</a>
             : <span className="sb-join sb-join-off">Link coming soon</span>}
         </div>
       ) : (
@@ -134,7 +139,7 @@ export default function StudentHome() {
               <div key={s._id} className="mini-row">
                 <strong>{s.title}</strong>
                 <span className="muted"> · {new Date(s.startsAt).toLocaleDateString()}</span>
-                {s.joinUrl && <> · <a className="zoom-link" href={s.joinUrl} target="_blank" rel="noreferrer">Join</a></>}
+                {s.joinUrl && <> · <a className="zoom-link" href={s.joinUrl} target="_blank" rel="noreferrer" onClick={() => markJoin(s._id)}>Join</a></>}
               </div>
             ))}
           </div>
