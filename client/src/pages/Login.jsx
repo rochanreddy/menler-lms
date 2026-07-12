@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { api, setToken } from '../api.js';
+import MenlerWordmark from '../components/MenlerWordmark.jsx';
 
 export default function Login({ onLogin }) {
   const [email, setEmail] = useState('');
@@ -28,7 +29,7 @@ export default function Login({ onLogin }) {
   return (
     <div className="auth">
       <div className="auth-hero">
-        <div className="auth-brand"><span className="logo">🎓</span> Menler</div>
+        <div className="auth-brand"><MenlerWordmark size={26} theme="dark" /></div>
         <div className="auth-hero-copy">
           <h2>Teach without the busywork.</h2>
           <p>Batches, attendance, quizzes, sessions and analytics — one board, zero spreadsheets.</p>

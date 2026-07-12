@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { api, setToken } from '../api.js';
+import MenlerWordmark from '../components/MenlerWordmark.jsx';
 
 // Student self-signup. Backend forces role=student; mentors/admins/partners are
 // provisioned by an admin. On success it returns a token → straight into the app.
@@ -30,7 +31,7 @@ export default function Register({ onLogin }) {
   return (
     <div className="auth">
       <div className="auth-hero">
-        <div className="auth-brand"><span className="logo">🎓</span> Menler</div>
+        <div className="auth-brand"><MenlerWordmark size={26} theme="dark" /></div>
         <div className="auth-hero-copy">
           <h2>Start learning with Menler.</h2>
           <p>Live sessions, quizzes, projects and mentor feedback — everything in one place.</p>
