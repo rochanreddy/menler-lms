@@ -1,4 +1,6 @@
 import { Router } from 'express';
+import crypto from 'crypto';
+import bcrypt from 'bcryptjs';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { Batch } from '../models/Batch.js';
 import { User } from '../models/User.js';
@@ -66,15 +68,31 @@ async function addMember(res, batchId, email, field) {
   return res.json({ ok: true, user: user.toPublic() });
 }
 
-// POST /api/lms/batches/:id/mentors { email } — admin assigns a mentor.
+// POST /api/lms/batches/:id/mentors { email } — admin assigns a mentor
+// (mentors are provisioned separately, so the account must already exist).
 router.post('/:id/mentors', requireAuth, requireRole('admin'), (req, res) =>
   addMember(res, req.params.id, req.body?.email, 'mentorIds'),
 );
 
-// POST /api/lms/batches/:id/students { email } — admin enrolls a student.
-router.post('/:id/students', requireAuth, requireRole('admin'), (req, res) =>
-  addMember(res, req.params.id, req.body?.email, 'studentIds'),
-);
+// POST /api/lms/batches/:id/students { email, fullName } — admin enrols a student.
+// If no account exists for that email (e.g. someone who paid on the website),
+// one is created automatically with a temp password + forced first-login change.
+router.post('/:id/students', requireAuth, requireRole('admin'), async (req, res) => {
+  const { fullName } = req.body || {};
+  const email = String(req.body?.email || '').toLowerCase().trim();
+  if (!email) return res.status(400).json({ error: 'Email is required.' });
+  let user = await User.findOne({ email });
+  let tempPassword;
+  if (!user) {
+    tempPassword = crypto.randomBytes(6).toString('hex');
+    user = await User.create({ email, fullName: fullName || '', role: 'student', passwordHash: await bcrypt.hash(tempPassword, 12), mustChangePassword: true });
+  } else if (user.role !== 'student') {
+    return res.status(400).json({ error: 'That email belongs to a non-student account.' });
+  }
+  await Batch.findByIdAndUpdate(req.params.id, { $addToSet: { studentIds: user._id } });
+  await User.findByIdAndUpdate(user._id, { $addToSet: { batchIds: req.params.id } });
+  res.json({ ok: true, user: user.toPublic(), created: !!tempPassword, tempPassword });
+});
 
 // DELETE /api/lms/batches/:id/members/:userId — admin removes a member from either list.
 router.delete('/:id/members/:userId', requireAuth, requireRole('admin'), async (req, res) => {

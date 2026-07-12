@@ -12,6 +12,7 @@ import Library from './pages/Library.jsx';
 import Webinar from './pages/mentor/Webinar.jsx';
 import AdminHome from './pages/admin/Home.jsx';
 import JobBoard from './pages/student/JobBoard.jsx';
+import AdminStudents from './pages/admin/Students.jsx';
 import PostJob from './pages/partner/PostJob.jsx';
 import Applicants from './pages/partner/Applicants.jsx';
 
@@ -48,6 +49,7 @@ export function navFor(role) {
         { label: 'Home', path: '', Component: AdminHome },
         { label: 'Programs', path: 'programs', Component: ProgramsManage },
         { label: 'Batches', path: 'batches', Component: AdminBatches },
+        { label: 'Students', path: 'students', Component: AdminStudents },
         { label: 'Mentors', path: 'mentors', Component: AdminMentors },
         { label: 'Library', path: 'library', Component: Library },
         { label: 'Forum', path: 'forum', Component: ph('Forum', [

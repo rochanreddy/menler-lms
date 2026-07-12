@@ -10,6 +10,7 @@ export default function BatchWorkspace({ batchId, mode }) {
   const [assignments, setAssignments] = useState([]);
   const [quizzes, setQuizzes] = useState([]);
   const [msg, setMsg] = useState('');
+  const [newStudent, setNewStudent] = useState(null); // { email, password } if an account was auto-created
 
   const loadBatch = () => api(`/batches/${batchId}`).then((d) => setBatch(d.batch)).catch(() => {});
   const loadSessions = () => api(`/sessions?batchId=${batchId}`).then((d) => setSessions(d.sessions || [])).catch(() => {});
@@ -42,10 +43,26 @@ export default function BatchWorkspace({ batchId, mode }) {
         </div>
 
         {mode === 'admin' && (
-          <div className="row" style={{ marginTop: 12 }}>
-            <EmailAdd label="Assign mentor" onAdd={(email) => act(() => api(`/batches/${batchId}/mentors`, { method: 'POST', body: { email } }).then(loadBatch), 'Mentor assigned')} />
-            <EmailAdd label="Enroll student" onAdd={(email) => act(() => api(`/batches/${batchId}/students`, { method: 'POST', body: { email } }).then(loadBatch), 'Student enrolled')} />
-          </div>
+          <>
+            <div className="row" style={{ marginTop: 12 }}>
+              <EmailAdd label="Assign mentor" onAdd={(email) => act(() => api(`/batches/${batchId}/mentors`, { method: 'POST', body: { email } }).then(loadBatch), 'Mentor assigned')} />
+              <EmailAdd label="Enrol student" onAdd={async (email) => {
+                setNewStudent(null);
+                try {
+                  const res = await api(`/batches/${batchId}/students`, { method: 'POST', body: { email } });
+                  loadBatch();
+                  if (res.created) setNewStudent({ email: res.user.email, password: res.tempPassword });
+                  else flash('Student enrolled');
+                } catch (e) { flash(e.message); }
+              }} />
+            </div>
+            {newStudent && (
+              <div className="tempbox">
+                ✅ New student account created for <strong>{newStudent.email}</strong> — temp password: <code>{newStudent.password}</code>
+                <div className="muted">Share these; they'll set their own password on first login.</div>
+              </div>
+            )}
+          </>
         )}
       </section>
 

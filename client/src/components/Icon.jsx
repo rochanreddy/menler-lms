@@ -22,7 +22,7 @@ const PATHS = {
 const ALIAS = {
   'Home': 'home', 'Learning': 'learning', 'Library': 'library', 'Forum': 'forum',
   'Job Board': 'jobs', 'Profile': 'profile', 'Programs': 'programs', 'Batches': 'batches',
-  'Mentors': 'mentors', 'Webinar': 'webinar', 'Applicants': 'applicants', 'Account': 'account',
+  'Mentors': 'mentors', 'Students': 'batches', 'Webinar': 'webinar', 'Applicants': 'applicants', 'Account': 'account',
   'Post a Job': 'post',
 };
 
