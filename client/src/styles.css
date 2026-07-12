@@ -154,7 +154,14 @@ h3 { font-size: 15px; font-weight: 600; margin: 0 0 12px; }
 .inline-form input, .inline-form select { padding: 9px 11px; border: 1px solid var(--line); border-radius: 9px; font-size: 13.5px; font-family: var(--font); }
 .inline-form input { min-width: 200px; }
 .roster { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
-.chip { display: inline-block; background: #f4f5f8; border: 1px solid var(--line); border-radius: 999px; padding: 5px 13px; margin: 5px 5px 0 0; font-size: 13px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; background: #f4f5f8; border: 1px solid var(--line); border-radius: 999px; padding: 5px 13px; margin: 5px 5px 0 0; font-size: 13px; }
+.chip-x { border: 0; background: none; color: #9aa1ac; cursor: pointer; font-size: 15px; line-height: 1; padding: 0; }
+.chip-x:hover { color: #c0362c; }
+.roster-controls { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin-top: 16px; }
+.rc-field label { display: block; font-size: 12px; font-weight: 600; color: var(--ink-2); margin-bottom: 6px; }
+.rc-field select, .rc-field input { max-width: 100%; }
+.rc-field .inline-form input, .rc-field .inline-form select { min-width: 0; flex: 1; }
+@media (max-width: 820px) { .roster-controls { grid-template-columns: 1fr; } }
 .attend { display: flex; flex-direction: column; gap: 5px; background: #f9fafb; padding: 12px; border-radius: 9px; margin-top: 6px; }
 .attend-row { display: flex; align-items: center; gap: 8px; font-size: 13.5px; }
 .assignment { border-top: 1px solid var(--line); padding-top: 14px; margin-top: 14px; }

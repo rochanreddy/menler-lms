@@ -11,21 +11,65 @@ export default function BatchWorkspace({ batchId, mode }) {
   const [quizzes, setQuizzes] = useState([]);
   const [msg, setMsg] = useState('');
   const [newStudent, setNewStudent] = useState(null); // { email, password } if an account was auto-created
+  const [allMentors, setAllMentors] = useState([]);
+  const [allStudents, setAllStudents] = useState([]);
+  const [pickMentor, setPickMentor] = useState('');
+  const [pickStudent, setPickStudent] = useState('');
+  const [newEmail, setNewEmail] = useState('');
 
   const loadBatch = () => api(`/batches/${batchId}`).then((d) => setBatch(d.batch)).catch(() => {});
   const loadSessions = () => api(`/sessions?batchId=${batchId}`).then((d) => setSessions(d.sessions || [])).catch(() => {});
   const loadAssignments = () => api(`/assignments?batchId=${batchId}`).then((d) => setAssignments(d.assignments || [])).catch(() => {});
   const loadQuizzes = () => api(`/quizzes?batchId=${batchId}`).then((d) => setQuizzes(d.quizzes || [])).catch(() => {});
+  const loadPeople = () => {
+    api('/users?role=mentor').then((d) => setAllMentors(d.users || [])).catch(() => {});
+    api('/users?role=student').then((d) => setAllStudents(d.users || [])).catch(() => {});
+  };
   useEffect(() => { loadBatch(); loadSessions(); loadAssignments(); loadQuizzes(); }, [batchId]);
+  useEffect(() => { if (mode === 'admin') loadPeople(); }, [mode]);
 
   const flash = (m) => { setMsg(m); setTimeout(() => setMsg(''), 2500); };
   async function act(fn, okMsg) { try { await fn(); flash(okMsg); } catch (e) { flash(e.message); } }
 
+  async function assignMentor() {
+    const m = allMentors.find((x) => x.id === pickMentor);
+    if (!m) return;
+    await act(() => api(`/batches/${batchId}/mentors`, { method: 'POST', body: { email: m.email } }).then(() => { setPickMentor(''); loadBatch(); }), 'Mentor assigned');
+  }
+  async function enrolExisting() {
+    const s = allStudents.find((x) => x.id === pickStudent);
+    if (!s) return;
+    await act(() => api(`/batches/${batchId}/students`, { method: 'POST', body: { email: s.email } }).then(() => { setPickStudent(''); loadBatch(); }), 'Student enrolled');
+  }
+  async function enrolNew(e) {
+    e.preventDefault();
+    if (!newEmail.trim()) return;
+    setNewStudent(null);
+    try {
+      const res = await api(`/batches/${batchId}/students`, { method: 'POST', body: { email: newEmail } });
+      setNewEmail('');
+      loadBatch();
+      if (res.created) { setNewStudent({ email: res.user.email, password: res.tempPassword }); loadPeople(); }
+      else flash('Student enrolled');
+    } catch (e2) { flash(e2.message); }
+  }
+  async function removeMember(userId) {
+    await act(() => api(`/batches/${batchId}/members/${userId}`, { method: 'DELETE' }).then(loadBatch), 'Removed');
+  }
+
   if (!batch) return <p className="muted">Loading batch…</p>;
+
+  const availableMentors = allMentors.filter((m) => !batch.mentorIds.some((bm) => bm._id === m.id));
+  const availableStudents = allStudents.filter((s) => !batch.studentIds.some((bs) => bs._id === s.id));
 
   return (
     <div className="stack">
-      <div className="row"><h2 style={{ margin: 0 }}>{batch.name}</h2><span className="badge">{batch.status}</span>{msg && <span className="muted">{msg}</span>}</div>
+      <div className="row">
+        <h2 style={{ margin: 0 }}>{batch.name}</h2>
+        {batch.programId?.title && <span className="badge badge-mentor">{batch.programId.title}</span>}
+        <span className="badge">{batch.status}</span>
+        {msg && <span className="muted">{msg}</span>}
+      </div>
 
       {/* Roster */}
       <section className="panel">
@@ -33,36 +77,63 @@ export default function BatchWorkspace({ batchId, mode }) {
         <div className="roster">
           <div>
             <strong>Mentors ({batch.mentorIds.length})</strong>
-            {batch.mentorIds.map((m) => <div key={m._id} className="chip">{m.fullName || m.email}</div>)}
+            <div>
+              {batch.mentorIds.map((m) => (
+                <span key={m._id} className="chip">{m.fullName || m.email}{mode === 'admin' && <button type="button" className="chip-x" title="Remove" onClick={() => removeMember(m._id)}>×</button>}</span>
+              ))}
+              {batch.mentorIds.length === 0 && <p className="muted">None yet.</p>}
+            </div>
           </div>
           <div>
             <strong>Students ({batch.studentIds.length})</strong>
-            {batch.studentIds.map((s) => <div key={s._id} className="chip">{s.fullName || s.email}</div>)}
-            {batch.studentIds.length === 0 && <p className="muted">None yet.</p>}
+            <div>
+              {batch.studentIds.map((s) => (
+                <span key={s._id} className="chip">{s.fullName || s.email}{mode === 'admin' && <button type="button" className="chip-x" title="Remove" onClick={() => removeMember(s._id)}>×</button>}</span>
+              ))}
+              {batch.studentIds.length === 0 && <p className="muted">None yet.</p>}
+            </div>
           </div>
         </div>
 
         {mode === 'admin' && (
-          <>
-            <div className="row" style={{ marginTop: 12 }}>
-              <EmailAdd label="Assign mentor" onAdd={(email) => act(() => api(`/batches/${batchId}/mentors`, { method: 'POST', body: { email } }).then(loadBatch), 'Mentor assigned')} />
-              <EmailAdd label="Enrol student" onAdd={async (email) => {
-                setNewStudent(null);
-                try {
-                  const res = await api(`/batches/${batchId}/students`, { method: 'POST', body: { email } });
-                  loadBatch();
-                  if (res.created) setNewStudent({ email: res.user.email, password: res.tempPassword });
-                  else flash('Student enrolled');
-                } catch (e) { flash(e.message); }
-              }} />
+          <div className="roster-controls">
+            <div className="rc-field">
+              <label>Assign a mentor</label>
+              <div className="inline-form" style={{ marginTop: 0 }}>
+                <select value={pickMentor} onChange={(e) => setPickMentor(e.target.value)}>
+                  <option value="">Choose a mentor…</option>
+                  {availableMentors.map((m) => <option key={m.id} value={m.id}>{m.full_name || m.email} — {m.email}</option>)}
+                </select>
+                <button className="btn sm" onClick={assignMentor} disabled={!pickMentor}>Assign</button>
+              </div>
             </div>
+
+            <div className="rc-field">
+              <label>Enrol an existing student</label>
+              <div className="inline-form" style={{ marginTop: 0 }}>
+                <select value={pickStudent} onChange={(e) => setPickStudent(e.target.value)}>
+                  <option value="">Choose a student…</option>
+                  {availableStudents.map((s) => <option key={s.id} value={s.id}>{s.full_name || s.email} — {s.email}</option>)}
+                </select>
+                <button className="btn sm" onClick={enrolExisting} disabled={!pickStudent}>Enrol</button>
+              </div>
+            </div>
+
+            <div className="rc-field">
+              <label>New paid student (no account yet)</label>
+              <form className="inline-form" style={{ marginTop: 0 }} onSubmit={enrolNew}>
+                <input type="email" placeholder="Email they enrolled with" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} />
+                <button className="btn sm ghost">Create &amp; enrol</button>
+              </form>
+            </div>
+
             {newStudent && (
               <div className="tempbox">
                 ✅ New student account created for <strong>{newStudent.email}</strong> — temp password: <code>{newStudent.password}</code>
                 <div className="muted">Share these; they'll set their own password on first login.</div>
               </div>
             )}
-          </>
+          </div>
         )}
       </section>
 
@@ -114,16 +185,6 @@ export default function BatchWorkspace({ batchId, mode }) {
         {quizzes.length === 0 && <p className="muted">No quizzes yet.</p>}
       </section>
     </div>
-  );
-}
-
-function EmailAdd({ label, onAdd }) {
-  const [email, setEmail] = useState('');
-  return (
-    <form className="inline-form" onSubmit={(e) => { e.preventDefault(); onAdd(email); setEmail(''); }}>
-      <input placeholder={`${label} — email`} value={email} onChange={(e) => setEmail(e.target.value)} />
-      <button className="btn sm">{label}</button>
-    </form>
   );
 }
 
