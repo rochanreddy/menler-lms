@@ -3,6 +3,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { Assignment } from '../models/Assignment.js';
 import { Submission } from '../models/Submission.js';
 import { canAccessBatch, isMentorOfBatch } from '../utils/access.js';
+import { notify } from '../utils/notify.js';
 
 const router = Router();
 
@@ -41,6 +42,7 @@ router.patch('/:id/grade', requireAuth, async (req, res) => {
   sub.feedback = feedback || '';
   sub.status = 'graded';
   await sub.save();
+  notify(sub.studentId, { type: 'grade', text: `Your submission was graded${sub.score != null ? `: ${sub.score}` : ''}.`, link: '/app/learning' });
   res.json({ submission: sub });
 });
 

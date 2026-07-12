@@ -2,7 +2,9 @@ import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
 import { Quiz } from '../models/Quiz.js';
 import { QuizAttempt } from '../models/QuizAttempt.js';
+import { Batch } from '../models/Batch.js';
 import { canAccessBatch, isMentorOfBatch, myBatchIds } from '../utils/access.js';
+import { notifyMany } from '../utils/notify.js';
 
 const router = Router();
 
@@ -55,6 +57,8 @@ router.post('/', requireAuth, async (req, res) => {
       text: q.text || '', options: Array.isArray(q.options) ? q.options : [], correctIndex: Number(q.correctIndex) || 0,
     })),
   });
+  const batch = await Batch.findById(batchId).select('studentIds');
+  notifyMany(batch?.studentIds || [], { type: 'quiz', text: `New ${quiz.type}: ${title}`, link: '/app/learning' });
   res.status(201).json({ quiz });
 });
 

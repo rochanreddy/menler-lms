@@ -3,6 +3,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { Message } from '../models/Message.js';
 import { Doubt } from '../models/Doubt.js';
 import { canAccessBatch } from '../utils/access.js';
+import { notify } from '../utils/notify.js';
 
 const router = Router();
 
@@ -81,6 +82,10 @@ router.post('/doubts/:id/comments', requireAuth, async (req, res) => {
   if (!(await canAccessBatch(req.user, d.batchId))) return res.status(403).json({ error: 'Forbidden.' });
   d.comments.push({ authorId: req.user._id, text: text.trim() });
   await d.save();
+  // Notify the doubt's author (unless they're replying to themselves).
+  if (d.authorId.toString() !== req.user._id.toString()) {
+    notify(d.authorId, { type: 'doubt', text: `${req.user.fullName || 'Someone'} answered your doubt.`, link: '/app/forum' });
+  }
   res.status(201).json({ ok: true });
 });
 

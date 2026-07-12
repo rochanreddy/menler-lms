@@ -2,7 +2,9 @@ import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
 import { Assignment } from '../models/Assignment.js';
 import { Submission } from '../models/Submission.js';
+import { Batch } from '../models/Batch.js';
 import { canAccessBatch, isMentorOfBatch, myBatchIds } from '../utils/access.js';
+import { notifyMany } from '../utils/notify.js';
 
 const router = Router();
 
@@ -34,6 +36,8 @@ router.post('/', requireAuth, async (req, res) => {
   if (!batchId || !title) return res.status(400).json({ error: 'batchId and title are required.' });
   if (!(await isMentorOfBatch(req.user, batchId))) return res.status(403).json({ error: 'Forbidden.' });
   const assignment = await Assignment.create({ batchId, type: type === 'project' ? 'project' : 'assignment', title, description: description || '', dueDate: dueDate || null });
+  const batch = await Batch.findById(batchId).select('studentIds');
+  notifyMany(batch?.studentIds || [], { type: 'assignment', text: `New ${assignment.type}: ${title}`, link: '/app/learning' });
   res.status(201).json({ assignment });
 });
 

@@ -9,6 +9,7 @@ export default function BatchWorkspace({ batchId, mode }) {
   const [sessions, setSessions] = useState([]);
   const [assignments, setAssignments] = useState([]);
   const [quizzes, setQuizzes] = useState([]);
+  const [announcements, setAnnouncements] = useState([]);
   const [msg, setMsg] = useState('');
   const [newStudent, setNewStudent] = useState(null); // { email, password } if an account was auto-created
   const [allMentors, setAllMentors] = useState([]);
@@ -25,7 +26,8 @@ export default function BatchWorkspace({ batchId, mode }) {
     api('/users?role=mentor').then((d) => setAllMentors(d.users || [])).catch(() => {});
     api('/users?role=student').then((d) => setAllStudents(d.users || [])).catch(() => {});
   };
-  useEffect(() => { loadBatch(); loadSessions(); loadAssignments(); loadQuizzes(); }, [batchId]);
+  const loadAnnouncements = () => api(`/announcements?batchId=${batchId}`).then((d) => setAnnouncements(d.announcements || [])).catch(() => {});
+  useEffect(() => { loadBatch(); loadSessions(); loadAssignments(); loadQuizzes(); loadAnnouncements(); }, [batchId]);
   useEffect(() => { if (mode === 'admin') loadPeople(); }, [mode]);
 
   const flash = (m) => { setMsg(m); setTimeout(() => setMsg(''), 2500); };
@@ -137,6 +139,21 @@ export default function BatchWorkspace({ batchId, mode }) {
         )}
       </section>
 
+      {/* Announcements */}
+      <section className="panel">
+        <h3>📢 Announcements</h3>
+        {mode === 'mentor' && (
+          <AnnouncementForm onPost={(body) => act(() => api('/announcements', { method: 'POST', body: { batchId, ...body } }).then(loadAnnouncements), 'Announcement posted — students notified')} />
+        )}
+        {announcements.map((a) => (
+          <div key={a._id} className="assignment">
+            <div className="row"><strong>{a.title}</strong><span className="muted">{new Date(a.createdAt).toLocaleDateString()}</span></div>
+            {a.body && <p className="muted" style={{ marginTop: 4 }}>{a.body}</p>}
+          </div>
+        ))}
+        {announcements.length === 0 && <p className="muted">No announcements yet.</p>}
+      </section>
+
       {/* Sessions — with Zoom link */}
       <section className="panel">
         <h3>Sessions & Zoom links</h3>
@@ -185,6 +202,20 @@ export default function BatchWorkspace({ batchId, mode }) {
         {quizzes.length === 0 && <p className="muted">No quizzes yet.</p>}
       </section>
     </div>
+  );
+}
+
+function AnnouncementForm({ onPost }) {
+  const [title, setTitle] = useState('');
+  const [body, setBody] = useState('');
+  return (
+    <form onSubmit={(e) => { e.preventDefault(); if (title.trim()) { onPost({ title, body }); setTitle(''); setBody(''); } }} style={{ marginBottom: 8 }}>
+      <div className="inline-form">
+        <input placeholder="Announcement title" value={title} onChange={(e) => setTitle(e.target.value)} style={{ flex: 1, minWidth: 260 }} />
+        <button className="btn sm">Post &amp; notify</button>
+      </div>
+      <input placeholder="Details (optional)" value={body} onChange={(e) => setBody(e.target.value)} style={{ width: '100%', marginTop: 8 }} className="ann-body" />
+    </form>
   );
 }
 

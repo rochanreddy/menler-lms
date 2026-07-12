@@ -12,9 +12,11 @@ export default function StudentHome() {
   const [sessions, setSessions] = useState([]);
   const [program, setProgram] = useState(null);
   const [lessonProg, setLessonProg] = useState({ pct: 0, completed: 0, total: 0 });
+  const [announcements, setAnnouncements] = useState([]);
 
   useEffect(() => {
     api('/attendance/me').then(setAtt).catch(() => {});
+    api('/announcements').then((d) => setAnnouncements(d.announcements || [])).catch(() => {});
     api('/assignments?scope=mine').then((d) => setAssignments(d.assignments || [])).catch(() => {});
     api('/quizzes?scope=mine').then((d) => setQuizzes(d.quizzes || [])).catch(() => {});
     api('/sessions?scope=upcoming').then((d) => setSessions(d.sessions || [])).catch(() => {});
@@ -89,6 +91,18 @@ export default function StudentHome() {
         </div>
       ) : (
         <div className="cta-banner">No live session scheduled yet — your mentor will post one here soon.</div>
+      )}
+
+      {announcements.length > 0 && (
+        <div className="panel" style={{ marginBottom: 22 }}>
+          <div className="eyebrow">📢 Announcements</div>
+          {announcements.slice(0, 3).map((a) => (
+            <div key={a._id} className="mini-row">
+              <strong>{a.title}</strong>{a.body && <span className="muted"> — {a.body}</span>}
+              <div className="muted" style={{ fontSize: 11 }}>{new Date(a.createdAt).toLocaleDateString()}{a.batchId?.name ? ` · ${a.batchId.name.replace(/^Demo — /, '')}` : ''}</div>
+            </div>
+          ))}
+        </div>
       )}
 
       {/* Learning journey */}

@@ -1,6 +1,7 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import { navFor } from '../nav.jsx';
 import Icon from './Icon.jsx';
+import NotificationBell from './NotificationBell.jsx';
 
 // Wraps every logged-in page: icon sidebar (role-specific) + top bar. Renders
 // the active page via <Outlet>, passing { user, setUser, logout } as context.
@@ -23,7 +24,7 @@ export default function AppShell({ user, setUser, logout }) {
       <div className="content">
         <header className="topbar">
           <div className="spacer" />
-          <span className="bell" title="Notifications (soon)"><Icon name="forum" /></span>
+          <NotificationBell />
           <div className="who">
             <div className="avatar">{initial}</div>
             <span className="who-name">{user.full_name || user.email}</span>
