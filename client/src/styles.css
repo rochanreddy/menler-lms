@@ -421,6 +421,7 @@ h1.md-h { font-size: 22px; } h2.md-h { font-size: 19px; } h3.md-h { font-size: 1
 .assign-submit input { flex: 1; min-width: 220px; padding: 10px 13px; border: 1px solid var(--line); border-radius: 10px; font-size: 14px; font-family: var(--font); }
 .grade-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; background: #f9fafb; padding: 11px 13px; border-radius: 9px; margin-top: 8px; flex-wrap: wrap; }
 .grade-row .inline-form { margin-top: 0; }
+.grade-score { min-width: 96px; }
 .tempbox { background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 10px; padding: 13px 15px; margin: 14px 0; font-size: 14px; }
 .tempbox code { background: #d1fae5; padding: 2px 8px; border-radius: 6px; }
 .graded { display: flex; align-items: center; gap: 16px; margin-top: 8px; }

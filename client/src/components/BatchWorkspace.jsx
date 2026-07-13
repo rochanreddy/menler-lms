@@ -531,7 +531,10 @@ function GradeRow({ sub, onGrade }) {
     <div className="grade-row">
       <div><strong>{sub.studentId?.fullName || sub.studentId?.email}</strong>{sub.url && <> · <a href={sub.url} target="_blank" rel="noreferrer">link</a></>} <span className="badge">{sub.status}</span></div>
       <div className="inline-form">
-        <input style={{ width: 70 }} placeholder="Score" value={score} onChange={(e) => setScore(e.target.value)} />
+        <select className="grade-score" value={score} onChange={(e) => setScore(e.target.value)}>
+          <option value="">Score…</option>
+          {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => <option key={n} value={n}>{n} / 10</option>)}
+        </select>
         <input placeholder="Feedback" value={feedback} onChange={(e) => setFeedback(e.target.value)} />
         <button className="btn sm" onClick={() => onGrade(sub._id, score, feedback)}>Grade</button>
       </div>

@@ -337,7 +337,7 @@ function AssignmentCard({ a, onChange }) {
 
       {sub?.status === 'graded' ? (
         <div className="graded">
-          <div className="tile-value">{sub.score ?? '—'}</div>
+          <div className="tile-value">{sub.score != null ? `${sub.score}/10` : '—'}</div>
           <div><strong>Score</strong>{sub.feedback && <p className="muted">“{sub.feedback}”</p>}</div>
         </div>
       ) : (

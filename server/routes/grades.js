@@ -31,7 +31,7 @@ router.get('/me', requireAuth, async (req, res) => {
         id: a._id, kind: 'Assignment', title: a.title,
         status: s ? s.status : 'pending',
         score: s && s.score != null ? s.score : null,
-        max: null, // free-form scoring
+        max: 10, // assignments graded out of 10
         feedback: s?.feedback || '',
         at: a.createdAt,
       };
@@ -75,7 +75,7 @@ router.get('/batch/:batchId', requireAuth, async (req, res) => {
   ]);
 
   const columns = [
-    ...assignments.map((a) => ({ id: a._id.toString(), kind: 'assignment', title: a.title, max: null })),
+    ...assignments.map((a) => ({ id: a._id.toString(), kind: 'assignment', title: a.title, max: 10 })),
     ...quizzes.map((q) => ({ id: q._id.toString(), kind: 'quiz', title: q.title, max: q.questions?.length ?? null })),
   ];
 
