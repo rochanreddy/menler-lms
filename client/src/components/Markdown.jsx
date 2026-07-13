@@ -23,7 +23,12 @@ function inline(text) {
 }
 
 export default function Markdown({ text = '' }) {
-  const lines = String(text).replace(/\r\n/g, '\n').split('\n');
+  // Normalise "•" bullets (common in pasted/seeded/PDF content) into real
+  // markdown list items so they render point-wise instead of as a paragraph.
+  const lines = String(text)
+    .replace(/\r\n/g, '\n')
+    .replace(/[ \t]*•[ \t]*/g, '\n- ')
+    .split('\n');
   const out = [];
   let i = 0;
 
