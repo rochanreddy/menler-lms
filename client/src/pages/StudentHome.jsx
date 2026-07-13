@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { api } from '../api.js';
+import LineIcon from '../components/LineIcon.jsx';
 
 // Student dashboard: next-session hero + Learning Journey timeline + progress
 // stats + quiz-performance chart — all from the student's own live data.
@@ -78,7 +79,7 @@ export default function StudentHome() {
       {next ? (
         <div className="cta-banner session-banner">
           <div>
-            <div className="sb-label">🎥 Upcoming live session</div>
+            <div className="sb-label" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><LineIcon name="video" size={15} /> Upcoming live session</div>
             <div className="sb-title">{next.title}</div>
             <div className="sb-time">
               {new Date(next.startsAt).toLocaleString([], { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
@@ -95,7 +96,7 @@ export default function StudentHome() {
 
       {announcements.length > 0 && (
         <div className="panel" style={{ marginBottom: 22 }}>
-          <div className="eyebrow">📢 Announcements</div>
+          <div className="eyebrow" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><LineIcon name="megaphone" size={14} /> Announcements</div>
           {announcements.slice(0, 3).map((a) => (
             <div key={a._id} className="mini-row">
               <strong>{a.title}</strong>{a.body && <span className="muted"> — {a.body}</span>}
@@ -107,7 +108,7 @@ export default function StudentHome() {
 
       {/* Learning journey */}
       <div className="panel">
-        <div className="eyebrow">🚀 Learning journey</div>
+        <div className="eyebrow" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><LineIcon name="rocket" size={14} /> Learning journey</div>
         <h2>{program?.title || 'Your course'} · {courseProgress}% complete</h2>
         {lessonProg.total > 0 && <p className="muted" style={{ marginTop: 4 }}>{lessonProg.completed}/{lessonProg.total} lessons completed</p>}
         <div className="journey" style={{ marginTop: 24 }}>
