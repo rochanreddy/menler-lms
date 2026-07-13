@@ -163,18 +163,30 @@ export default function BatchWorkspace({ batchId, mode }) {
       <section className="panel">
         <h3>Sessions & Zoom links</h3>
         <SessionForm onAdd={(body) => act(() => api('/sessions', { method: 'POST', body: { batchId, ...body } }).then(loadSessions), 'Session scheduled')} />
-        {sessions.map((s) => (
-          <div key={s._id} className="list-row" style={{ marginTop: 8 }}>
-            <div>
-              <strong>{s.title}</strong> <span className="muted">{new Date(s.startsAt).toLocaleString()}</span>
-              {s.joinUrl
-                ? <> · <a href={s.joinUrl} target="_blank" rel="noreferrer" className="zoom-link"><LineIcon name="video" size={15} /> Join Zoom</a></>
-                : <span className="muted"> · no link</span>}
-            </div>
-            {mode === 'mentor' && <Attendance sessionId={s._id} students={batch.studentIds} onDone={() => flash('Attendance saved')} />}
-          </div>
-        ))}
-        {sessions.length === 0 && <p className="muted">No sessions yet.</p>}
+        <div className="session-list">
+          {sessions.map((s) => {
+            const d = new Date(s.startsAt);
+            return (
+              <div key={s._id} className="session-row">
+                <div className="session-date">
+                  <span className="session-date-d">{d.getDate()}</span>
+                  <span className="session-date-m">{d.toLocaleString([], { month: 'short' })}</span>
+                </div>
+                <div className="session-info">
+                  <strong>{s.title}</strong>
+                  <div className="session-sub">
+                    <span className="muted">{d.toLocaleString([], { weekday: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+                    {s.joinUrl
+                      ? <a href={s.joinUrl} target="_blank" rel="noreferrer" className="zoom-link"><LineIcon name="video" size={14} /> Join Zoom</a>
+                      : <span className="muted">No link yet</span>}
+                  </div>
+                </div>
+                {mode === 'mentor' && <Attendance session={s} students={batch.studentIds} onDone={() => flash('Attendance saved')} />}
+              </div>
+            );
+          })}
+          {sessions.length === 0 && <p className="muted">No sessions yet.</p>}
+        </div>
       </section>
 
       {/* Assignments + grading (mentor) */}
@@ -361,25 +373,86 @@ function AssignmentForm({ onAdd }) {
   );
 }
 
-function Attendance({ sessionId, students, onDone }) {
+function Attendance({ session, students, onDone }) {
   const [open, setOpen] = useState(false);
   const [marks, setMarks] = useState({});
-  async function save() {
-    const records = students.map((s) => ({ studentId: s._id, status: marks[s._id] ? 'present' : 'absent' }));
-    await api(`/attendance/session/${sessionId}`, { method: 'POST', body: { records } });
-    setOpen(false); onDone();
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  async function openModal() {
+    setOpen(true); setLoading(true);
+    try {
+      const { records } = await api(`/attendance/session/${session._id}`);
+      const m = {};
+      (records || []).forEach((r) => { m[r.studentId] = r.status === 'present'; });
+      setMarks(m);
+    } catch { setMarks({}); }
+    finally { setLoading(false); }
   }
-  if (!open) return <button className="btn sm ghost" onClick={() => setOpen(true)}>Mark attendance</button>;
+  const present = students.filter((s) => marks[s._id]).length;
+  const set = (id, val) => setMarks((m) => ({ ...m, [id]: val }));
+  const allPresent = () => setMarks(Object.fromEntries(students.map((s) => [s._id, true])));
+  const clearAll = () => setMarks({});
+
+  async function save() {
+    setSaving(true);
+    try {
+      const records = students.map((s) => ({ studentId: s._id, status: marks[s._id] ? 'present' : 'absent' }));
+      await api(`/attendance/session/${session._id}`, { method: 'POST', body: { records } });
+      setOpen(false); onDone();
+    } finally { setSaving(false); }
+  }
+
   return (
-    <div className="attend">
-      {students.map((s) => (
-        <label key={s._id} className="attend-row">
-          <input type="checkbox" checked={!!marks[s._id]} onChange={(e) => setMarks((m) => ({ ...m, [s._id]: e.target.checked }))} />
-          {s.fullName || s.email}
-        </label>
-      ))}
-      <button className="btn sm" onClick={save}>Save</button>
-    </div>
+    <>
+      <button className="btn sm ghost" onClick={openModal}>Mark attendance</button>
+      {open && (
+        <div className="att-overlay" onClick={() => !saving && setOpen(false)}>
+          <div className="att-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="att-head">
+              <div>
+                <div className="att-kicker">Attendance</div>
+                <div className="att-title">{session.title}</div>
+                <div className="muted att-when">{new Date(session.startsAt).toLocaleString([], { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</div>
+              </div>
+              <button className="att-close" onClick={() => setOpen(false)} aria-label="Close">✕</button>
+            </div>
+
+            <div className="att-toolbar">
+              <div className="att-count"><strong>{present}</strong> <span className="muted">/ {students.length} present</span></div>
+              <div className="att-quick">
+                <button className="att-link" onClick={allPresent}>Mark all present</button>
+                <span className="att-dot">·</span>
+                <button className="att-link" onClick={clearAll}>Clear</button>
+              </div>
+            </div>
+
+            <div className="att-list">
+              {loading ? <p className="muted att-empty">Loading…</p>
+                : students.length === 0 ? <p className="muted att-empty">No students enrolled in this batch.</p>
+                : students.map((s) => {
+                  const p = !!marks[s._id];
+                  return (
+                    <div key={s._id} className={`att-item ${p ? 'is-present' : ''}`}>
+                      <span className="att-av">{(s.fullName || s.email)[0].toUpperCase()}</span>
+                      <span className="att-name">{s.fullName || s.email}</span>
+                      <div className="att-seg">
+                        <button className={`att-segbtn ${p ? 'on-p' : ''}`} onClick={() => set(s._id, true)}>Present</button>
+                        <button className={`att-segbtn ${!p ? 'on-a' : ''}`} onClick={() => set(s._id, false)}>Absent</button>
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+
+            <div className="att-foot">
+              <button className="btn ghost" onClick={() => setOpen(false)} disabled={saving}>Cancel</button>
+              <button className="btn" onClick={save} disabled={saving || loading || students.length === 0}>{saving ? 'Saving…' : 'Save attendance'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
