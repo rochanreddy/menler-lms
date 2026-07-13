@@ -132,7 +132,7 @@ export default function StudentHome() {
       </div>
 
       {/* Quiz performance + upcoming sessions */}
-      <div className="home-row" style={{ gridTemplateColumns: '1.4fr 1fr' }}>
+      <div className="home-row home-row-2">
         <div className="panel">
           <div className="eyebrow">Quiz performance</div>
           <h2>Your scores{avgScore !== null ? ` · avg ${avgScore}%` : ''}</h2>
