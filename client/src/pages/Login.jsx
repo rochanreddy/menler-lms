@@ -29,7 +29,7 @@ export default function Login({ onLogin }) {
   return (
     <div className="auth">
       <div className="auth-hero">
-        <div className="auth-brand"><MenlerWordmark size={26} theme="dark" /></div>
+        <div className="auth-brand"><MenlerWordmark size={30} theme="dark" tagline /></div>
         <div className="auth-hero-copy">
           <h2>Learn AI. Build Real Products. Get Hired.</h2>
           <p>Master Claude and modern AI tools through hands-on fellowships, real-world projects, mentorship, and career support.</p>
