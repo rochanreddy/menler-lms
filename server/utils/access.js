@@ -3,46 +3,39 @@ import { Program } from '../models/Program.js';
 
 const has = (arr, id) => (arr || []).some((x) => x.toString() === id);
 
-/** Program ids a mentor is assigned to teach. */
-async function myProgramIds(user) {
+/** Program ids a mentor is assigned to teach. This grants curriculum/content
+ *  visibility only — it does NOT grant the ability to manage any batch. Batch
+ *  management is authorised strictly by batch-level assignment (below). */
+export async function myProgramIds(user) {
   const progs = await Program.find({ mentorIds: user._id }).select('_id');
   return progs.map((p) => p._id);
 }
 
-/** Admin, or a mentor of the batch, or a mentor of the batch's program. */
+/** Can this user MANAGE the batch (attendance, announcements, quizzes, grading)?
+ *  Admin, or a mentor the admin has explicitly assigned to THIS batch. A mentor
+ *  who merely teaches the program is NOT enough — they must be on the batch. */
 export async function isMentorOfBatch(user, batchId) {
   if (user.role === 'admin') return true;
   if (user.role !== 'mentor') return false;
-  const b = await Batch.findById(batchId).select('mentorIds programId');
-  if (!b) return false;
-  if (has(b.mentorIds, user._id.toString())) return true;
-  const prog = await Program.findById(b.programId).select('mentorIds');
-  return !!prog && has(prog.mentorIds, user._id.toString());
+  const b = await Batch.findById(batchId).select('mentorIds');
+  return !!b && has(b.mentorIds, user._id.toString());
 }
 
-/** Admin, a student in the batch, or a mentor (batch- or program-level). */
+/** Can this user SEE the batch? Admin, a student enrolled in it, or a mentor
+ *  assigned to it. (Same batch-level rule — no program cascade.) */
 export async function canAccessBatch(user, batchId) {
   if (user.role === 'admin') return true;
-  const b = await Batch.findById(batchId).select('mentorIds studentIds programId');
+  const b = await Batch.findById(batchId).select('mentorIds studentIds');
   if (!b) return false;
   const id = user._id.toString();
-  if (has(b.studentIds, id) || has(b.mentorIds, id)) return true;
-  if (user.role === 'mentor') {
-    const prog = await Program.findById(b.programId).select('mentorIds');
-    return !!prog && has(prog.mentorIds, id);
-  }
-  return false;
+  return has(b.studentIds, id) || has(b.mentorIds, id);
 }
 
-/** Batch ids the user belongs to. Mentors also get every batch of the
- *  programs they teach; students get batches they're enrolled in. */
+/** Batch ids the user belongs to. Admin → all; mentor → batches they're assigned
+ *  to; student → batches they're enrolled in. */
 export async function myBatchIds(user) {
   if (user.role === 'admin') return (await Batch.find().select('_id')).map((b) => b._id);
-  if (user.role === 'mentor') {
-    const programIds = await myProgramIds(user);
-    const batches = await Batch.find({ $or: [{ mentorIds: user._id }, { programId: { $in: programIds } }] }).select('_id');
-    return batches.map((b) => b._id);
-  }
-  const batches = await Batch.find({ studentIds: user._id }).select('_id');
+  const field = user.role === 'mentor' ? { mentorIds: user._id } : { studentIds: user._id };
+  const batches = await Batch.find(field).select('_id');
   return batches.map((b) => b._id);
 }
