@@ -379,6 +379,14 @@ function Attendance({ session, students, onDone }) {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  // Lock the page behind the modal so scrolling stays inside it.
+  useEffect(() => {
+    if (!open) return undefined;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, [open]);
+
   async function openModal() {
     setOpen(true); setLoading(true);
     try {

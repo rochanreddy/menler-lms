@@ -357,7 +357,7 @@ h1.md-h { font-size: 22px; } h2.md-h { font-size: 19px; } h3.md-h { font-size: 1
 .session-sub { display: flex; align-items: center; gap: 10px; margin-top: 4px; font-size: 13px; flex-wrap: wrap; }
 
 /* Attendance modal */
-.att-overlay { position: fixed; inset: 0; background: rgba(15,20,36,.5); backdrop-filter: blur(2px); display: grid; place-items: center; z-index: 120; padding: 20px; }
+.att-overlay { position: fixed; inset: 0; background: rgba(15,20,36,.5); backdrop-filter: blur(2px); display: grid; place-items: center; z-index: 120; padding: 20px; overscroll-behavior: contain; }
 .att-modal { background: var(--card); border-radius: 18px; width: 100%; max-width: 460px; box-shadow: 0 24px 70px rgba(16,20,36,.35); display: flex; flex-direction: column; max-height: 86vh; overflow: hidden; }
 .att-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 22px 24px 16px; }
 .att-kicker { font-size: 11px; text-transform: uppercase; letter-spacing: .1em; color: var(--brand); font-weight: 700; }
@@ -371,7 +371,7 @@ h1.md-h { font-size: 22px; } h2.md-h { font-size: 19px; } h3.md-h { font-size: 1
 .att-link { border: 0; background: none; color: var(--brand); font-size: 13px; font-weight: 600; cursor: pointer; font-family: var(--font); padding: 0; }
 .att-link:hover { text-decoration: underline; }
 .att-dot { color: #cbd0da; }
-.att-list { overflow-y: auto; padding: 8px 12px; }
+.att-list { overflow-y: auto; overscroll-behavior: contain; padding: 8px 12px; }
 .att-item { display: flex; align-items: center; gap: 12px; padding: 9px 12px; border-radius: 11px; }
 .att-item.is-present { background: #f2fbf5; }
 .att-av { flex: none; width: 34px; height: 34px; border-radius: 50%; background: #7c8aa5; color: #fff; display: grid; place-items: center; font-size: 13px; font-weight: 700; }
