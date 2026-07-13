@@ -397,6 +397,10 @@ h1.md-h { font-size: 22px; } h2.md-h { font-size: 19px; } h3.md-h { font-size: 1
 .zoom-link { display: inline-flex; align-items: center; gap: 5px; color: var(--brand); font-weight: 600; text-decoration: none; vertical-align: middle; }
 .zoom-link:hover { text-decoration: underline; }
 .h3-ic { display: inline-flex; align-items: center; gap: 8px; }
+.mentor-batches { margin-top: 14px; padding-top: 14px; border-top: 1px solid #f0f1f5; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.mentor-batches-label { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 700; }
+.mentor-batches .chips { flex: 1; min-width: 160px; }
+.mentor-assign { padding: 8px 11px; border: 1px solid var(--line); border-radius: 9px; font-size: 13px; font-family: var(--font); background: var(--card); color: var(--brand); font-weight: 600; cursor: pointer; }
 .tempbox-line { display: flex; align-items: flex-start; gap: 8px; }
 .tempbox-ic { color: #16a34a; margin-top: 1px; }
 .quiz-builder { background: #f9fafb; border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-top: 8px; }
