@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { api, postFile } from '../api.js';
+import LessonIcon from './LessonIcon.jsx';
 
 // Admin curriculum builder for one program. Upload a doc to auto-structure it,
 // then review/edit the Module → Chapter → Topic tree and publish.
@@ -106,7 +107,7 @@ export default function CurriculumEditor({ programId, onClose }) {
                     const active = sel && sel.mi === mi && sel.ci === ci && sel.ti === ti;
                     return (
                       <div key={ti} className={`ce-topic ${active ? 'active' : ''}`} onClick={() => setSel({ mi, ci, ti })}>
-                        <span className="ce-topic-type">{t.contentType === 'video' ? '▶' : t.contentType === 'pdf' ? '📄' : '📖'}</span>
+                        <span className="ce-topic-type"><LessonIcon type={t.contentType} size={13} /></span>
                         <span className="ce-topic-title">{t.title || 'Untitled'}</span>
                         <button className="ce-mini danger" title="Delete lesson" onClick={(e) => { e.stopPropagation(); delTopic(mi, ci, ti); }}>✕</button>
                       </div>
@@ -133,7 +134,7 @@ export default function CurriculumEditor({ programId, onClose }) {
               <div className="ce-types">
                 {['text', 'video', 'pdf'].map((tp) => (
                   <button key={tp} className={`ce-type ${selTopic.contentType === tp ? 'on' : ''}`} onClick={() => setTopicField(sel.mi, sel.ci, sel.ti, { contentType: tp })}>
-                    {tp === 'video' ? '▶ Video' : tp === 'pdf' ? '📄 PDF' : '📖 Reading'}
+                    <LessonIcon type={tp} size={14} /> {tp === 'video' ? 'Video' : tp === 'pdf' ? 'PDF' : 'Reading'}
                   </button>
                 ))}
               </div>

@@ -2,8 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { api } from '../api.js';
 import Markdown from '../components/Markdown.jsx';
-
-const TYPE_ICON = { video: '▶', pdf: '📄', text: '📖' };
+import LessonIcon from '../components/LessonIcon.jsx';
 
 // Learning. For students: Content + Assignments (submit) + Quizzes (take).
 // For mentors/admins: just the course content to teach from — they create &
@@ -208,7 +207,7 @@ function Content() {
                         const tdone = completed.has(t._id);
                         return (
                           <button key={t._id} className={`cur-topic ${active ? 'active' : ''} ${tdone ? 'done' : ''}`} onClick={() => selectTopic({ topic: t, modId: m._id, chapId: c._id })}>
-                            <span className="cur-tick">{tdone ? '✓' : (TYPE_ICON[t.contentType] || '·')}</span>
+                            <span className="cur-tick">{tdone ? '✓' : <LessonIcon type={t.contentType} size={12} />}</span>
                             <span className="cur-topic-title">{t.title}</span>
                           </button>
                         );
@@ -228,7 +227,7 @@ function Content() {
                   <div className="lesson-crumb">{current.mod}{current.chap && current.chap !== 'Lessons' ? ` · ${current.chap}` : ''}</div>
                   <h1 className="lesson-title">{topic.title}</h1>
                   <div className="lesson-meta">
-                    <span className="lesson-chip">{TYPE_ICON[topic.contentType] || '📖'} {topic.contentType || 'text'}</span>
+                    <span className="lesson-chip"><LessonIcon type={topic.contentType} size={13} /> {topic.contentType || 'text'}</span>
                     {isStudent && <span className={`lesson-chip ${isDone ? 'chip-done' : ''}`}>{isDone ? '✓ Completed' : 'Lesson ' + (idx + 1) + ' of ' + flat.length}</span>}
                   </div>
                 </div>
