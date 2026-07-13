@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { api, setToken } from '../api.js';
 import MenlerWordmark from '../components/MenlerWordmark.jsx';
 
@@ -52,8 +52,6 @@ export default function Login({ onLogin }) {
           </div>
           {err && <div className="error" style={{ marginBottom: 12 }}>{err}</div>}
           <button className="btn" disabled={busy}>{busy ? 'Signing in…' : 'Sign in →'}</button>
-
-          <p className="auth-alt">New student? <Link to="/signup">Create an account</Link></p>
 
           <div className="demo-box">
             <div className="eyebrow">Demo accounts</div>
