@@ -357,8 +357,11 @@ h1.md-h { font-size: 22px; } h2.md-h { font-size: 19px; } h3.md-h { font-size: 1
 .graded .tile-value { color: #166534; }
 
 /* ── Zoom + quizzes ── */
-.zoom-link { color: var(--brand); font-weight: 600; text-decoration: none; }
+.zoom-link { display: inline-flex; align-items: center; gap: 5px; color: var(--brand); font-weight: 600; text-decoration: none; vertical-align: middle; }
 .zoom-link:hover { text-decoration: underline; }
+.h3-ic { display: inline-flex; align-items: center; gap: 8px; }
+.tempbox-line { display: flex; align-items: flex-start; gap: 8px; }
+.tempbox-ic { color: #16a34a; margin-top: 1px; }
 .quiz-builder { background: #f9fafb; border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-top: 8px; }
 .quiz-q { background: #fff; border: 1px solid var(--line); border-radius: 9px; padding: 12px; margin: 10px 0; }
 .quiz-q > input { width: 100%; padding: 9px 11px; border: 1px solid var(--line); border-radius: 8px; margin-bottom: 6px; }

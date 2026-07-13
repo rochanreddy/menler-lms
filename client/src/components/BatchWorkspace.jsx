@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api.js';
+import LineIcon from './LineIcon.jsx';
 
 // Shared batch detail used by admin + mentor.
 // - admin mode: assign mentor, enroll student, schedule sessions.
@@ -135,7 +136,7 @@ export default function BatchWorkspace({ batchId, mode }) {
 
             {newStudent && (
               <div className="tempbox">
-                ✅ New student account created for <strong>{newStudent.email}</strong> — temp password: <code>{newStudent.password}</code>
+                <div className="tempbox-line"><span className="tempbox-ic"><LineIcon name="check" size={16} /></span><span>New student account created for <strong>{newStudent.email}</strong> — temp password: <code>{newStudent.password}</code></span></div>
                 <div className="muted">Share these; they'll set their own password on first login.</div>
               </div>
             )}
@@ -145,7 +146,7 @@ export default function BatchWorkspace({ batchId, mode }) {
 
       {/* Announcements */}
       <section className="panel">
-        <h3>📢 Announcements</h3>
+        <h3 className="h3-ic"><LineIcon name="megaphone" size={17} /> Announcements</h3>
         {mode === 'mentor' && (
           <AnnouncementForm onPost={(body) => act(() => api('/announcements', { method: 'POST', body: { batchId, ...body } }).then(loadAnnouncements), 'Announcement posted — students notified')} />
         )}
@@ -167,7 +168,7 @@ export default function BatchWorkspace({ batchId, mode }) {
             <div>
               <strong>{s.title}</strong> <span className="muted">{new Date(s.startsAt).toLocaleString()}</span>
               {s.joinUrl
-                ? <> · <a href={s.joinUrl} target="_blank" rel="noreferrer" className="zoom-link">🎥 Join Zoom</a></>
+                ? <> · <a href={s.joinUrl} target="_blank" rel="noreferrer" className="zoom-link"><LineIcon name="video" size={15} /> Join Zoom</a></>
                 : <span className="muted"> · no link</span>}
             </div>
             {mode === 'mentor' && <Attendance sessionId={s._id} students={batch.studentIds} onDone={() => flash('Attendance saved')} />}
