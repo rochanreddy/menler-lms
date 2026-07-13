@@ -64,7 +64,7 @@ h3 { font-size: 15px; font-weight: 600; margin: 0 0 12px; }
 
 /* ── App shell ── */
 .app { display: grid; grid-template-columns: 244px 1fr; min-height: 100vh; }
-.nav { background: #fff; border-right: 1px solid var(--line); padding: 22px 16px; display: flex; flex-direction: column; gap: 4px; }
+.nav { background: #fff; border-right: 1px solid var(--line); padding: 22px 16px; display: flex; flex-direction: column; gap: 4px; position: sticky; top: 0; height: 100vh; overflow-y: auto; box-sizing: border-box; }
 .brand { display: flex; align-items: center; padding: 2px 8px 20px; }
 
 /* Menler wordmark — mirrors the menler.in marketing lockup (spec 02-A). */
