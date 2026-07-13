@@ -31,8 +31,8 @@ export default function Login({ onLogin }) {
       <div className="auth-hero">
         <div className="auth-brand"><MenlerWordmark size={26} theme="dark" /></div>
         <div className="auth-hero-copy">
-          <h2>Teach without the busywork.</h2>
-          <p>Batches, attendance, quizzes, sessions and analytics — one board, zero spreadsheets.</p>
+          <h2>Learn AI. Build Real Products. Get Hired.</h2>
+          <p>Master Claude and modern AI tools through hands-on fellowships, real-world projects, mentorship, and career support.</p>
         </div>
         <div />
       </div>
