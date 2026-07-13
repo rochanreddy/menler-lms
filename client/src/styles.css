@@ -384,8 +384,41 @@ h1.md-h { font-size: 22px; } h2.md-h { font-size: 19px; } h3.md-h { font-size: 1
 .att-empty { padding: 24px 12px; text-align: center; }
 .att-foot { display: flex; justify-content: flex-end; gap: 10px; padding: 16px 24px; border-top: 1px solid #f0f1f5; }
 @media (max-width: 560px) { .att-item { flex-wrap: wrap; } }
-.assignment { border-top: 1px solid var(--line); padding-top: 14px; margin-top: 14px; }
+.assignment { border-top: 1px solid var(--line); padding-top: 16px; margin-top: 16px; }
+.assignment-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.assignment-due { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; color: var(--muted); }
+.assignment-desc { margin-top: 8px; font-size: 13.5px; }
+.assignment-desc .md { font-size: 13.5px; line-height: 1.6; }
+.assignment-desc .md-p:last-child { margin-bottom: 0; }
 .subs { margin-top: 8px; }
+
+/* Assignment creation form (mentor) */
+.af { border: 1px solid var(--line); border-radius: 14px; padding: 18px; background: #fbfcfe; margin-bottom: 6px; }
+.af-top { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.af-title { flex: 1; min-width: 220px; padding: 11px 13px; border: 1px solid var(--line); border-radius: 10px; font-size: 15px; font-family: var(--font); font-weight: 600; background: var(--card); }
+.af-seg { display: inline-flex; background: #eef0f4; border-radius: 10px; padding: 3px; flex: none; }
+.af-seg button { border: 0; background: none; padding: 8px 15px; font-size: 13px; font-weight: 600; color: var(--muted); cursor: pointer; border-radius: 8px; font-family: var(--font); }
+.af-seg button.on { background: var(--card); color: var(--brand); box-shadow: 0 1px 2px rgba(16,20,36,.1); }
+.af-label { display: block; font-size: 12px; font-weight: 600; color: var(--ink-2); margin: 16px 0 7px; }
+.af-desc { width: 100%; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; font-size: 14px; font-family: var(--font); line-height: 1.6; box-sizing: border-box; resize: vertical; background: var(--card); }
+.af-desc::placeholder { color: #aab1bd; }
+.af-foot { display: flex; align-items: flex-end; justify-content: space-between; gap: 14px; margin-top: 16px; flex-wrap: wrap; }
+.af-due { display: flex; flex-direction: column; gap: 6px; font-size: 12px; font-weight: 600; color: var(--ink-2); }
+.af-due input { padding: 9px 11px; border: 1px solid var(--line); border-radius: 9px; font-family: var(--font); font-size: 13px; background: var(--card); }
+.af-actions { display: flex; gap: 10px; }
+
+/* Student assignment card */
+.assign-card { margin-bottom: 14px; }
+.assign-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.assign-title { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.assign-title strong { font-size: 16px; }
+.assign-due { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px; color: var(--muted); margin-top: 6px; }
+.assign-due.overdue { color: #dc2626; font-weight: 600; }
+.assign-desc { margin-top: 12px; padding: 14px 16px; background: #f9fafc; border: 1px solid #eef0f4; border-radius: 11px; }
+.assign-desc .md { font-size: 14px; }
+.assign-desc .md-p:last-child, .assign-desc .md-list:last-child { margin-bottom: 0; }
+.assign-submit { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+.assign-submit input { flex: 1; min-width: 220px; padding: 10px 13px; border: 1px solid var(--line); border-radius: 10px; font-size: 14px; font-family: var(--font); }
 .grade-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; background: #f9fafb; padding: 11px 13px; border-radius: 9px; margin-top: 8px; flex-wrap: wrap; }
 .grade-row .inline-form { margin-top: 0; }
 .tempbox { background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 10px; padding: 13px 15px; margin: 14px 0; font-size: 14px; }

@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api.js';
 import LineIcon from './LineIcon.jsx';
+import Markdown from './Markdown.jsx';
+
+const dueLabel = (d) => new Date(d).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 
 // Shared batch detail used by admin + mentor.
 // - admin mode: assign mentor, enroll student, schedule sessions.
@@ -197,7 +200,12 @@ export default function BatchWorkspace({ batchId, mode }) {
         )}
         {assignments.map((a) => (
           <div key={a._id} className="assignment">
-            <div className="row"><strong>{a.title}</strong><span className="badge">{a.type}</span></div>
+            <div className="assignment-head">
+              <strong>{a.title}</strong>
+              <span className={`badge ${a.type === 'project' ? 'badge-mentor' : ''}`}>{a.type}</span>
+              {a.dueDate && <span className="assignment-due"><LineIcon name="clock" size={13} /> Due {dueLabel(a.dueDate)}</span>}
+            </div>
+            {a.description && <div className="assignment-desc"><Markdown text={a.description} /></div>}
             {mode === 'mentor' && <Submissions assignmentId={a._id} />}
           </div>
         ))}
@@ -362,13 +370,51 @@ function QuizResults({ quizId }) {
 }
 
 function AssignmentForm({ onAdd }) {
+  const [open, setOpen] = useState(false);
   const [title, setTitle] = useState('');
   const [type, setType] = useState('assignment');
+  const [description, setDescription] = useState('');
+  const [dueDate, setDueDate] = useState('');
+
+  function reset() { setTitle(''); setType('assignment'); setDescription(''); setDueDate(''); setOpen(false); }
+  function submit(e) {
+    e.preventDefault();
+    if (!title.trim()) return;
+    onAdd({ title: title.trim(), type, description: description.trim(), dueDate: dueDate ? new Date(dueDate).toISOString() : null });
+    reset();
+  }
+
+  if (!open) return <button className="btn sm" onClick={() => setOpen(true)}>+ New assignment</button>;
+
   return (
-    <form className="inline-form" onSubmit={(e) => { e.preventDefault(); if (title) { onAdd({ title, type }); setTitle(''); } }}>
-      <input placeholder="Assignment title" value={title} onChange={(e) => setTitle(e.target.value)} />
-      <select value={type} onChange={(e) => setType(e.target.value)}><option value="assignment">Assignment</option><option value="project">Project</option></select>
-      <button className="btn sm">Add</button>
+    <form className="af" onSubmit={submit}>
+      <div className="af-top">
+        <input className="af-title" placeholder={type === 'project' ? 'Project title' : 'Assignment title'} value={title} onChange={(e) => setTitle(e.target.value)} autoFocus />
+        <div className="af-seg">
+          <button type="button" className={type === 'assignment' ? 'on' : ''} onClick={() => setType('assignment')}>Assignment</button>
+          <button type="button" className={type === 'project' ? 'on' : ''} onClick={() => setType('project')}>Project</button>
+        </div>
+      </div>
+
+      <label className="af-label">Description &amp; instructions</label>
+      <textarea
+        className="af-desc"
+        rows={6}
+        placeholder={"Explain the task clearly:\n• What students need to do\n• Deliverables to submit (link, repo, doc…)\n• How it will be graded\n\nMarkdown supported — **bold**, - lists, `code`."}
+        value={description}
+        onChange={(e) => setDescription(e.target.value)}
+      />
+
+      <div className="af-foot">
+        <label className="af-due">
+          <span>Due date <span className="muted">(optional)</span></span>
+          <input type="datetime-local" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+        </label>
+        <div className="af-actions">
+          <button type="button" className="btn ghost sm" onClick={reset}>Cancel</button>
+          <button className="btn sm" disabled={!title.trim()}>Post {type}</button>
+        </div>
+      </div>
     </form>
   );
 }

@@ -3,6 +3,7 @@ import { useOutletContext } from 'react-router-dom';
 import { api } from '../api.js';
 import Markdown from '../components/Markdown.jsx';
 import LessonIcon from '../components/LessonIcon.jsx';
+import LineIcon from '../components/LineIcon.jsx';
 
 // Learning. For students: Content + Assignments (submit) + Quizzes (take).
 // For mentors/admins: just the course content to teach from — they create &
@@ -319,14 +320,20 @@ function AssignmentCard({ a, onChange }) {
     finally { setBusy(false); }
   }
 
+  const overdue = a.dueDate && !sub && new Date(a.dueDate) < new Date();
+  const due = a.dueDate && new Date(a.dueDate).toLocaleString([], { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+
   return (
-    <div className="panel">
-      <div className="row">
-        <strong>{a.title}</strong>
-        <span className="badge">{a.type}</span>
+    <div className="panel assign-card">
+      <div className="assign-head">
+        <div>
+          <div className="assign-title"><strong>{a.title}</strong><span className={`badge ${a.type === 'project' ? 'badge-mentor' : ''}`}>{a.type}</span></div>
+          {a.dueDate && <div className={`assign-due ${overdue ? 'overdue' : ''}`}><LineIcon name="clock" size={13} /> Due {due}{overdue ? ' · overdue' : ''}</div>}
+        </div>
         {sub && <span className={`badge ${sub.status === 'graded' ? 'badge-student' : ''}`}>{sub.status}</span>}
       </div>
-      {a.description && <p className="muted">{a.description}</p>}
+
+      {a.description && <div className="assign-desc"><Markdown text={a.description} /></div>}
 
       {sub?.status === 'graded' ? (
         <div className="graded">
@@ -334,9 +341,9 @@ function AssignmentCard({ a, onChange }) {
           <div><strong>Score</strong>{sub.feedback && <p className="muted">“{sub.feedback}”</p>}</div>
         </div>
       ) : (
-        <form className="inline-form" onSubmit={submit}>
-          <input placeholder="Submission link (GitHub, Drive…)" value={url} onChange={(e) => setUrl(e.target.value)} required />
-          <button className="btn sm" disabled={busy}>{sub ? 'Re-submit' : 'Submit'}</button>
+        <form className="assign-submit" onSubmit={submit}>
+          <input placeholder="Paste your submission link (GitHub, Drive, Docs…)" value={url} onChange={(e) => setUrl(e.target.value)} required />
+          <button className="btn sm" disabled={busy}>{busy ? 'Submitting…' : (sub ? 'Re-submit' : 'Submit')}</button>
         </form>
       )}
     </div>
