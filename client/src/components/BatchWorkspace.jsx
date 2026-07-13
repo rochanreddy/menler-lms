@@ -181,7 +181,7 @@ export default function BatchWorkspace({ batchId, mode }) {
                       : <span className="muted">No link yet</span>}
                   </div>
                 </div>
-                {mode === 'mentor' && <Attendance session={s} students={batch.studentIds} onDone={() => flash('Attendance saved')} />}
+                <Attendance session={s} students={batch.studentIds} onDone={() => flash('Attendance saved')} />
               </div>
             );
           })}
