@@ -33,7 +33,7 @@ export default function CurriculumEditor({ programId, onClose }) {
   // ── Tree mutators ──
   const addModule = () => touch((m) => m.push({ title: 'New module', order: m.length, chapters: [] }));
   const addChapter = (mi) => touch((m) => m[mi].chapters.push({ title: 'New chapter', order: m[mi].chapters.length, topics: [] }));
-  const addTopic = (mi, ci) => touch((m) => m[mi].chapters[ci].topics.push({ title: 'New lesson', contentType: 'text', contentUrl: '', body: '', order: m[mi].chapters[ci].topics.length }));
+  const addTopic = (mi, ci) => touch((m) => m[mi].chapters[ci].topics.push({ title: 'New lesson', contentType: 'text', contentUrl: '', body: '', classLink: '', readingUrl: '', notesUrl: '', order: m[mi].chapters[ci].topics.length }));
   const delModule = (mi) => { touch((m) => m.splice(mi, 1)); setSel(null); };
   const delChapter = (mi, ci) => { touch((m) => m[mi].chapters.splice(ci, 1)); setSel(null); };
   const delTopic = (mi, ci, ti) => { touch((m) => m[mi].chapters[ci].topics.splice(ti, 1)); setSel(null); };
@@ -145,6 +145,32 @@ export default function CurriculumEditor({ programId, onClose }) {
                   <input className="ce-field" placeholder="https://…" value={selTopic.contentUrl} onChange={(e) => setTopicField(sel.mi, sel.ci, sel.ti, { contentUrl: e.target.value })} />
                 </>
               )}
+
+              {/* Independent of content type — a reading lesson can still have
+                  had a live class about it. */}
+              <label className="ce-label">Class link <span className="muted">(Zoom while it's live, YouTube once recorded — leave empty and students see "Not available yet")</span></label>
+              <input
+                className="ce-field"
+                placeholder="https://zoom.us/j/… or https://youtube.com/watch?v=…"
+                value={selTopic.classLink || ''}
+                onChange={(e) => setTopicField(sel.mi, sel.ci, sel.ti, { classLink: e.target.value })}
+              />
+
+              <label className="ce-label">Reading material <span className="muted">(PDF — opens in the in-page viewer)</span></label>
+              <input
+                className="ce-field"
+                placeholder="https://… .pdf"
+                value={selTopic.readingUrl || ''}
+                onChange={(e) => setTopicField(sel.mi, sel.ci, sel.ti, { readingUrl: e.target.value })}
+              />
+
+              <label className="ce-label">Teacher notes <span className="muted">(PPTX or PDF — a PPTX must sit on a public URL to preview)</span></label>
+              <input
+                className="ce-field"
+                placeholder="https://… .pptx"
+                value={selTopic.notesUrl || ''}
+                onChange={(e) => setTopicField(sel.mi, sel.ci, sel.ti, { notesUrl: e.target.value })}
+              />
 
               <label className="ce-label">Content <span className="muted">(Markdown — # headings, **bold**, - lists, `code`)</span></label>
               <textarea className="ce-body" rows={16} value={selTopic.body} onChange={(e) => setTopicField(sel.mi, sel.ci, sel.ti, { body: e.target.value })} placeholder="Write the lesson content here…" />

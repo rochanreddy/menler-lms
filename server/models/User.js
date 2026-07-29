@@ -19,6 +19,11 @@ const userSchema = new mongoose.Schema(
 
     batchIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Batch' }],
 
+    // Last authenticated request, stamped (throttled) by requireAuth. Drives the
+    // inactivity signal in at-risk detection. Null = never seen since this was
+    // added, which the scorer treats as "unknown" rather than "inactive".
+    lastActiveAt: { type: Date, default: null },
+
     emailVerified: { type: Boolean, default: false },
     resetTokenHash: { type: String, default: '' },
     resetExpires: { type: Date, default: null },

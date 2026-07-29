@@ -306,12 +306,13 @@ function QuizBuilder({ onCreate }) {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState('');
   const [type, setType] = useState('quiz');
-  const [questions, setQuestions] = useState([{ text: '', options: ['', ''], correctIndex: 0 }]);
+  const blank = () => ({ text: '', options: ['', ''], correctIndex: 0, explanation: '' });
+  const [questions, setQuestions] = useState([blank()]);
 
   const setQ = (i, patch) => setQuestions((qs) => qs.map((q, idx) => (idx === i ? { ...q, ...patch } : q)));
   const setOpt = (qi, oi, val) => setQ(qi, { options: questions[qi].options.map((o, idx) => (idx === oi ? val : o)) });
   const addOption = (qi) => setQ(qi, { options: [...questions[qi].options, ''] });
-  const addQuestion = () => setQuestions((qs) => [...qs, { text: '', options: ['', ''], correctIndex: 0 }]);
+  const addQuestion = () => setQuestions((qs) => [...qs, blank()]);
 
   function submit(e) {
     e.preventDefault();
@@ -320,7 +321,7 @@ function QuizBuilder({ onCreate }) {
       .filter((q) => q.text.trim() && q.options.length >= 2);
     if (!title.trim() || clean.length === 0) return;
     onCreate({ title, type, questions: clean });
-    setTitle(''); setType('quiz'); setQuestions([{ text: '', options: ['', ''], correctIndex: 0 }]); setOpen(false);
+    setTitle(''); setType('quiz'); setQuestions([blank()]); setOpen(false);
   }
 
   if (!open) return <button className="btn sm" onClick={() => setOpen(true)}>+ New quiz / exam</button>;
@@ -340,6 +341,13 @@ function QuizBuilder({ onCreate }) {
             </label>
           ))}
           <button type="button" className="btn sm ghost" onClick={() => addOption(qi)}>+ option</button>
+          <textarea
+            className="quiz-why-input"
+            rows={2}
+            placeholder="Explanation (optional) — shown to students after they answer"
+            value={q.explanation}
+            onChange={(e) => setQ(qi, { explanation: e.target.value })}
+          />
         </div>
       ))}
       <div className="row">
@@ -347,7 +355,7 @@ function QuizBuilder({ onCreate }) {
         <button className="btn sm" type="submit">Post quiz</button>
         <button type="button" className="btn sm ghost" onClick={() => setOpen(false)}>Cancel</button>
       </div>
-      <p className="muted" style={{ fontSize: 12 }}>Tick the radio next to the correct option.</p>
+      <p className="muted" style={{ fontSize: 12 }}>Tick the radio next to the correct option. Explanations appear in the student's answer review.</p>
     </form>
   );
 }

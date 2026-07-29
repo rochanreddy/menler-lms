@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import mongoose from 'mongoose';
 import { requireAuth } from '../middleware/auth.js';
 import { Quiz } from '../models/Quiz.js';
 import { QuizAttempt } from '../models/QuizAttempt.js';
@@ -54,7 +55,10 @@ router.post('/', requireAuth, async (req, res) => {
     title,
     type: type === 'exam' ? 'exam' : 'quiz',
     questions: (Array.isArray(questions) ? questions : []).map((q) => ({
-      text: q.text || '', options: Array.isArray(q.options) ? q.options : [], correctIndex: Number(q.correctIndex) || 0,
+      text: q.text || '',
+      options: Array.isArray(q.options) ? q.options : [],
+      correctIndex: Number(q.correctIndex) || 0,
+      explanation: (q.explanation || '').trim(),
     })),
   });
   const batch = await Batch.findById(batchId).select('studentIds');
@@ -74,6 +78,46 @@ router.post('/:id/attempt', requireAuth, async (req, res) => {
   const score = quiz.questions.reduce((s, q, i) => s + (answers[i] === q.correctIndex ? 1 : 0), 0);
   const attempt = await QuizAttempt.create({ quizId: quiz._id, studentId: req.user._id, answers, score, total: quiz.questions.length });
   res.status(201).json({ attempt });
+});
+
+// GET /api/lms/quizzes/:id/review — question-by-question feedback on an attempt:
+// what the student picked, the right answer, and the mentor's explanation.
+// Gated on an attempt existing, so answers can never be fetched before sitting
+// the quiz. Mentors/admins may review a specific student via ?studentId=.
+router.get('/:id/review', requireAuth, async (req, res) => {
+  const quiz = await Quiz.findById(req.params.id);
+  if (!quiz) return res.status(404).json({ error: 'Quiz not found.' });
+  if (!(await canAccessBatch(req.user, quiz.batchId))) return res.status(403).json({ error: 'Forbidden.' });
+
+  // Students are always pinned to their own attempt — ?studentId= is ignored
+  // for them so it can't be used to read a classmate's answers.
+  const requested = req.user.role === 'student' ? null : req.query.studentId;
+  if (requested && !mongoose.isValidObjectId(requested)) return res.status(400).json({ error: 'Invalid studentId.' });
+  const studentId = requested || req.user._id;
+
+  const attempt = await QuizAttempt.findOne({ quizId: quiz._id, studentId });
+  if (!attempt) return res.status(404).json({ error: 'No attempt to review yet.' });
+
+  const questions = quiz.questions.map((q, i) => {
+    // -1 is the "unanswered" sentinel the client sends; normalise it to null.
+    const picked = attempt.answers[i];
+    const myAnswer = Number.isInteger(picked) && picked >= 0 ? picked : null;
+    return {
+      _id: q._id,
+      text: q.text,
+      options: q.options,
+      correctIndex: q.correctIndex,
+      explanation: q.explanation || '',
+      myAnswer,
+      isCorrect: myAnswer === q.correctIndex,
+    };
+  });
+
+  res.json({
+    quiz: { _id: quiz._id, title: quiz.title, type: quiz.type },
+    attempt: { score: attempt.score, total: attempt.total, at: attempt.createdAt },
+    questions,
+  });
 });
 
 // GET /api/lms/quizzes/:id/results — mentor/admin sees all attempts.

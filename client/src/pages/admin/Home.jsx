@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../api.js';
+import AtRiskPanel from '../../components/AtRiskPanel.jsx';
 
 // Admin platform overview — headline counts + students-per-batch bar chart.
 export default function AdminHome() {
@@ -20,9 +21,9 @@ export default function AdminHome() {
     <div>
       <div className="page-head">
         <div>
-          <div className="eyebrow">Admin board</div>
-          <h1>Platform overview</h1>
-          <p>Everything happening across Menler LMS.</p>
+          <div className="eyebrow">Admin</div>
+          <p className="greet">Everything, at a glance.</p>
+          <p>What's happening across Menler LMS right now.</p>
         </div>
       </div>
 
@@ -35,7 +36,9 @@ export default function AdminHome() {
         ))}
       </div>
 
-      <div className="panel">
+      <AtRiskPanel />
+
+      <div className="panel" style={{ marginTop: 22 }}>
         <div className="eyebrow">Enrolment by batch</div>
         <h2>Students per cohort</h2>
         {chart.length === 0 ? (

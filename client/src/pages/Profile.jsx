@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { useLocation, useOutletContext } from 'react-router-dom';
 import { api, uploadFile } from '../api.js';
 
 // Fully wired against GET/PATCH /api/lms/me. Sections from the spec:
@@ -103,6 +103,15 @@ function ChangePassword() {
   const [next, setNext] = useState('');
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
+  // The account menu links straight here (#password) — scroll it into view and
+  // put the caret in the first field, so the link finishes the job.
+  const { hash } = useLocation();
+  const ref = useRef(null);
+  useEffect(() => {
+    if (hash !== '#password' || !ref.current) return;
+    ref.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    ref.current.querySelector('input')?.focus({ preventScroll: true });
+  }, [hash]);
 
   async function submit(e) {
     e.preventDefault();
@@ -121,7 +130,7 @@ function ChangePassword() {
   }
 
   return (
-    <form onSubmit={submit} className="panel">
+    <form onSubmit={submit} className="panel" id="password" ref={ref}>
       <h3>Change password</h3>
       <label>Current password<input type="password" value={cur} onChange={(e) => setCur(e.target.value)} required /></label>
       <label>New password (min 8 characters)<input type="password" value={next} onChange={(e) => setNext(e.target.value)} minLength={8} required /></label>

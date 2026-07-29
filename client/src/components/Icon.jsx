@@ -1,5 +1,5 @@
-// Small inline stroke-icon set for the sidebar. Keyed by nav label so nav.jsx
-// stays icon-agnostic. Falls back to a dot for anything unmapped.
+// Small inline stroke-icon set for the dock and command palette. Keyed by nav
+// label so nav.jsx stays icon-agnostic. Falls back to a dot for anything unmapped.
 const P = { width: 18, height: 18, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.7, strokeLinecap: 'round', strokeLinejoin: 'round' };
 
 const PATHS = {

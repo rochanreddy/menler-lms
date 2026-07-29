@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { api } from '../../api.js';
+import AtRiskPanel from '../../components/AtRiskPanel.jsx';
 
 // Mentor board — stat cards + an attendance-by-batch bar chart, wired to live data.
 export default function MentorHome() {
@@ -30,8 +31,8 @@ export default function MentorHome() {
     <div>
       <div className="page-head">
         <div>
-          <div className="eyebrow">Mentor board</div>
-          <h1>Good to see you, {(user.full_name || 'Mentor').split(' ')[0]}.</h1>
+          <div className="eyebrow">Mentor</div>
+          <p className="greet">Good to see you, {(user.full_name || 'Mentor').split(' ')[0]}.</p>
           <p>Here's what's happening across your cohorts.</p>
         </div>
       </div>
@@ -45,8 +46,10 @@ export default function MentorHome() {
         ))}
       </div>
 
-      <div className="panel">
-        <div className="eyebrow">Attendance by batch</div>
+      <AtRiskPanel />
+
+      <div className="panel" style={{ marginTop: 22 }}>
+        <div className="eyebrow">Attendance</div>
         <h2>How your cohorts are showing up</h2>
         {chart.length === 0 ? (
           <p className="muted" style={{ marginTop: 12 }}>No attendance recorded yet. Mark attendance on a session to see it here.</p>
