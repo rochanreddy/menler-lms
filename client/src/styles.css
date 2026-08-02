@@ -1247,3 +1247,68 @@ input:hover:not(:disabled):not(:focus), select:hover:not(:disabled):not(:focus),
 .lesson-copy.done { background: rgba(29,158,117,.2); border-color: rgba(29,158,117,.5); color: #6ee7b7; }
 .lesson-copy:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(175,169,236,.35); }
 @media (max-width: 560px) { .lesson-copy span { display: none; } }
+
+/* ── Admin control panel: blocking, drill-down pages, charts ── */
+
+.badge-blocked { background: #fdecec; color: #b83232; }
+
+.btn.danger { background: #d03b3b; }
+.btn.danger:hover { background: #b83232; }
+.btn.ghost-danger { background: #fdecec; color: #b83232; }
+.btn.ghost-danger:hover { background: #fbdada; box-shadow: none; }
+
+.blockbox {
+  background: #fdecec; border: 1px solid #f5c6c6; border-radius: 10px;
+  padding: 12px 15px; margin: 12px 0; font-size: 14px; color: #8a2424;
+}
+
+.crumb { font-size: 13px; color: var(--muted); text-decoration: none; }
+.crumb:hover { color: var(--violet); }
+
+.detail-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 12px 0; border-bottom: 1px solid var(--line);
+}
+.detail-row:last-child { border-bottom: 0; }
+.detail-row.is-blocked { opacity: .65; }
+.row-blocked td { opacity: .6; }
+
+/* Chart cards (dashboard + detail pages) */
+.detail-charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; margin-top: 6px; }
+.chart-card { display: flex; flex-direction: column; gap: 12px; }
+
+.donut { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.donut-center { font-family: var(--display); font-size: 22px; font-weight: 700; fill: var(--ink); }
+.donut-center-sub { font-size: 10.5px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; fill: var(--muted); }
+.donut-legend { display: flex; flex-direction: column; gap: 6px; min-width: 120px; flex: 1; }
+.donut-leg-row { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.donut-swatch { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+.donut-leg-label { color: var(--ink-2); flex: 1; }
+.donut-leg-val { font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+
+.miniline { width: 100%; height: auto; display: block; }
+.miniline-tick { font-size: 10px; fill: var(--muted); }
+.miniline-val { font-size: 11px; font-weight: 700; fill: var(--ink); }
+
+.meter { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 140px; }
+.meter-track { flex: 1; height: 8px; border-radius: 999px; overflow: hidden; }
+.meter-fill { height: 100%; border-radius: 999px; transition: width .35s cubic-bezier(.4,0,.2,1); }
+.meter-val { font-size: 13px; font-weight: 700; color: var(--ink); min-width: 38px; text-align: right; font-variant-numeric: tabular-nums; }
+
+.perf-stats { display: flex; flex-direction: column; gap: 14px; }
+.perf-num { font-family: var(--display); font-size: 30px; font-weight: 700; color: var(--ink); line-height: 1.1; }
+.perf-sub { font-size: 14px; color: var(--muted); font-weight: 500; margin-left: 2px; }
+
+.prog-row { display: flex; align-items: center; gap: 14px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.prog-row:last-child { border-bottom: 0; }
+.prog-name { min-width: 180px; font-weight: 600; font-size: 14px; }
+@media (max-width: 640px) { .prog-row { flex-wrap: wrap; } .prog-name { min-width: 100%; } }
+
+/* Roster chips: clickable names + block state */
+.chip-link { color: inherit; text-decoration: none; }
+.chip-link:hover { color: var(--violet); text-decoration: underline; }
+.chip-blocked { background: #fdecec; border-color: #f5c6c6; }
+
+/* Blocked-account stop page */
+.blocked-panel { max-width: 420px; text-align: center; display: flex; flex-direction: column; gap: 10px; align-items: center; }
+.blocked-icon { font-size: 40px; }

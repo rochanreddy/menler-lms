@@ -18,6 +18,18 @@ const ACTIVITY_THROTTLE_MS = 15 * 60 * 1000;
 export async function requireAuth(req, res, next) {
   const user = await getUser(req);
   if (!user) return res.status(401).json({ error: 'Not authenticated.' });
+
+  // Admin-blocked accounts are locked out of every endpoint. Checked on the
+  // live user doc, so a block takes effect on the very next request — no token
+  // invalidation needed. Admins themselves are never blockable.
+  if (user.role !== 'admin' && user.blocked?.lms) {
+    return res.status(403).json({
+      error: user.blocked?.reason
+        ? `Your account has been blocked: ${user.blocked.reason}`
+        : 'Your account has been blocked by the administrator.',
+      code: 'blocked',
+    });
+  }
   req.user = user;
 
   // Fire-and-forget last-seen tracking: never blocks or fails the request.

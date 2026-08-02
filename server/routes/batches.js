@@ -28,10 +28,12 @@ router.get('/', requireAuth, async (req, res) => {
 // GET /api/lms/batches/:id — full batch with roster (members + admin only).
 router.get('/:id', requireAuth, async (req, res) => {
   if (!(await canAccessBatch(req.user, req.params.id))) return res.status(403).json({ error: 'Forbidden.' });
+  // Block state (and its reason) is admin-only information.
+  const memberFields = req.user.role === 'admin' ? 'fullName email blocked' : 'fullName email';
   const b = await Batch.findById(req.params.id)
     .populate('programId', 'title')
-    .populate('mentorIds', 'fullName email')
-    .populate('studentIds', 'fullName email');
+    .populate('mentorIds', memberFields)
+    .populate('studentIds', memberFields);
   if (!b) return res.status(404).json({ error: 'Batch not found.' });
   res.json({ batch: b });
 });

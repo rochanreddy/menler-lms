@@ -29,6 +29,57 @@ router.get('/overview', requireAuth, requireRole('admin'), async (_req, res) => 
   res.json({ stats: { students, mentors, batches, programs, quizzes }, perBatch });
 });
 
+// GET /api/lms/stats/admin-dashboard — everything the admin dashboard charts
+// need in one round trip: role/batch/submission/attendance distributions,
+// enrolment per batch, and student signups over the last 8 weeks.
+router.get('/admin-dashboard', requireAuth, requireRole('admin'), async (_req, res) => {
+  const [students, mentors, partners, batches, programs, quizzes, blockedUsers] = await Promise.all([
+    User.countDocuments({ role: 'student' }),
+    User.countDocuments({ role: 'mentor' }),
+    User.countDocuments({ role: 'partner' }),
+    Batch.countDocuments(),
+    Program.countDocuments(),
+    Quiz.countDocuments(),
+    User.countDocuments({ 'blocked.lms': true }),
+  ]);
+
+  const [batchDocs, assignmentDocs, submissionAgg, attendanceAgg, recentStudents] = await Promise.all([
+    Batch.find().select('name status studentIds').sort({ createdAt: -1 }),
+    Assignment.find().select('type'),
+    Submission.aggregate([{ $group: { _id: '$status', n: { $sum: 1 } } }]),
+    Attendance.aggregate([{ $group: { _id: '$status', n: { $sum: 1 } } }]),
+    User.find({ role: 'student', createdAt: { $gte: new Date(Date.now() - 8 * 7 * 24 * 3600 * 1000) } }).select('createdAt'),
+  ]);
+
+  const count = (agg, key) => agg.find((a) => a._id === key)?.n || 0;
+
+  // Weekly signup buckets, oldest → newest.
+  const WEEK = 7 * 24 * 3600 * 1000;
+  const now = Date.now();
+  const signups = Array.from({ length: 8 }, (_, i) => {
+    const start = now - (8 - i) * WEEK;
+    const end = start + WEEK;
+    const label = new Date(start).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+    return { label, count: recentStudents.filter((u) => { const t = u.createdAt.getTime(); return t >= start && t < end; }).length };
+  });
+
+  res.json({
+    stats: { students, mentors, partners, batches, programs, quizzes, blockedUsers },
+    batchStatus: ['ongoing', 'upcoming', 'past'].map((s) => ({ label: s, count: batchDocs.filter((b) => b.status === s).length })),
+    assignmentTypes: ['assignment', 'project'].map((t) => ({ label: t, count: assignmentDocs.filter((a) => a.type === t).length })),
+    submissionStatus: [
+      { label: 'graded', count: count(submissionAgg, 'graded') },
+      { label: 'awaiting review', count: count(submissionAgg, 'submitted') },
+    ],
+    attendance: [
+      { label: 'present', count: count(attendanceAgg, 'present') },
+      { label: 'absent', count: count(attendanceAgg, 'absent') },
+    ],
+    perBatch: batchDocs.map((b) => ({ name: b.name.replace(/^Demo — /, ''), count: b.studentIds.length })),
+    signups,
+  });
+});
+
 // ── At-risk detection ──
 
 const DAY = 24 * 60 * 60 * 1000;

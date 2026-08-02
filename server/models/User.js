@@ -31,6 +31,20 @@ const userSchema = new mongoose.Schema(
     // Set when an admin provisions/resets the account: the user must set their
     // own password before they can use the app.
     mustChangePassword: { type: Boolean, default: false },
+
+    // Admin moderation controls. lms=true locks the account out of the whole
+    // app (login + every API call); batchIds hides specific cohorts/courses;
+    // moduleIds hides specific curriculum modules; assignmentIds hides specific
+    // assignments/projects. Admins are never blockable — enforced in the
+    // routes, not here.
+    blocked: {
+      lms: { type: Boolean, default: false },
+      batchIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Batch' }],
+      moduleIds: [{ type: mongoose.Schema.Types.ObjectId }], // Program.modules subdoc ids
+      assignmentIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Assignment' }],
+      reason: { type: String, default: '' },
+      at: { type: Date, default: null },
+    },
   },
   { timestamps: true },
 );
@@ -49,6 +63,16 @@ userSchema.methods.toPublic = function toPublic() {
     batch_ids: (this.batchIds || []).map((b) => b.toString()),
     email_verified: this.emailVerified,
     must_change_password: this.mustChangePassword,
+    blocked: {
+      lms: !!this.blocked?.lms,
+      batch_ids: (this.blocked?.batchIds || []).map(String),
+      module_ids: (this.blocked?.moduleIds || []).map(String),
+      assignment_ids: (this.blocked?.assignmentIds || []).map(String),
+      reason: this.blocked?.reason || '',
+      at: this.blocked?.at || null,
+    },
+    last_active_at: this.lastActiveAt,
+    created_at: this.createdAt,
   };
 };
 

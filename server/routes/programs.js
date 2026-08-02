@@ -3,6 +3,7 @@ import multer from 'multer';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { Program } from '../models/Program.js';
 import { User } from '../models/User.js';
+import { Batch } from '../models/Batch.js';
 import { parseDocToModules } from '../utils/docparse.js';
 
 const router = Router();
@@ -10,17 +11,37 @@ const router = Router();
 // In-memory upload for doc import (we parse the buffer, we don't store the file).
 const importUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 15 * 1024 * 1024 } });
 
+// Admin module-block: strip blocked curriculum modules from what a non-admin
+// user sees. The module simply doesn't exist for them (Learning, progress UI).
+function withoutBlockedModules(program, user) {
+  const blocked = new Set((user.blocked?.moduleIds || []).map(String));
+  if (user.role === 'admin' || blocked.size === 0) return program;
+  const p = program.toObject();
+  p.modules = (p.modules || []).filter((m) => !blocked.has(String(m._id)));
+  return p;
+}
+
+// Curriculum editing: admin, a mentor the admin assigned to this program, or a
+// mentor running any batch of it (batch assignment is the admin's real-world
+// "this mentor teaches this" signal).
+async function canEditProgram(user, program) {
+  if (user.role === 'admin') return true;
+  if (user.role !== 'mentor') return false;
+  if ((program.mentorIds || []).some((m) => m.toString() === user._id.toString())) return true;
+  return !!(await Batch.exists({ programId: program._id, mentorIds: user._id }));
+}
+
 // GET /api/lms/programs — any logged-in user lists programs.
-router.get('/', requireAuth, async (_req, res) => {
+router.get('/', requireAuth, async (req, res) => {
   const programs = await Program.find().sort({ createdAt: -1 });
-  res.json({ programs });
+  res.json({ programs: programs.map((p) => withoutBlockedModules(p, req.user)) });
 });
 
 // GET /api/lms/programs/:id — full curriculum tree.
 router.get('/:id', requireAuth, async (req, res) => {
   const program = await Program.findById(req.params.id);
   if (!program) return res.status(404).json({ error: 'Program not found.' });
-  res.json({ program });
+  res.json({ program: withoutBlockedModules(program, req.user) });
 });
 
 // POST /api/lms/programs — admin only.
@@ -49,10 +70,13 @@ router.delete('/:id/mentors/:userId', requireAuth, requireRole('admin'), async (
   res.json({ ok: true });
 });
 
-// POST /api/lms/programs/:id/import — admin uploads a .docx/.pdf/.md/.txt.
-// Returns the auto-structured module tree as a PREVIEW (not saved) so the admin
-// can review/edit before committing via PATCH.
-router.post('/:id/import', requireAuth, requireRole('admin'), importUpload.single('file'), async (req, res) => {
+// POST /api/lms/programs/:id/import — admin or an assigned mentor uploads a
+// .docx/.pdf/.md/.txt. Returns the auto-structured module tree as a PREVIEW
+// (not saved) so it can be reviewed/edited before committing via PATCH.
+router.post('/:id/import', requireAuth, requireRole('admin', 'mentor'), importUpload.single('file'), async (req, res) => {
+  const target = await Program.findById(req.params.id).select('mentorIds');
+  if (!target) return res.status(404).json({ error: 'Program not found.' });
+  if (!(await canEditProgram(req.user, target))) return res.status(403).json({ error: 'Only mentors assigned to this program can edit its curriculum.' });
   if (!req.file) return res.status(400).json({ error: 'No file uploaded.' });
   try {
     const { modules, stats } = await parseDocToModules(req.file.buffer, req.file.originalname || '');
@@ -63,12 +87,20 @@ router.post('/:id/import', requireAuth, requireRole('admin'), importUpload.singl
   }
 });
 
-// PATCH /api/lms/programs/:id — admin only (edit fields or the modules tree).
-router.patch('/:id', requireAuth, requireRole('admin'), async (req, res) => {
-  const allowed = (({ title, type, description, slug, published, modules }) => ({ title, type, description, slug, published, modules }))(req.body || {});
-  Object.keys(allowed).forEach((k) => allowed[k] === undefined && delete allowed[k]);
+// PATCH /api/lms/programs/:id — admin, or a mentor assigned to this program
+// (curriculum editing). Mentors may edit content/publish state but not retitle
+// or re-slug the program itself.
+router.patch('/:id', requireAuth, requireRole('admin', 'mentor'), async (req, res) => {
+  const target = await Program.findById(req.params.id).select('mentorIds');
+  if (!target) return res.status(404).json({ error: 'Program not found.' });
+  if (!(await canEditProgram(req.user, target))) return res.status(403).json({ error: 'Only mentors assigned to this program can edit its curriculum.' });
+
+  const editable = req.user.role === 'admin'
+    ? ['title', 'type', 'description', 'slug', 'published', 'modules']
+    : ['description', 'published', 'modules'];
+  const allowed = {};
+  for (const k of editable) if (req.body?.[k] !== undefined) allowed[k] = req.body[k];
   const program = await Program.findByIdAndUpdate(req.params.id, allowed, { new: true });
-  if (!program) return res.status(404).json({ error: 'Program not found.' });
   res.json({ program });
 });
 

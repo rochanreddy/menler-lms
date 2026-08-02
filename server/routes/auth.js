@@ -56,6 +56,14 @@ router.post('/login', async (req, res) => {
     const user = await User.findOne({ email: String(email || '').toLowerCase().trim() });
     const ok = user && user.passwordHash && (await bcrypt.compare(String(password || ''), user.passwordHash));
     if (!ok) return res.status(401).json({ error: 'Invalid email or password.' });
+    if (user.role !== 'admin' && user.blocked?.lms) {
+      return res.status(403).json({
+        error: user.blocked?.reason
+          ? `Your account has been blocked: ${user.blocked.reason}`
+          : 'Your account has been blocked by the administrator.',
+        code: 'blocked',
+      });
+    }
     return res.json({ user: user.toPublic(), accessToken: signAccessToken(user), refreshToken: signRefreshToken(user) });
   } catch (err) {
     console.error('login error:', err);
@@ -69,6 +77,9 @@ router.post('/refresh', async (req, res) => {
   if (!payload?.sub || payload.typ !== 'refresh') return res.status(401).json({ error: 'Invalid refresh token.' });
   const user = await User.findById(payload.sub);
   if (!user) return res.status(401).json({ error: 'Invalid refresh token.' });
+  if (user.role !== 'admin' && user.blocked?.lms) {
+    return res.status(403).json({ error: 'Your account has been blocked by the administrator.', code: 'blocked' });
+  }
   return res.json({ accessToken: signAccessToken(user), user: user.toPublic() });
 });
 

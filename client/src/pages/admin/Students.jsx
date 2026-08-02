@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { api } from '../../api.js';
 
 // Admin: add students and see everyone. Add a student here (creates the account),
@@ -61,8 +62,15 @@ export default function AdminStudents() {
       <div className="list">
         {students.map((s) => (
           <div className="panel list-row" key={s.id}>
-            <div><strong>{s.full_name || '—'}</strong><div className="muted">{s.email}</div></div>
-            <span className="badge badge-student">{s.batch_ids?.length || 0} batch{(s.batch_ids?.length || 0) === 1 ? '' : 'es'}</span>
+            <div>
+              <strong>{s.full_name || '—'}</strong>
+              {s.blocked?.lms && <span className="badge badge-blocked" style={{ marginLeft: 8 }}>blocked</span>}
+              <div className="muted">{s.email}</div>
+            </div>
+            <div className="row">
+              <span className="badge badge-student">{s.batch_ids?.length || 0} batch{(s.batch_ids?.length || 0) === 1 ? '' : 'es'}</span>
+              <Link className="btn sm" to={`/app/students/${s.id}`}>Open</Link>
+            </div>
           </div>
         ))}
         {students.length === 0 && <p className="muted">No students yet.</p>}

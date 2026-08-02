@@ -3,7 +3,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { Assignment } from '../models/Assignment.js';
 import { Submission } from '../models/Submission.js';
 import { Batch } from '../models/Batch.js';
-import { canAccessBatch, isMentorOfBatch, myBatchIds } from '../utils/access.js';
+import { canAccessBatch, isMentorOfBatch, myBatchIds, isBlockedFromAssignment } from '../utils/access.js';
 import { notifyMany } from '../utils/notify.js';
 
 const router = Router();
@@ -20,7 +20,9 @@ router.get('/', requireAuth, async (req, res) => {
   } else {
     filter = { batchId: { $in: await myBatchIds(req.user) } };
   }
-  const assignments = await Assignment.find(filter).populate('batchId', 'name').sort({ createdAt: -1 });
+  let assignments = await Assignment.find(filter).populate('batchId', 'name').sort({ createdAt: -1 });
+  // Admin-blocked assignments/projects simply don't exist for this user.
+  assignments = assignments.filter((a) => !isBlockedFromAssignment(req.user, a._id));
 
   if (scope === 'mine') {
     const subs = await Submission.find({ studentId: req.user._id, assignmentId: { $in: assignments.map((a) => a._id) } });
@@ -45,6 +47,7 @@ router.post('/', requireAuth, async (req, res) => {
 router.get('/:id', requireAuth, async (req, res) => {
   const a = await Assignment.findById(req.params.id).populate('batchId', 'name');
   if (!a) return res.status(404).json({ error: 'Assignment not found.' });
+  if (isBlockedFromAssignment(req.user, a._id)) return res.status(403).json({ error: 'This item has been blocked for your account.' });
   if (!(await canAccessBatch(req.user, a.batchId._id || a.batchId))) return res.status(403).json({ error: 'Forbidden.' });
   res.json({ assignment: a });
 });

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { api } from '../../api.js';
 import LineIcon from '../../components/LineIcon.jsx';
 
@@ -88,10 +89,15 @@ export default function AdminMentors() {
           return (
             <div className="panel" key={m.id}>
               <div className="list-row">
-                <div><strong>{m.full_name || '—'}</strong><div className="muted">{m.email}</div></div>
+                <div>
+                  <strong>{m.full_name || '—'}</strong>
+                  {m.blocked?.lms && <span className="badge badge-blocked" style={{ marginLeft: 8 }}>blocked</span>}
+                  <div className="muted">{m.email}</div>
+                </div>
                 <div className="row">
                   <span className="badge badge-mentor">mentor</span>
                   <button className="btn sm ghost" onClick={() => resetPassword(m)}>Reset password</button>
+                  <Link className="btn sm" to={`/app/mentors/${m.id}`}>Open</Link>
                 </div>
               </div>
 

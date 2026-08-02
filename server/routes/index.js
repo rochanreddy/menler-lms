@@ -22,6 +22,7 @@ import notificationRoutes from './notifications.js';
 import announcementRoutes from './announcements.js';
 import gradeRoutes from './grades.js';
 import searchRoutes from './search.js';
+import reportRoutes from './reports.js';
 
 const router = Router();
 
@@ -52,5 +53,6 @@ router.use('/notifications', notificationRoutes);
 router.use('/announcements', announcementRoutes);
 router.use('/grades', gradeRoutes);
 router.use('/search', searchRoutes); // universal ⌘K search across everything you can see
+router.use('/reports', reportRoutes); // admin CSV exports
 
 export default router;

@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
 import { Assignment } from '../models/Assignment.js';
 import { Submission } from '../models/Submission.js';
-import { canAccessBatch, isMentorOfBatch } from '../utils/access.js';
+import { canAccessBatch, isMentorOfBatch, isBlockedFromAssignment } from '../utils/access.js';
 import { notify } from '../utils/notify.js';
 
 const router = Router();
@@ -12,6 +12,7 @@ const router = Router();
 router.post('/assignment/:assignmentId', requireAuth, async (req, res) => {
   const a = await Assignment.findById(req.params.assignmentId);
   if (!a) return res.status(404).json({ error: 'Assignment not found.' });
+  if (isBlockedFromAssignment(req.user, a._id)) return res.status(403).json({ error: 'This item has been blocked for your account.' });
   if (!(await canAccessBatch(req.user, a.batchId))) return res.status(403).json({ error: 'You are not in this batch.' });
 
   const { url, text } = req.body || {};

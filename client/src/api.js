@@ -26,7 +26,16 @@ export async function api(path, { method = 'GET', body } = {}) {
         body: body ? JSON.stringify(body) : undefined,
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+      if (!res.ok) {
+        // Admin blocked this account mid-session → tell the app shell so it can
+        // swap to the "account blocked" screen instead of a dead error toast.
+        if (data.code === 'blocked') {
+          window.dispatchEvent(new CustomEvent('lms:blocked', { detail: { message: data.error } }));
+        }
+        const err = new Error(data.error || `Request failed (${res.status})`);
+        err.code = data.code;
+        throw err;
+      }
       return data;
     } catch (e) {
       // An HTTP error we generated above → don't retry, surface it.
@@ -54,3 +63,24 @@ export async function postFile(path, file) {
 
 // Upload a File → returns { url, name }. Used for resume/submissions.
 export const uploadFile = (file) => postFile('/uploads', file);
+
+// Download an authenticated file (CSV reports) and trigger a browser save.
+export async function downloadFile(path, fallbackName = 'report.csv') {
+  const res = await fetch(`${API}${path}`, {
+    headers: { ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}) },
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || 'Download failed');
+  }
+  const name = /filename="?([^";]+)"?/.exec(res.headers.get('Content-Disposition') || '')?.[1] || fallbackName;
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}

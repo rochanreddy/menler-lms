@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { api } from '../api.js';
+import { Link } from 'react-router-dom';
+import { api, downloadFile } from '../api.js';
 import LineIcon from './LineIcon.jsx';
 import Markdown from './Markdown.jsx';
 
@@ -65,7 +66,24 @@ export default function BatchWorkspace({ batchId, mode }) {
     await act(() => api(`/batches/${batchId}/members/${userId}`, { method: 'DELETE' }).then(loadBatch), 'Removed');
   }
 
+  // Admin course-block: hide THIS batch from one member (they keep the rest of
+  // their LMS). Toggles the batch id in the user's blocked.batchIds set.
+  const courseBlocked = (u) => ((u.blocked?.batchIds) || []).map(String).includes(String(batchId));
+  async function toggleCourseBlock(u) {
+    const ids = new Set(((u.blocked?.batchIds) || []).map(String));
+    const wasBlocked = ids.has(String(batchId));
+    if (wasBlocked) ids.delete(String(batchId)); else ids.add(String(batchId));
+    await act(
+      () => api(`/users/${u._id}/blocks`, { method: 'PATCH', body: { batchIds: [...ids] } }).then(loadBatch),
+      wasBlocked ? 'Course unblocked for member' : 'Course blocked for member',
+    );
+  }
+
   if (!batch) return <p className="muted">Loading batch…</p>;
+
+  // Admin gets every mentor power (the backend already allows it) plus
+  // admin-only member management and moderation.
+  const canManage = mode === 'mentor' || mode === 'admin';
 
   const availableMentors = allMentors.filter((m) => !batch.mentorIds.some((bm) => bm._id === m.id));
   const availableStudents = allStudents.filter((s) => !batch.studentIds.some((bs) => bs._id === s.id));
@@ -80,7 +98,12 @@ export default function BatchWorkspace({ batchId, mode }) {
             <span className="badge">{batch.status}</span>
           </div>
         </div>
-        {msg && <span className="ws-flash">{msg}</span>}
+        <div className="row">
+          {msg && <span className="ws-flash">{msg}</span>}
+          {mode === 'admin' && (
+            <button className="btn sm ghost" onClick={() => downloadFile(`/reports/batch/${batchId}`)}>Batch report (CSV)</button>
+          )}
+        </div>
       </div>
 
       {/* Roster */}
@@ -91,7 +114,19 @@ export default function BatchWorkspace({ batchId, mode }) {
             <div className="roster-col-head">Mentors <span className="roster-n">{batch.mentorIds.length}</span></div>
             <div className="chips">
               {batch.mentorIds.map((m) => (
-                <span key={m._id} className="chip"><span className="chip-av chip-av-m">{(m.fullName || m.email)[0].toUpperCase()}</span>{m.fullName || m.email}{mode === 'admin' && <button type="button" className="chip-x" title="Remove" onClick={() => removeMember(m._id)}>×</button>}</span>
+                <span key={m._id} className={`chip ${mode === 'admin' && courseBlocked(m) ? 'chip-blocked' : ''}`}>
+                  <span className="chip-av chip-av-m">{(m.fullName || m.email)[0].toUpperCase()}</span>
+                  {mode === 'admin'
+                    ? <Link className="chip-link" to={`/app/mentors/${m._id}`} title="Open mentor — view, edit, block">{m.fullName || m.email}</Link>
+                    : (m.fullName || m.email)}
+                  {mode === 'admin' && m.blocked?.lms && <span className="badge badge-blocked">blocked</span>}
+                  {mode === 'admin' && (
+                    <button type="button" className="chip-x" title={courseBlocked(m) ? 'Unblock this course for them' : 'Block this course for them'} onClick={() => toggleCourseBlock(m)}>
+                      {courseBlocked(m) ? '✓' : '⊘'}
+                    </button>
+                  )}
+                  {mode === 'admin' && <button type="button" className="chip-x" title="Remove from batch" onClick={() => removeMember(m._id)}>×</button>}
+                </span>
               ))}
               {batch.mentorIds.length === 0 && <p className="muted roster-empty">No mentors assigned.</p>}
             </div>
@@ -100,7 +135,19 @@ export default function BatchWorkspace({ batchId, mode }) {
             <div className="roster-col-head">Students <span className="roster-n">{batch.studentIds.length}</span></div>
             <div className="chips">
               {batch.studentIds.map((s) => (
-                <span key={s._id} className="chip"><span className="chip-av">{(s.fullName || s.email)[0].toUpperCase()}</span>{s.fullName || s.email}{mode === 'admin' && <button type="button" className="chip-x" title="Remove" onClick={() => removeMember(s._id)}>×</button>}</span>
+                <span key={s._id} className={`chip ${mode === 'admin' && courseBlocked(s) ? 'chip-blocked' : ''}`}>
+                  <span className="chip-av">{(s.fullName || s.email)[0].toUpperCase()}</span>
+                  {mode === 'admin'
+                    ? <Link className="chip-link" to={`/app/students/${s._id}`} title="Open student — full data, progress, block controls">{s.fullName || s.email}</Link>
+                    : (s.fullName || s.email)}
+                  {mode === 'admin' && s.blocked?.lms && <span className="badge badge-blocked">blocked</span>}
+                  {mode === 'admin' && (
+                    <button type="button" className="chip-x" title={courseBlocked(s) ? 'Unblock this course for them' : 'Block this course for them'} onClick={() => toggleCourseBlock(s)}>
+                      {courseBlocked(s) ? '✓' : '⊘'}
+                    </button>
+                  )}
+                  {mode === 'admin' && <button type="button" className="chip-x" title="Remove from batch" onClick={() => removeMember(s._id)}>×</button>}
+                </span>
               ))}
               {batch.studentIds.length === 0 && <p className="muted roster-empty">No students enrolled yet.</p>}
             </div>
@@ -150,7 +197,7 @@ export default function BatchWorkspace({ batchId, mode }) {
       {/* Announcements */}
       <section className="panel">
         <h3 className="h3-ic"><LineIcon name="megaphone" size={17} /> Announcements</h3>
-        {mode === 'mentor' && (
+        {canManage && (
           <AnnouncementForm onPost={(body) => act(() => api('/announcements', { method: 'POST', body: { batchId, ...body } }).then(loadAnnouncements), 'Announcement posted — students notified')} />
         )}
         {announcements.map((a) => (
@@ -195,7 +242,7 @@ export default function BatchWorkspace({ batchId, mode }) {
       {/* Assignments + grading (mentor) */}
       <section className="panel">
         <h3>Assignments & Projects</h3>
-        {mode === 'mentor' && (
+        {canManage && (
           <AssignmentForm onAdd={(body) => act(() => api('/assignments', { method: 'POST', body: { batchId, ...body } }).then(loadAssignments), 'Assignment created')} />
         )}
         {assignments.map((a) => (
@@ -206,7 +253,7 @@ export default function BatchWorkspace({ batchId, mode }) {
               {a.dueDate && <span className="assignment-due"><LineIcon name="clock" size={13} /> Due {dueLabel(a.dueDate)}</span>}
             </div>
             {a.description && <div className="assignment-desc"><Markdown text={a.description} /></div>}
-            {mode === 'mentor' && <Submissions assignmentId={a._id} />}
+            {canManage && <Submissions assignmentId={a._id} />}
           </div>
         ))}
         {assignments.length === 0 && <p className="muted">No assignments yet.</p>}
@@ -215,13 +262,13 @@ export default function BatchWorkspace({ batchId, mode }) {
       {/* Quizzes & exams (mentor authors + tracks results) */}
       <section className="panel">
         <h3>Quizzes & Exams</h3>
-        {mode === 'mentor' && (
+        {canManage && (
           <QuizBuilder onCreate={(body) => act(() => api('/quizzes', { method: 'POST', body: { batchId, ...body } }).then(loadQuizzes), 'Quiz posted')} />
         )}
         {quizzes.map((q) => (
           <div key={q._id} className="assignment">
             <div className="row"><strong>{q.title}</strong><span className="badge">{q.type}</span><span className="muted">{q.questions?.length || 0} questions</span></div>
-            {mode === 'mentor' && <QuizResults quizId={q._id} />}
+            {canManage && <QuizResults quizId={q._id} />}
           </div>
         ))}
         {quizzes.length === 0 && <p className="muted">No quizzes yet.</p>}
