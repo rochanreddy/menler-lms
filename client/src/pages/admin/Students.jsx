@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../../api.js';
 
 // Admin: add students and see everyone. Add a student here (creates the account),
 // or enrol them straight into a cohort under Batches (which also auto-creates).
 export default function AdminStudents() {
+  const navigate = useNavigate();
   const [students, setStudents] = useState([]);
   const [form, setForm] = useState({ email: '', fullName: '', password: '' });
   const [temp, setTemp] = useState(null);
@@ -61,7 +62,7 @@ export default function AdminStudents() {
 
       <div className="list">
         {students.map((s) => (
-          <div className="panel list-row" key={s.id}>
+          <div className="panel list-row row-click" key={s.id} onClick={() => navigate(`/app/students/${s.id}`)}>
             <div>
               <strong>{s.full_name || '—'}</strong>
               {s.blocked?.lms && <span className="badge badge-blocked" style={{ marginLeft: 8 }}>blocked</span>}
@@ -73,7 +74,9 @@ export default function AdminStudents() {
             </div>
           </div>
         ))}
-        {students.length === 0 && <p className="muted">No students yet.</p>}
+        {students.length === 0 && (
+          <div className="empty"><div className="empty-icon">🎒</div><strong>No students yet</strong>Add one above, or enrol them straight into a cohort under Batches.</div>
+        )}
       </div>
     </div>
   );

@@ -58,7 +58,7 @@ export default function MentorDetail() {
   }
 
   if (err && !data) return <p className="error">{err}</p>;
-  if (!data) return <p className="muted">Loading mentor…</p>;
+  if (!data) return <div className="skeleton"><div className="skeleton-row" /><div className="skeleton-row tall" /><div className="skeleton-row tall" /></div>;
 
   const u = data.user;
   const lmsBlocked = u.blocked?.lms;

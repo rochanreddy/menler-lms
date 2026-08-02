@@ -64,7 +64,7 @@ export default function StudentDetail() {
   }
 
   if (err && !data) return <p className="error">{err}</p>;
-  if (!data) return <p className="muted">Loading student…</p>;
+  if (!data) return <div className="skeleton"><div className="skeleton-row" /><div className="skeleton-row tall" /><div className="skeleton-row tall" /></div>;
 
   const u = data.user;
   const lmsBlocked = u.blocked?.lms;
@@ -134,7 +134,7 @@ export default function StudentDetail() {
         <div className="panel chart-card">
           <div className="eyebrow">Performance</div>
           <div className="perf-stats">
-            <div><div className="stat-label">Avg assignment score</div><div className="perf-num">{avgScore ?? '—'}<span className="perf-sub">/10</span></div></div>
+            <div><div className="stat-label">Avg assignment score</div><div className="perf-num">{avgScore ?? '—'}{avgScore != null && <span className="perf-sub">/10</span>}</div></div>
             <div><div className="stat-label">Quiz average</div><div className="perf-num">{quizAvg == null ? '—' : `${quizAvg}%`}</div></div>
             <div><div className="stat-label">Quizzes taken</div><div className="perf-num">{data.quizAttempts.length}</div></div>
           </div>

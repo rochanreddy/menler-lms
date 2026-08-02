@@ -79,7 +79,7 @@ export default function BatchWorkspace({ batchId, mode }) {
     );
   }
 
-  if (!batch) return <p className="muted">Loading batch…</p>;
+  if (!batch) return <div className="skeleton"><div className="skeleton-row" /><div className="skeleton-row tall" /><div className="skeleton-row tall" /></div>;
 
   // Admin gets every mentor power (the backend already allows it) plus
   // admin-only member management and moderation.
@@ -112,45 +112,55 @@ export default function BatchWorkspace({ batchId, mode }) {
         <div className="roster">
           <div className="roster-col">
             <div className="roster-col-head">Mentors <span className="roster-n">{batch.mentorIds.length}</span></div>
-            <div className="chips">
-              {batch.mentorIds.map((m) => (
-                <span key={m._id} className={`chip ${mode === 'admin' && courseBlocked(m) ? 'chip-blocked' : ''}`}>
-                  <span className="chip-av chip-av-m">{(m.fullName || m.email)[0].toUpperCase()}</span>
-                  {mode === 'admin'
-                    ? <Link className="chip-link" to={`/app/mentors/${m._id}`} title="Open mentor — view, edit, block">{m.fullName || m.email}</Link>
-                    : (m.fullName || m.email)}
-                  {mode === 'admin' && m.blocked?.lms && <span className="badge badge-blocked">blocked</span>}
-                  {mode === 'admin' && (
-                    <button type="button" className="chip-x" title={courseBlocked(m) ? 'Unblock this course for them' : 'Block this course for them'} onClick={() => toggleCourseBlock(m)}>
-                      {courseBlocked(m) ? '✓' : '⊘'}
-                    </button>
-                  )}
-                  {mode === 'admin' && <button type="button" className="chip-x" title="Remove from batch" onClick={() => removeMember(m._id)}>×</button>}
-                </span>
-              ))}
-              {batch.mentorIds.length === 0 && <p className="muted roster-empty">No mentors assigned.</p>}
-            </div>
+            {mode === 'admin' ? (
+              <div className="member-list">
+                {batch.mentorIds.map((m) => (
+                  <MemberRow
+                    key={m._id}
+                    user={m}
+                    kind="mentor"
+                    href={`/app/mentors/${m._id}`}
+                    blocked={courseBlocked(m)}
+                    onToggleBlock={() => toggleCourseBlock(m)}
+                    onRemove={() => removeMember(m._id)}
+                  />
+                ))}
+                {batch.mentorIds.length === 0 && <p className="muted roster-empty">No mentors assigned.</p>}
+              </div>
+            ) : (
+              <div className="chips">
+                {batch.mentorIds.map((m) => (
+                  <span key={m._id} className="chip"><span className="chip-av chip-av-m">{(m.fullName || m.email)[0].toUpperCase()}</span>{m.fullName || m.email}</span>
+                ))}
+                {batch.mentorIds.length === 0 && <p className="muted roster-empty">No mentors assigned.</p>}
+              </div>
+            )}
           </div>
           <div className="roster-col">
             <div className="roster-col-head">Students <span className="roster-n">{batch.studentIds.length}</span></div>
-            <div className="chips">
-              {batch.studentIds.map((s) => (
-                <span key={s._id} className={`chip ${mode === 'admin' && courseBlocked(s) ? 'chip-blocked' : ''}`}>
-                  <span className="chip-av">{(s.fullName || s.email)[0].toUpperCase()}</span>
-                  {mode === 'admin'
-                    ? <Link className="chip-link" to={`/app/students/${s._id}`} title="Open student — full data, progress, block controls">{s.fullName || s.email}</Link>
-                    : (s.fullName || s.email)}
-                  {mode === 'admin' && s.blocked?.lms && <span className="badge badge-blocked">blocked</span>}
-                  {mode === 'admin' && (
-                    <button type="button" className="chip-x" title={courseBlocked(s) ? 'Unblock this course for them' : 'Block this course for them'} onClick={() => toggleCourseBlock(s)}>
-                      {courseBlocked(s) ? '✓' : '⊘'}
-                    </button>
-                  )}
-                  {mode === 'admin' && <button type="button" className="chip-x" title="Remove from batch" onClick={() => removeMember(s._id)}>×</button>}
-                </span>
-              ))}
-              {batch.studentIds.length === 0 && <p className="muted roster-empty">No students enrolled yet.</p>}
-            </div>
+            {mode === 'admin' ? (
+              <div className="member-list">
+                {batch.studentIds.map((s) => (
+                  <MemberRow
+                    key={s._id}
+                    user={s}
+                    kind="student"
+                    href={`/app/students/${s._id}`}
+                    blocked={courseBlocked(s)}
+                    onToggleBlock={() => toggleCourseBlock(s)}
+                    onRemove={() => removeMember(s._id)}
+                  />
+                ))}
+                {batch.studentIds.length === 0 && <p className="muted roster-empty">No students enrolled yet.</p>}
+              </div>
+            ) : (
+              <div className="chips">
+                {batch.studentIds.map((s) => (
+                  <span key={s._id} className="chip"><span className="chip-av">{(s.fullName || s.email)[0].toUpperCase()}</span>{s.fullName || s.email}</span>
+                ))}
+                {batch.studentIds.length === 0 && <p className="muted roster-empty">No students enrolled yet.</p>}
+              </div>
+            )}
           </div>
         </div>
 
@@ -310,6 +320,30 @@ export default function BatchWorkspace({ batchId, mode }) {
           </div>
         )}
       </section>
+    </div>
+  );
+}
+
+// Admin roster row: clickable identity + clearly-labeled actions, instead of
+// cryptic chip glyphs. Blocked members are visually muted with an explicit badge.
+function MemberRow({ user, kind, href, blocked, onToggleBlock, onRemove }) {
+  const name = user.fullName || user.email;
+  return (
+    <div className={`member-row ${blocked ? 'is-blocked' : ''}`}>
+      <span className={`member-av ${kind === 'mentor' ? 'member-av-m' : ''}`}>{name[0].toUpperCase()}</span>
+      <div className="member-id">
+        <Link className="member-name" to={href} title={`Open ${kind} profile`}>{name}</Link>
+        <div className="member-tags">
+          {user.blocked?.lms && <span className="badge badge-blocked">LMS blocked</span>}
+          {blocked && <span className="badge badge-blocked">course blocked</span>}
+        </div>
+      </div>
+      <div className="member-actions">
+        <button type="button" className={`btn sm ${blocked ? 'ghost' : 'ghost-danger'}`} onClick={onToggleBlock}>
+          {blocked ? 'Unblock course' : 'Block course'}
+        </button>
+        <button type="button" className="btn sm quiet" title="Remove from batch" onClick={onRemove}>Remove</button>
+      </div>
     </div>
   );
 }
@@ -531,7 +565,6 @@ function Attendance({ session, students, onDone }) {
               <div className="att-count"><strong>{present}</strong> <span className="muted">/ {students.length} present</span></div>
               <div className="att-quick">
                 <button className="att-link" onClick={allPresent}>Mark all present</button>
-                <span className="att-dot">·</span>
                 <button className="att-link" onClick={clearAll}>Clear</button>
               </div>
             </div>

@@ -39,11 +39,16 @@ export default function MentorBatches() {
 
   return (
     <div>
-      <h1>Programs</h1>
-      <p className="muted">Your batches — open one to teach, mark attendance, and grade.</p>
+      <div className="page-head">
+        <div>
+          <div className="eyebrow">Mentor board</div>
+          <h1>Programs</h1>
+          <p>Your batches — open one to teach, mark attendance, and grade.</p>
+        </div>
+      </div>
       <div className="list">
         {batches.map((b) => (
-          <div className="panel list-row" key={b.id}>
+          <div className="panel list-row row-click" key={b.id} onClick={() => setOpen(b.id)}>
             <div>
               <strong>{b.name}</strong>
               <div className="muted">{b.program} · {b.status} · {b.studentCount} students</div>
@@ -51,7 +56,9 @@ export default function MentorBatches() {
             <button className="btn sm" onClick={() => setOpen(b.id)}>Open</button>
           </div>
         ))}
-        {batches.length === 0 && <p className="muted">You're not assigned to any batch yet. An admin assigns you in Batches.</p>}
+        {batches.length === 0 && (
+          <div className="empty"><div className="empty-icon">📚</div><strong>No batches yet</strong>An admin assigns you to a batch under Admin → Batches.</div>
+        )}
       </div>
 
       {myPrograms.length > 0 && (

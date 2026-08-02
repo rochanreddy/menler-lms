@@ -55,7 +55,13 @@ export default function AdminMentors() {
 
   return (
     <div>
-      <h1>Mentors</h1>
+      <div className="page-head">
+        <div>
+          <div className="eyebrow">Admin board</div>
+          <h1>Mentors</h1>
+          <p>Invite mentors, assign their batches, and open one to edit or monitor.</p>
+        </div>
+      </div>
 
       <form className="panel" onSubmit={create}>
         <h3>Invite a mentor</h3>
@@ -90,7 +96,7 @@ export default function AdminMentors() {
             <div className="panel" key={m.id}>
               <div className="list-row">
                 <div>
-                  <strong>{m.full_name || '—'}</strong>
+                  <Link to={`/app/mentors/${m.id}`} className="member-name" style={{ fontSize: 15 }}>{m.full_name || m.email}</Link>
                   {m.blocked?.lms && <span className="badge badge-blocked" style={{ marginLeft: 8 }}>blocked</span>}
                   <div className="muted">{m.email}</div>
                 </div>
@@ -119,7 +125,9 @@ export default function AdminMentors() {
             </div>
           );
         })}
-        {mentors.length === 0 && <p className="muted">No mentors yet.</p>}
+        {mentors.length === 0 && (
+          <div className="empty"><div className="empty-icon">🧑‍🏫</div><strong>No mentors yet</strong>Invite your first mentor with the form above.</div>
+        )}
       </div>
     </div>
   );

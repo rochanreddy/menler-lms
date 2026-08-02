@@ -37,8 +37,8 @@ export default function ForcePasswordChange({ user, onDone, onLogout }) {
         </div>
         {err && <div className="error" style={{ marginBottom: 10 }}>{err}</div>}
         <button className="btn" style={{ width: '100%', justifyContent: 'center' }} disabled={busy}>{busy ? 'Saving…' : 'Set password & continue'}</button>
-        <p className="muted" style={{ textAlign: 'center', marginTop: 14 }}>
-          <span onClick={onLogout} style={{ cursor: 'pointer', color: 'var(--brand)' }}>Log out</span>
+        <p style={{ textAlign: 'center', marginTop: 14 }}>
+          <button type="button" className="linklike" onClick={onLogout}>Log out</button>
         </p>
       </form>
     </div>

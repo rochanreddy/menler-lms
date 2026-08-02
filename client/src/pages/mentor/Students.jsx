@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../../api.js';
 
 const fmtDate = (d) => (d ? new Date(d).toLocaleDateString([], { day: 'numeric', month: 'short' }) : '—');
@@ -8,6 +8,7 @@ const fmtDate = (d) => (d ? new Date(d).toLocaleDateString([], { day: 'numeric',
 // Open one to see their full progress, submissions, quizzes, and download the
 // report. (No blocking or account controls — those are admin powers.)
 export default function MentorStudents() {
+  const navigate = useNavigate();
   const [students, setStudents] = useState([]);
   const [search, setSearch] = useState('');
 
@@ -35,7 +36,7 @@ export default function MentorStudents() {
 
       <div className="list">
         {shown.map((s) => (
-          <div className="panel list-row" key={s.id}>
+          <div className="panel list-row row-click" key={s.id} onClick={() => navigate(`/app/students/${s.id}`)}>
             <div>
               <strong>{s.full_name || '—'}</strong>
               <div className="muted">{s.email} · {s.batches.join(', ') || 'no batch'} · last active {fmtDate(s.last_active_at)}</div>
@@ -43,7 +44,13 @@ export default function MentorStudents() {
             <Link className="btn sm" to={`/app/students/${s.id}`}>Open</Link>
           </div>
         ))}
-        {shown.length === 0 && <p className="muted">{students.length === 0 ? 'No students in your batches yet.' : 'No matches.'}</p>}
+        {shown.length === 0 && (
+          <div className="empty">
+            <div className="empty-icon">🎒</div>
+            <strong>{students.length === 0 ? 'No students yet' : 'No matches'}</strong>
+            {students.length === 0 ? 'Students appear here once they are enrolled in one of your batches.' : 'Try a different name or email.'}
+          </div>
+        )}
       </div>
     </div>
   );

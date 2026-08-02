@@ -765,11 +765,19 @@ h1.md-h { font-size: 22px; } h2.md-h { font-size: 19px; } h3.md-h { font-size: 1
 .ce-topic-type { display: flex; align-items: center; color: var(--muted); }
 .ce-topic.active .ce-topic-type { color: var(--brand); }
 .ce-topic-title { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ce-mini { border: 0; background: none; cursor: pointer; color: var(--muted); font-size: 12px; padding: 2px 5px; border-radius: 5px; line-height: 1; }
-.ce-mini:hover { background: #eceef3; color: var(--ink); }
-.ce-mini.danger:hover { background: #fdeaea; color: #c0392b; }
-.ce-add { border: 0; background: none; color: var(--brand); cursor: pointer; font-size: 12px; padding: 5px 8px; font-family: var(--font); border-radius: 6px; }
-.ce-add:hover { background: var(--brand-soft); }
+.ce-mini {
+  border: 1px solid transparent; background: none; cursor: pointer; color: var(--muted);
+  font-size: 12px; width: 24px; height: 24px; display: inline-grid; place-items: center;
+  border-radius: 7px; line-height: 1; transition: background .14s, color .14s, border-color .14s;
+}
+.ce-mini:hover { background: #eceef3; border-color: var(--line); color: var(--ink); }
+.ce-mini.danger:hover { background: #fdeaea; border-color: #f5c6c6; color: #c0392b; }
+.ce-add {
+  border: 1.5px dashed var(--line); background: none; color: var(--brand); cursor: pointer;
+  font-size: 12px; font-weight: 600; padding: 6px 12px; font-family: var(--font);
+  border-radius: 8px; transition: background .15s, border-color .15s;
+}
+.ce-add:hover { background: var(--brand-soft); border-color: var(--brand); }
 .ce-addmod { width: 100%; margin-top: 4px; }
 .ce-editor { min-height: 420px; }
 .ce-label { display: block; font-size: 12px; font-weight: 600; color: var(--ink-2); margin: 16px 0 6px; }
@@ -852,8 +860,14 @@ h1.md-h { font-size: 22px; } h2.md-h { font-size: 19px; } h3.md-h { font-size: 1
 .att-toolbar { display: flex; align-items: center; justify-content: space-between; padding: 12px 24px; background: #f9fafc; border-top: 1px solid #f0f1f5; border-bottom: 1px solid #f0f1f5; }
 .att-count { font-size: 15px; } .att-count strong { font-family: var(--display); color: #16a34a; font-size: 17px; }
 .att-quick { display: flex; align-items: center; gap: 8px; }
-.att-link { border: 0; background: none; color: var(--brand); font-size: 13px; font-weight: 600; cursor: pointer; font-family: var(--font); padding: 0; }
-.att-link:hover { text-decoration: underline; }
+.att-link {
+  border: 1px solid var(--line); background: var(--card); color: var(--brand);
+  font-size: 12.5px; font-weight: 600; cursor: pointer; font-family: var(--font);
+  padding: 5px 12px; border-radius: var(--pill);
+  transition: background .15s, border-color .15s, color .15s;
+}
+.att-link:hover { background: var(--violet-soft); border-color: var(--violet); }
+.att-link:focus-visible { outline: none; box-shadow: var(--ring); }
 .att-dot { color: #cbd0da; }
 .att-list { overflow-y: auto; overscroll-behavior: contain; padding: 8px 12px; }
 .att-item { display: flex; align-items: center; gap: 12px; padding: 9px 12px; border-radius: 11px; }
@@ -1262,8 +1276,22 @@ input:hover:not(:disabled):not(:focus), select:hover:not(:disabled):not(:focus),
   padding: 12px 15px; margin: 12px 0; font-size: 14px; color: #8a2424;
 }
 
-.crumb { font-size: 13px; color: var(--muted); text-decoration: none; }
-.crumb:hover { color: var(--violet); }
+.crumb {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 13px; font-weight: 600; color: var(--ink-2); text-decoration: none;
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--pill);
+  padding: 6px 14px; transition: background .15s, color .15s, border-color .15s;
+}
+.crumb:hover { color: var(--violet); background: var(--violet-soft); border-color: var(--violet); }
+.crumb:focus-visible { outline: none; box-shadow: var(--ring); }
+
+/* Text-styled button that is still unmistakably interactive. */
+.linklike {
+  border: 0; background: none; color: var(--brand); font: inherit; font-weight: 600;
+  cursor: pointer; padding: 3px 8px; border-radius: 7px; transition: background .15s;
+}
+.linklike:hover { background: var(--violet-soft); }
+.linklike:focus-visible { outline: none; box-shadow: var(--ring); }
 
 .detail-row {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
@@ -1312,3 +1340,55 @@ input:hover:not(:disabled):not(:focus), select:hover:not(:disabled):not(:focus),
 /* Blocked-account stop page */
 .blocked-panel { max-width: 420px; text-align: center; display: flex; flex-direction: column; gap: 10px; align-items: center; }
 .blocked-icon { font-size: 40px; }
+
+/* ── Roster member rows (admin batch view) ── */
+.member-list { display: flex; flex-direction: column; gap: 8px; }
+.member-row {
+  display: flex; align-items: center; gap: 12px; padding: 10px 12px;
+  border: 1px solid var(--line); border-radius: 12px; background: var(--card);
+  transition: border-color .16s, box-shadow .16s;
+}
+.member-row:hover { border-color: var(--violet); box-shadow: 0 2px 10px rgba(83,74,183,.08); }
+.member-row.is-blocked { background: #fdf7f7; border-color: #f5dede; }
+.member-av {
+  width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center;
+  font-size: 13px; font-weight: 700; color: #fff; background: #7c8aa5; flex: none;
+}
+.member-av-m { background: var(--brand); }
+.member-id { flex: 1; min-width: 0; }
+.member-name {
+  font-weight: 600; font-size: 14px; color: var(--ink); text-decoration: none;
+  display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.member-name:hover { color: var(--violet); text-decoration: underline; }
+.member-tags { display: flex; gap: 6px; margin-top: 3px; flex-wrap: wrap; }
+.member-actions { display: flex; gap: 8px; flex: none; flex-wrap: wrap; justify-content: flex-end; }
+@media (max-width: 900px) {
+  .roster { grid-template-columns: 1fr; }
+  .member-row { flex-wrap: wrap; }
+  .member-actions { width: 100%; justify-content: flex-start; padding-left: 46px; }
+}
+
+/* Loading skeletons — content-shaped shimmer instead of a lonely "Loading…". */
+.skeleton { display: flex; flex-direction: column; gap: 12px; margin-top: 10px; }
+.skeleton-row {
+  height: 68px; border-radius: var(--radius);
+  background: linear-gradient(90deg, #f1f0f7 25%, #faf9fd 50%, #f1f0f7 75%);
+  background-size: 200% 100%; animation: shimmer 1.4s infinite linear;
+}
+.skeleton-row.tall { height: 150px; }
+@keyframes shimmer { to { background-position: -200% 0; } }
+
+/* Whole-row click affordance on list pages — the entire card is the target. */
+.row-click { cursor: pointer; }
+.row-click:hover { border-color: var(--violet); }
+.row-click strong { transition: color .14s; }
+.row-click:hover strong { color: var(--violet); }
+
+/* ── Empty states: an inviting placeholder, not a lonely sentence ── */
+.empty {
+  border: 1.5px dashed var(--line); border-radius: var(--radius);
+  padding: 34px 22px; text-align: center; color: var(--muted); font-size: 14px;
+}
+.empty-icon { font-size: 26px; margin-bottom: 8px; opacity: .8; }
+.empty strong { display: block; color: var(--ink-2); font-size: 15px; margin-bottom: 3px; }

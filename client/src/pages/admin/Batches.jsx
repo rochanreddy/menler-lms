@@ -37,7 +37,13 @@ export default function AdminBatches() {
 
   return (
     <div>
-      <h1>Batches</h1>
+      <div className="page-head">
+        <div>
+          <div className="eyebrow">Admin board</div>
+          <h1>Batches</h1>
+          <p>Create cohorts, then manage each one — roster, sessions, assignments, grades.</p>
+        </div>
+      </div>
 
       <form className="panel" onSubmit={create}>
         <h3>Create a batch</h3>
@@ -57,7 +63,7 @@ export default function AdminBatches() {
 
       <div className="list">
         {batches.map((b) => (
-          <div className="panel list-row" key={b.id}>
+          <div className="panel list-row row-click" key={b.id} onClick={() => setOpen(b.id)}>
             <div>
               <strong>{b.name}</strong>
               <div className="muted">{b.program} · {b.status} · {b.mentorCount} mentors · {b.studentCount} students</div>
@@ -65,7 +71,9 @@ export default function AdminBatches() {
             <button className="btn sm" onClick={() => setOpen(b.id)}>Manage</button>
           </div>
         ))}
-        {batches.length === 0 && <p className="muted">No batches yet. Create one above.</p>}
+        {batches.length === 0 && (
+          <div className="empty"><div className="empty-icon">🎓</div><strong>No batches yet</strong>Create your first cohort with the form above.</div>
+        )}
       </div>
     </div>
   );
