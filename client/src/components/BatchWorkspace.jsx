@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { api, downloadFile } from '../api.js';
 import LineIcon from './LineIcon.jsx';
 import Markdown from './Markdown.jsx';
+import { SubmissionCheckPanel } from './SubmissionCheck.jsx';
+import DateTimePicker from './DateTimePicker.jsx';
 
 const dueLabel = (d) => new Date(d).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 
@@ -260,8 +262,17 @@ export default function BatchWorkspace({ batchId, mode }) {
             <div className="assignment-head">
               <strong>{a.title}</strong>
               <span className={`badge ${a.type === 'project' ? 'badge-mentor' : ''}`}>{a.type}</span>
+              {a.startDate && <span className="assignment-due"><LineIcon name="clock" size={13} /> Opens {dueLabel(a.startDate)}</span>}
               {a.dueDate && <span className="assignment-due"><LineIcon name="clock" size={13} /> Due {dueLabel(a.dueDate)}</span>}
             </div>
+            {(a.requiredDriveTypes || []).length > 0 && (
+              <div className="assignment-reqs">
+                <span className="muted">Requires in Drive folder:</span>
+                {a.requiredDriveTypes.map((t) => (
+                  <span key={t} className="badge">{DRIVE_TYPES.find((d) => d.key === t)?.label || t}</span>
+                ))}
+              </div>
+            )}
             {a.description && <div className="assignment-desc"><Markdown text={a.description} /></div>}
             {canManage && <Submissions assignmentId={a._id} />}
           </div>
@@ -371,7 +382,7 @@ function SessionForm({ onAdd }) {
     <>
       <form className="inline-form" onSubmit={(e) => { e.preventDefault(); if (title && startsAt) { onAdd({ title, startsAt: new Date(startsAt).toISOString(), joinUrl, zoomMeetingId }); setTitle(''); setStartsAt(''); setJoinUrl(''); setZoomMeetingId(''); } }}>
         <input placeholder="Session title" value={title} onChange={(e) => setTitle(e.target.value)} />
-        <input type="datetime-local" value={startsAt} onChange={(e) => setStartsAt(e.target.value)} />
+        <DateTimePicker value={startsAt} onChange={setStartsAt} placeholder="Starts at" />
         <input placeholder="Zoom link (https://…)" value={joinUrl} onChange={(e) => setJoinUrl(e.target.value)} />
         <input placeholder="Zoom meeting ID (optional)" value={zoomMeetingId} onChange={(e) => setZoomMeetingId(e.target.value)} />
         <button className="btn sm">Add session</button>
@@ -443,33 +454,80 @@ function QuizBuilder({ onCreate }) {
 
 function QuizResults({ quizId }) {
   const [data, setData] = useState(null);
+  const [open, setOpen] = useState(false);
   const load = () => api(`/quizzes/${quizId}/results`).then(setData).catch(() => setData({ attempts: [] }));
-  if (!data) return <button className="btn sm ghost" onClick={load}>View results</button>;
-  const { attempts, quiz } = data;
+
+  // Fetch on first open only — reopening reuses what we already have.
+  function toggle() {
+    if (open) return setOpen(false);
+    setOpen(true);
+    if (!data) load();
+  }
+
+  const attempts = data?.attempts;
   return (
     <div className="subs">
-      {attempts.length === 0 ? <p className="muted">No attempts yet.</p> : attempts.map((a) => (
-        <div key={a._id} className="grade-row">
-          <strong>{a.studentId?.fullName || a.studentId?.email}</strong>
-          <span className="badge badge-student">{a.score}/{a.total ?? quiz?.total}</span>
-        </div>
-      ))}
+      <button className="btn sm ghost" onClick={toggle}>
+        {open ? 'Hide results' : 'View results'}
+      </button>
+      {open && (
+        !data ? <p className="muted">Loading…</p> :
+          attempts.length === 0 ? <p className="muted">No attempts yet.</p> :
+            attempts.map((a) => (
+              <div key={a._id} className="grade-row">
+                <strong>{a.studentId?.fullName || a.studentId?.email}</strong>
+                <span className="badge badge-student">{a.score}/{a.total ?? data.quiz?.total}</span>
+              </div>
+            ))
+      )}
     </div>
   );
 }
+
+// What a mentor can demand inside the student's Drive folder. Ticking 'html'
+// also lifts the default block on HTML files for this assignment only.
+export const DRIVE_TYPES = [
+  { key: 'video', label: 'Video', hint: 'screen recording, demo' },
+  { key: 'image', label: 'Photo / screenshot', hint: 'jpg, png' },
+  { key: 'doc', label: 'Document', hint: 'PDF, Word, text file' },
+  { key: 'slides', label: 'Slide deck', hint: 'PPT, Google Slides' },
+  { key: 'html', label: 'HTML file', hint: 'blocked unless ticked' },
+];
 
 function AssignmentForm({ onAdd }) {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState('');
   const [type, setType] = useState('assignment');
   const [description, setDescription] = useState('');
+  const [startDate, setStartDate] = useState('');
   const [dueDate, setDueDate] = useState('');
+  const [required, setRequired] = useState(['video', 'image', 'doc']);
+  const [err, setErr] = useState('');
 
-  function reset() { setTitle(''); setType('assignment'); setDescription(''); setDueDate(''); setOpen(false); }
+  function reset() {
+    setTitle(''); setType('assignment'); setDescription('');
+    setStartDate(''); setDueDate(''); setRequired(['video', 'image', 'doc']);
+    setErr(''); setOpen(false);
+  }
+
+  function toggleType(key) {
+    setRequired((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
+  }
+
   function submit(e) {
     e.preventDefault();
     if (!title.trim()) return;
-    onAdd({ title: title.trim(), type, description: description.trim(), dueDate: dueDate ? new Date(dueDate).toISOString() : null });
+    if (startDate && dueDate && new Date(startDate) > new Date(dueDate)) {
+      return setErr('The start date must be before the last date for submission.');
+    }
+    onAdd({
+      title: title.trim(),
+      type,
+      description: description.trim(),
+      startDate: startDate ? new Date(startDate).toISOString() : null,
+      dueDate: dueDate ? new Date(dueDate).toISOString() : null,
+      requiredDriveTypes: required,
+    });
     reset();
   }
 
@@ -494,10 +552,33 @@ function AssignmentForm({ onAdd }) {
         onChange={(e) => setDescription(e.target.value)}
       />
 
+      <label className="af-label">Required in the Drive folder</label>
+      <p className="af-hint">
+        The automated check rejects a submission whose folder is missing any ticked item.
+        Untick everything to accept any files.
+      </p>
+      <div className="af-reqs">
+        {DRIVE_TYPES.map((t) => (
+          <label key={t.key} className={`af-req ${required.includes(t.key) ? 'on' : ''}`}>
+            <input type="checkbox" checked={required.includes(t.key)} onChange={() => toggleType(t.key)} />
+            <span>
+              <strong>{t.label}</strong>
+              <span className="muted"> · {t.hint}</span>
+            </span>
+          </label>
+        ))}
+      </div>
+
+      {err && <p className="sub-check-error">{err}</p>}
+
       <div className="af-foot">
         <label className="af-due">
-          <span>Due date <span className="muted">(optional)</span></span>
-          <input type="datetime-local" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+          <span>Start date <span className="muted">(optional)</span></span>
+          <DateTimePicker value={startDate} onChange={setStartDate} placeholder="Open immediately" />
+        </label>
+        <label className="af-due">
+          <span>Last date to submit <span className="muted">(optional)</span></span>
+          <DateTimePicker value={dueDate} onChange={setDueDate} placeholder="No deadline" />
         </label>
         <div className="af-actions">
           <button type="button" className="btn ghost sm" onClick={reset}>Cancel</button>
@@ -600,25 +681,59 @@ function Attendance({ session, students, onDone }) {
 
 function Submissions({ assignmentId }) {
   const [subs, setSubs] = useState(null);
+  const [open, setOpen] = useState(false);
   const load = () => api(`/submissions/assignment/${assignmentId}`).then((d) => setSubs(d.submissions || [])).catch(() => setSubs([]));
   async function grade(id, score, feedback) { await api(`/submissions/${id}/grade`, { method: 'PATCH', body: { score, feedback } }); load(); }
+  async function recheck(id) { await api(`/submissions/${id}/recheck`, { method: 'POST' }); load(); }
+  async function unlock(id) { await api(`/submissions/${id}/unlock`, { method: 'POST' }); load(); }
+
+  // Fetch on first open only — reopening reuses what we already have.
+  function toggle() {
+    if (open) return setOpen(false);
+    setOpen(true);
+    if (subs === null) load();
+  }
+
   return (
     <div className="subs">
-      {subs === null ? <button className="btn sm ghost" onClick={load}>View submissions</button> : (
-        subs.length === 0 ? <p className="muted">No submissions yet.</p> :
-          subs.map((s) => <GradeRow key={s._id} sub={s} onGrade={grade} />)
+      <button className="btn sm ghost" onClick={toggle}>
+        {open ? 'Hide submissions' : 'View submissions'}
+      </button>
+      {open && (
+        subs === null ? <p className="muted">Loading…</p> :
+          subs.length === 0 ? <p className="muted">No submissions yet.</p> :
+            subs.map((s) => <GradeRow key={s._id} sub={s} onGrade={grade} onRecheck={recheck} onUnlock={unlock} />)
       )}
     </div>
   );
 }
 
-function GradeRow({ sub, onGrade }) {
+function GradeRow({ sub, onGrade, onRecheck, onUnlock }) {
   const [score, setScore] = useState(sub.score ?? '');
   const [feedback, setFeedback] = useState(sub.feedback || '');
+  const [busy, setBusy] = useState(false);
+
+  async function recheck() {
+    setBusy(true);
+    try { await onRecheck(sub._id); } finally { setBusy(false); }
+  }
+
   return (
-    <div className="grade-row">
-      <div><strong>{sub.studentId?.fullName || sub.studentId?.email}</strong>{sub.url && <> · <a href={sub.url} target="_blank" rel="noreferrer">link</a></>} <span className="badge">{sub.status}</span></div>
+    <div className="grade-row-stack">
+      <div className="grade-row-top">
+        <strong>{sub.studentId?.fullName || sub.studentId?.email}</strong>
+        <span className="badge">{sub.status}</span>
+      </div>
+
+      {/* Drive verification — its own block, independent of the grade below. */}
+      <SubmissionCheckPanel
+        submission={{ ...sub, driveLink: sub.driveLink || sub.url }}
+        onRecheck={recheck}
+        busy={busy}
+      />
+
       <div className="inline-form">
+        {sub.locked && <button type="button" className="btn sm ghost" onClick={() => onUnlock(sub._id)}>Unlock</button>}
         <select className="grade-score" value={score} onChange={(e) => setScore(e.target.value)}>
           <option value="">Score…</option>
           {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => <option key={n} value={n}>{n} / 10</option>)}

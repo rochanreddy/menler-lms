@@ -105,7 +105,8 @@ router.get('/:id/overview', requireAuth, requireRole('admin', 'mentor'), async (
   const [attendance, assignments, submissions, quizzes, attempts, progress] = await Promise.all([
     Attendance.find({ studentId: uid }).select('batchId status'),
     Assignment.find({ batchId: { $in: batchIds } }).sort({ createdAt: -1 }),
-    Submission.find({ studentId: uid }).select('assignmentId status score feedback updatedAt'),
+    Submission.find({ studentId: uid, isDeleted: false })
+      .select('assignmentId status score feedback updatedAt driveLink url checkStatus errorDetail files locked checkedAt'),
     Quiz.find({ batchId: { $in: batchIds } }).select('title type batchId'),
     QuizAttempt.find({ studentId: uid }).select('quizId score total createdAt'),
     Progress.find({ studentId: uid }).select('programId completedTopics'),
@@ -155,7 +156,24 @@ router.get('/:id/overview', requireAuth, requireRole('admin', 'mentor'), async (
             batchId: a.batchId,
             batchName: batchName.get(String(a.batchId)) || '',
             dueDate: a.dueDate,
-            submission: s ? { status: s.status, score: s.score, feedback: s.feedback, at: s.updatedAt } : null,
+            // Grading fields and Drive-verification fields are kept as separate
+            // groups here on purpose — they answer different questions and a
+            // later automated-review layer gets its own group again.
+            submission: s
+              ? {
+                  id: s._id,
+                  status: s.status,
+                  score: s.score,
+                  feedback: s.feedback,
+                  at: s.updatedAt,
+                  locked: s.locked,
+                  driveLink: s.driveLink || s.url || '',
+                  checkStatus: s.checkStatus,
+                  errorDetail: s.errorDetail,
+                  files: s.files || [],
+                  checkedAt: s.checkedAt,
+                }
+              : null,
             blocked: blockedAssignments.has(String(a._id)),
           };
         })

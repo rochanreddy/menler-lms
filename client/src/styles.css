@@ -925,6 +925,103 @@ h1.md-h { font-size: 22px; } h2.md-h { font-size: 19px; } h3.md-h { font-size: 1
 .graded { display: flex; align-items: center; gap: 16px; margin-top: 8px; }
 .graded .tile-value { color: #166534; }
 
+/* ── Drive-folder verification (kept visually distinct from grading) ── */
+.sub-check { margin-top: 12px; }
+.sub-check-head { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+.sub-check-error { margin: 8px 0 0; padding: 10px 12px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 9px; color: #991b1b; font-size: 13.5px; }
+.sub-files { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.sub-files li { display: flex; align-items: center; gap: 8px; font-size: 13.5px; }
+.sub-cell { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.sub-detail-row > td { background: #f9fafb; padding: 12px 14px; }
+.sub-detail-row .sub-check { margin-top: 0; }
+
+/* Mentor grading row — stacked so the check block sits above the grade form. */
+.grade-row-stack { background: #f9fafb; padding: 12px 14px; border-radius: 9px; margin-top: 8px; }
+.grade-row-top { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+
+/* Student submission form */
+.sub-form { margin-top: 14px; }
+.sub-form-alert { display: flex; align-items: flex-start; gap: 10px; flex-wrap: wrap; padding: 11px 13px; background: #fffbeb; border: 1px solid #fde68a; border-radius: 10px; margin-bottom: 14px; }
+.sub-form-alert p { margin: 0; font-size: 13.5px; color: #92400e; }
+.sub-form-grid { display: flex; gap: 22px; flex-wrap: wrap; margin-bottom: 14px; }
+.sub-field { display: flex; flex-direction: column; gap: 3px; }
+.sub-field-label { font-size: 11.5px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); font-weight: 600; }
+.sub-field-value { font-size: 14px; font-weight: 500; }
+.sub-field-value.is-overdue { color: #dc2626; }
+.sub-form .assign-submit { margin-top: 6px; }
+.sub-form-hint { font-size: 12.5px; margin-top: 8px; }
+
+/* ── Date & time picker (replaces the native datetime-local widget) ── */
+.dtp { position: relative; display: inline-block; }
+.dtp-field {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 9px 12px; min-width: 210px;
+  border: 1px solid var(--line); border-radius: 10px;
+  background: #fff; color: var(--ink); font: inherit; font-size: 13.5px;
+  cursor: pointer; text-align: left;
+}
+.dtp-field:hover { border-color: var(--lavender); }
+.dtp-field.is-empty .dtp-label { color: var(--muted); }
+.dtp-field svg { color: var(--brand); flex: none; }
+.dtp-label { flex: 1; }
+.dtp-clear { color: var(--muted); font-size: 16px; line-height: 1; padding: 0 2px; border-radius: 5px; }
+.dtp-clear:hover { color: var(--a4); background: var(--a4-soft); }
+
+.dtp-pop {
+  position: absolute; z-index: 60; top: calc(100% + 6px); left: 0;
+  width: 288px; padding: 14px;
+  background: var(--card); border: 1px solid var(--line);
+  border-radius: var(--radius-sm); box-shadow: var(--shadow-lg);
+}
+.dtp-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.dtp-month { font-weight: 650; font-size: 14px; color: var(--ink); }
+.dtp-nav {
+  width: 28px; height: 28px; border: 0; border-radius: 8px;
+  background: transparent; color: var(--ink-2); font-size: 18px; line-height: 1; cursor: pointer;
+}
+.dtp-nav:hover { background: var(--brand-soft); color: var(--brand); }
+.dtp-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.dtp-dow { margin-bottom: 4px; }
+.dtp-dow span { text-align: center; font-size: 11px; font-weight: 600; color: var(--muted); padding: 4px 0; }
+.dtp-day {
+  aspect-ratio: 1; border: 0; border-radius: 8px; background: transparent;
+  color: var(--ink); font: inherit; font-size: 13px; cursor: pointer;
+}
+.dtp-day:hover { background: var(--brand-soft); }
+.dtp-day.out { color: #b9b5cc; }
+/* The dot motif: today is marked by an underline rule, not a filled pill. */
+.dtp-day.today { box-shadow: inset 0 -2px 0 var(--lavender); font-weight: 650; }
+.dtp-day.on { background: var(--brand); color: #fff; font-weight: 650; box-shadow: none; }
+
+.dtp-time { display: flex; align-items: center; gap: 6px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line-soft); }
+.dtp-time-label { flex: 1; font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.dtp-time select { padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; font: inherit; font-size: 13px; background: #fff; color: var(--ink); }
+.dtp-colon { color: var(--muted); }
+.dtp-foot { display: flex; align-items: center; justify-content: space-between; margin-top: 12px; }
+.dtp-foot-right { display: flex; align-items: center; gap: 10px; }
+.dtp-link { border: 0; background: transparent; color: var(--brand); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; padding: 4px; }
+.dtp-link:hover { text-decoration: underline; }
+
+/* Flip to the right edge when the field sits near the viewport edge. */
+@media (max-width: 560px) {
+  .dtp, .dtp-field { width: 100%; }
+  .dtp-pop { left: auto; right: 0; }
+}
+
+/* Mentor: required-file-type picker on the assignment form */
+.af-hint { font-size: 12.5px; color: var(--muted); margin: 2px 0 8px; }
+.af-reqs { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 8px; margin-bottom: 4px; }
+.af-req { display: flex; align-items: flex-start; gap: 9px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; cursor: pointer; font-size: 13.5px; background: #fff; }
+.af-req:hover { border-color: #c7c9d9; }
+.af-req.on { border-color: var(--brand); background: #f5f4ff; }
+.af-req input { margin-top: 2px; }
+.assignment-reqs { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; margin-top: 8px; font-size: 12.5px; }
+
+@media (max-width: 640px) {
+  .sub-form-grid { flex-direction: column; gap: 12px; }
+  .af-reqs { grid-template-columns: 1fr; }
+}
+
 /* ── Zoom + quizzes ── */
 .zoom-link { display: inline-flex; align-items: center; gap: 5px; color: var(--brand); font-weight: 600; text-decoration: none; vertical-align: middle; }
 .zoom-link:hover { text-decoration: underline; }

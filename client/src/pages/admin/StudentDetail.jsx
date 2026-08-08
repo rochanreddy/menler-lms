@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, Link, useOutletContext } from 'react-router-dom';
 import { api, downloadFile } from '../../api.js';
 import { Donut, Meter, SEQ, SEQ_AQUA } from '../../components/Charts.jsx';
+import { CheckBadge, SubmissionCheckPanel } from '../../components/SubmissionCheck.jsx';
 
 const fmtDate = (d) => (d ? new Date(d).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' }) : '—');
 
@@ -17,11 +18,21 @@ export default function StudentDetail() {
   const [data, setData] = useState(null);
   const [err, setErr] = useState('');
   const [msg, setMsg] = useState('');
+  const [openSub, setOpenSub] = useState(null); // assignment id whose check detail is expanded
+  const [rechecking, setRechecking] = useState(null);
 
   const load = () => api(`/users/${id}/overview`).then(setData).catch((e) => setErr(e.message));
   useEffect(() => { load(); }, [id]);
 
   const flash = (m) => { setMsg(m); setTimeout(() => setMsg(''), 2500); };
+
+  async function recheck(submissionId) {
+    setErr('');
+    setRechecking(submissionId);
+    try { await api(`/submissions/${submissionId}/recheck`, { method: 'POST' }); await load(); flash('Re-checked'); }
+    catch (e) { setErr(e.message); }
+    finally { setRechecking(null); }
+  }
 
   async function setBlocks(body, okMsg) {
     setErr('');
@@ -201,26 +212,59 @@ export default function StudentDetail() {
           <div className="table-wrap">
             <table className="grade-table">
               <thead>
-                <tr><th>Title</th><th>Type</th><th>Batch</th><th>Due</th><th>Status</th><th>Score</th>{isAdmin && <th></th>}</tr>
+                <tr><th>Title</th><th>Type</th><th>Batch</th><th>Due</th><th>Status</th><th>Drive check</th><th>Score</th>{isAdmin && <th></th>}</tr>
               </thead>
               <tbody>
-                {data.assignments.map((a) => (
-                  <tr key={a.id} className={a.blocked ? 'row-blocked' : ''}>
-                    <td>{a.title} {a.blocked && isAdmin && <span className="badge badge-blocked">blocked</span>}</td>
-                    <td><span className={`badge ${a.type === 'project' ? 'badge-mentor' : ''}`}>{a.type}</span></td>
-                    <td>{a.batchName}</td>
-                    <td>{a.dueDate ? fmtDate(a.dueDate) : '—'}</td>
-                    <td>{a.submission ? a.submission.status : 'not submitted'}</td>
-                    <td>{a.submission?.score ?? '—'}</td>
-                    {isAdmin && (
+                {data.assignments.map((a) => {
+                  const s = a.submission;
+                  const cols = isAdmin ? 8 : 7;
+                  const expanded = openSub === a.id;
+                  return [
+                    <tr key={a.id} className={a.blocked ? 'row-blocked' : ''}>
+                      <td>{a.title} {a.blocked && isAdmin && <span className="badge badge-blocked">blocked</span>}</td>
+                      <td><span className={`badge ${a.type === 'project' ? 'badge-mentor' : ''}`}>{a.type}</span></td>
+                      <td>{a.batchName}</td>
+                      <td>{a.dueDate ? fmtDate(a.dueDate) : '—'}</td>
+                      <td>{s ? s.status : 'not submitted'}</td>
                       <td>
-                        <button className="btn sm ghost" onClick={() => toggleAssignment(a.id, a.blocked)}>
-                          {a.blocked ? 'Unblock' : 'Block'}
-                        </button>
+                        {s ? (
+                          <div className="sub-cell">
+                            {/* Always clickable, whatever the check said — a mentor
+                                must be able to open the folder and judge for themselves. */}
+                            {s.driveLink
+                              ? <a href={s.driveLink} target="_blank" rel="noreferrer">Drive folder</a>
+                              : <span className="muted">no link</span>}
+                            <CheckBadge status={s.checkStatus} />
+                            {s.checkStatus && (
+                              <button className="btn sm ghost" onClick={() => setOpenSub(expanded ? null : a.id)}>
+                                {expanded ? 'Hide' : 'Details'}
+                              </button>
+                            )}
+                          </div>
+                        ) : '—'}
                       </td>
-                    )}
-                  </tr>
-                ))}
+                      <td>{s?.score ?? '—'}</td>
+                      {isAdmin && (
+                        <td>
+                          <button className="btn sm ghost" onClick={() => toggleAssignment(a.id, a.blocked)}>
+                            {a.blocked ? 'Unblock' : 'Block'}
+                          </button>
+                        </td>
+                      )}
+                    </tr>,
+                    expanded && s ? (
+                      <tr key={`${a.id}-detail`} className="sub-detail-row">
+                        <td colSpan={cols}>
+                          <SubmissionCheckPanel
+                            submission={s}
+                            onRecheck={s.id ? () => recheck(s.id) : null}
+                            busy={rechecking === s.id}
+                          />
+                        </td>
+                      </tr>
+                    ) : null,
+                  ];
+                })}
               </tbody>
             </table>
           </div>

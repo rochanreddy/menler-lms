@@ -25,7 +25,7 @@ router.get('/', requireAuth, async (req, res) => {
   assignments = assignments.filter((a) => !isBlockedFromAssignment(req.user, a._id));
 
   if (scope === 'mine') {
-    const subs = await Submission.find({ studentId: req.user._id, assignmentId: { $in: assignments.map((a) => a._id) } });
+    const subs = await Submission.find({ studentId: req.user._id, isDeleted: false, assignmentId: { $in: assignments.map((a) => a._id) } });
     const byId = new Map(subs.map((s) => [s.assignmentId.toString(), s]));
     return res.json({ assignments: assignments.map((a) => ({ ...a.toObject(), mySubmission: byId.get(a._id.toString()) || null })) });
   }
@@ -34,10 +34,27 @@ router.get('/', requireAuth, async (req, res) => {
 
 // POST /api/lms/assignments — mentor of the batch (or admin) sets an assignment/project.
 router.post('/', requireAuth, async (req, res) => {
-  const { batchId, type, title, description, dueDate } = req.body || {};
+  const { batchId, type, title, description, startDate, dueDate, requiredDriveTypes } = req.body || {};
   if (!batchId || !title) return res.status(400).json({ error: 'batchId and title are required.' });
   if (!(await isMentorOfBatch(req.user, batchId))) return res.status(403).json({ error: 'Forbidden.' });
-  const assignment = await Assignment.create({ batchId, type: type === 'project' ? 'project' : 'assignment', title, description: description || '', dueDate: dueDate || null });
+  if (startDate && dueDate && new Date(startDate) > new Date(dueDate)) {
+    return res.status(400).json({ error: 'The start date must be before the last date for submission.' });
+  }
+
+  const ALLOWED_TYPES = ['video', 'image', 'doc', 'slides', 'html'];
+  const required = Array.isArray(requiredDriveTypes)
+    ? [...new Set(requiredDriveTypes.filter((t) => ALLOWED_TYPES.includes(t)))]
+    : undefined; // undefined → fall back to the schema default
+
+  const assignment = await Assignment.create({
+    batchId,
+    type: type === 'project' ? 'project' : 'assignment',
+    title,
+    description: description || '',
+    startDate: startDate || null,
+    dueDate: dueDate || null,
+    ...(required ? { requiredDriveTypes: required } : {}),
+  });
   const batch = await Batch.findById(batchId).select('studentIds');
   notifyMany(batch?.studentIds || [], { type: 'assignment', text: `New ${assignment.type}: ${title}`, link: '/app/learning' });
   res.status(201).json({ assignment });

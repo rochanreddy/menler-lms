@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { api } from '../../api.js';
+import DateTimePicker from '../../components/DateTimePicker.jsx';
 
 // Webinars — mentor/admin schedule; the list shows join link, slides, recording.
 export default function Webinar() {
@@ -36,7 +37,7 @@ export default function Webinar() {
           <h3>Schedule a webinar</h3>
           <div className="inline-form">
             <input placeholder="Title" value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} />
-            <input type="datetime-local" value={form.startsAt} onChange={(e) => setForm((f) => ({ ...f, startsAt: e.target.value }))} />
+            <DateTimePicker value={form.startsAt} onChange={(v) => setForm((f) => ({ ...f, startsAt: v }))} placeholder="Starts at" />
             <input placeholder="Join link" value={form.joinUrl} onChange={(e) => setForm((f) => ({ ...f, joinUrl: e.target.value }))} />
             <button className="btn sm">Add</button>
           </div>

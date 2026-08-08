@@ -8,6 +8,7 @@ import { api } from '../api.js';
 import Markdown from '../components/Markdown.jsx';
 import LessonIcon from '../components/LessonIcon.jsx';
 import LineIcon from '../components/LineIcon.jsx';
+import { CheckBadge, SubmissionCheckPanel } from '../components/SubmissionCheck.jsx';
 
 // TEMPORARY test files, until mentors attach real ones. Both are real Menler
 // documents on the public marketing host rather than localhost, so they keep
@@ -971,43 +972,147 @@ function Assignments() {
   );
 }
 
+// Mirrors the mentor-side DRIVE_TYPES list, in student-facing wording.
+const REQUIRED_LABELS = {
+  video: 'a video',
+  image: 'a photo/screenshot',
+  doc: 'a document (PDF, Word or text file)',
+  slides: 'a slide deck (PPT)',
+  html: 'an HTML file',
+};
+
 function AssignmentCard({ a, onChange }) {
+  const { user } = useOutletContext();
   const sub = a.mySubmission;
-  const [url, setUrl] = useState(sub?.url || '');
+  const [driveLink, setDriveLink] = useState(sub?.driveLink || '');
+  const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
 
   async function submit(e) {
     e.preventDefault();
     setBusy(true);
-    try { await api(`/submissions/assignment/${a._id}`, { method: 'POST', body: { url } }); onChange(); }
+    setError('');
+    try {
+      // Editing re-runs verification server-side, so stale error text can
+      // never survive a changed link.
+      if (sub) await api(`/submissions/${sub._id}`, { method: 'PATCH', body: { driveLink } });
+      else await api('/submissions', { method: 'POST', body: { assignmentId: a._id, driveLink } });
+      setEditing(false);
+      onChange();
+    } catch (err) { setError(err.message); }
     finally { setBusy(false); }
   }
 
-  const overdue = a.dueDate && !sub && new Date(a.dueDate) < new Date();
-  const due = a.dueDate && new Date(a.dueDate).toLocaleString([], { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  async function remove() {
+    if (!sub || !window.confirm('Delete this submission? This can’t be undone.')) return;
+    setBusy(true);
+    setError('');
+    try { await api(`/submissions/${sub._id}`, { method: 'DELETE' }); onChange(); }
+    catch (err) { setError(err.message); }
+    finally { setBusy(false); }
+  }
+
+  const fmt = (d) => new Date(d).toLocaleString([], { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  const overdue = a.dueDate && new Date(a.dueDate) < new Date();
+  const notOpenYet = a.startDate && new Date(a.startDate) > new Date();
+  const due = a.dueDate && fmt(a.dueDate);
+  const start = a.startDate && fmt(a.startDate);
+  const showForm = (!sub || editing) && !notOpenYet;
+  // Mirrors the server's rules — the API is still the authority, this just
+  // avoids offering an action that would be rejected.
+  const editable = !sub?.locked && !overdue && !notOpenYet;
+  const required = (a.requiredDriveTypes || []).map((t) => REQUIRED_LABELS[t] || t);
 
   return (
     <div className="panel assign-card">
       <div className="assign-head">
         <div>
           <div className="assign-title"><strong>{a.title}</strong><span className={`badge ${a.type === 'project' ? 'badge-mentor' : ''}`}>{a.type}</span></div>
-          {a.dueDate && <div className={`assign-due ${overdue ? 'overdue' : ''}`}><LineIcon name="clock" size={13} /> Due {due}{overdue ? ' · overdue' : ''}</div>}
+          {notOpenYet && <div className="assign-due"><LineIcon name="clock" size={13} /> Opens {start}</div>}
+          {a.dueDate && <div className={`assign-due ${overdue && !sub ? 'overdue' : ''}`}><LineIcon name="clock" size={13} /> Due {due}{overdue ? ' · overdue' : ''}</div>}
         </div>
         {sub && <span className={`badge ${sub.status === 'graded' ? 'badge-student' : ''}`}>{sub.status}</span>}
       </div>
 
       {a.description && <div className="assign-desc"><Markdown text={a.description} /></div>}
 
-      {sub?.status === 'graded' ? (
+      {/* Current verification state — visible without opening notifications. */}
+      {sub && !editing && (
+        <SubmissionCheckPanel submission={{ ...sub, driveLink: sub.driveLink || sub.url }} audience="student" />
+      )}
+
+      {sub?.status === 'graded' && (
         <div className="graded">
           <div className="tile-value">{sub.score != null ? `${sub.score}/10` : '—'}</div>
           <div><strong>Score</strong>{sub.feedback && <p className="muted">“{sub.feedback}”</p>}</div>
         </div>
-      ) : (
-        <form className="assign-submit" onSubmit={submit}>
-          <input placeholder="Paste your submission link (GitHub, Drive, Docs…)" value={url} onChange={(e) => setUrl(e.target.value)} required />
-          <button className="btn sm" disabled={busy}>{busy ? 'Submitting…' : (sub ? 'Re-submit' : 'Submit')}</button>
+      )}
+
+      {error && <p className="sub-check-error">{error}</p>}
+
+      {notOpenYet ? (
+        <p className="muted">Submissions for this {a.type} open on {start}.</p>
+      ) : showForm ? (
+        <form className="sub-form" onSubmit={submit}>
+          {/* On an edit after a failed check, lead with what needs fixing. */}
+          {editing && (sub?.checkStatus === 'NEEDS_FIXES' || sub?.checkStatus === 'CHECK_FAILED') && sub?.errorDetail && (
+            <div className="sub-form-alert">
+              <CheckBadge status={sub.checkStatus} audience="student" />
+              <p>{sub.errorDetail}</p>
+            </div>
+          )}
+
+          <div className="sub-form-grid">
+            <div className="sub-field">
+              <span className="sub-field-label">Student</span>
+              <span className="sub-field-value">{user?.full_name || user?.fullName || user?.email}</span>
+            </div>
+            <div className="sub-field">
+              <span className="sub-field-label">{a.type === 'project' ? 'Project' : 'Assignment'}</span>
+              <span className="sub-field-value">{a.title}</span>
+            </div>
+            <div className="sub-field">
+              <span className="sub-field-label">Opens</span>
+              <span className="sub-field-value">{start || 'Open now'}</span>
+            </div>
+            <div className="sub-field">
+              <span className="sub-field-label">Last date to submit</span>
+              <span className={`sub-field-value ${overdue ? 'is-overdue' : ''}`}>{due || 'No deadline'}</span>
+            </div>
+          </div>
+
+          {/* What the automated check will look for — shown so the student
+              isn't guessing at what the folder must contain. */}
+          {required.length > 0 && (
+            <p className="muted sub-form-hint">
+              <strong>Your folder must contain:</strong> {required.join(', ')}.
+            </p>
+          )}
+
+          <label className="sub-field-label" htmlFor={`drive-${a._id}`}>Google Drive folder link</label>
+          <div className="assign-submit">
+            <input
+              id={`drive-${a._id}`}
+              placeholder="https://drive.google.com/drive/folders/…"
+              value={driveLink}
+              onChange={(e) => setDriveLink(e.target.value)}
+              required
+            />
+            <button className="btn sm" disabled={busy}>{busy ? 'Checking…' : (sub ? 'Save' : 'Submit')}</button>
+            {sub && <button type="button" className="btn sm ghost" onClick={() => { setEditing(false); setError(''); setDriveLink(sub.driveLink || ''); }}>Cancel</button>}
+          </div>
+          <p className="muted sub-form-hint">Share the folder as “Anyone with the link can view”, and include your video, screenshots, and write-up.</p>
         </form>
+      ) : sub?.locked ? (
+        <p className="muted">This submission has been reviewed and is locked. Ask your mentor to unlock it if you need to change it.</p>
+      ) : overdue ? (
+        <p className="muted">The deadline has passed, so this submission can no longer be changed.</p>
+      ) : (
+        <div className="inline-form">
+          <button type="button" className="btn sm ghost" onClick={() => setEditing(true)} disabled={!editable}>Edit</button>
+          <button type="button" className="btn sm ghost" onClick={remove} disabled={busy || !editable}>Delete</button>
+        </div>
       )}
     </div>
   );
