@@ -366,7 +366,6 @@ function Content() {
                 <div className="lesson-head">
                   <div className="lesson-head-top">
                     <div className="lesson-crumb">{current.mod}{current.chap && current.chap !== 'Lessons' ? ` · ${current.chap}` : ''}</div>
-                    <CopyLessonLink />
                   </div>
                   <h1 className="lesson-title">{topic.title}</h1>
                   {/* Same numbers the old chip read from — position in the
@@ -470,41 +469,6 @@ function FileViewer({ label, subtitle, url, onClose }) {
       </div>
     </div>,
     document.body,
-  );
-}
-
-// Now that the lesson lives in the URL, it can be handed to someone else —
-// a mentor pointing a student at the exact lesson, rather than "module 3, the
-// one about retrieval". Falls back to a hidden input on browsers without
-// clipboard permission (http origins, older Safari).
-function CopyLessonLink() {
-  const [copied, setCopied] = useState(false);
-
-  async function copy() {
-    const url = window.location.href;
-    try {
-      await navigator.clipboard.writeText(url);
-    } catch {
-      const el = document.createElement('textarea');
-      el.value = url;
-      el.style.position = 'fixed';
-      el.style.opacity = '0';
-      document.body.appendChild(el);
-      el.select();
-      try { document.execCommand('copy'); } finally { document.body.removeChild(el); }
-    }
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1800);
-  }
-
-  return (
-    <button className={`lesson-copy ${copied ? 'done' : ''}`} onClick={copy} title="Copy a link to this lesson">
-      {copied ? (
-        <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="m5 13 4 4L19 7" /></svg> Link copied</>
-      ) : (
-        <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.1 0l3-3a5 5 0 0 0-7.1-7.1L11.5 4.5" /><path d="M14 11a5 5 0 0 0-7.1 0l-3 3a5 5 0 0 0 7.1 7.1l1.4-1.4" /></svg> Copy link</>
-      )}
-    </button>
   );
 }
 

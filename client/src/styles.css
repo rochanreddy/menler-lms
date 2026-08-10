@@ -1345,19 +1345,7 @@ input:hover:not(:disabled):not(:focus), select:hover:not(:disabled):not(:focus),
 .demo-row-btn:hover code { color: var(--violet); }
 .demo-row-btn code { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* ── Shareable lesson link ── Lives on the dark stage, so it's parchment-toned. */
 .lesson-head-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
-.lesson-copy {
-  display: inline-flex; align-items: center; gap: 7px; flex: none;
-  padding: 6px 13px; border-radius: var(--pill);
-  border: 1px solid var(--stage-line); background: var(--stage-2);
-  color: var(--lavender); font-family: var(--font); font-size: 12px; font-weight: 600;
-  cursor: pointer; transition: background .16s, color .16s, border-color .16s;
-}
-.lesson-copy:hover { background: #2e2860; color: var(--parchment); border-color: var(--lavender); }
-.lesson-copy.done { background: rgba(29,158,117,.2); border-color: rgba(29,158,117,.5); color: #6ee7b7; }
-.lesson-copy:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(175,169,236,.35); }
-@media (max-width: 560px) { .lesson-copy span { display: none; } }
 
 /* ── Admin control panel: blocking, drill-down pages, charts ── */
 
