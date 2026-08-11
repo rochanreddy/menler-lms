@@ -47,13 +47,49 @@ router.post('/:id/apply', requireAuth, requireRole('student'), async (req, res) 
   res.status(201).json({ ok: true });
 });
 
+/** Shared guard for the two applicant endpoints: load the job and confirm this
+ *  partner actually posted it. Admins pass for any job. */
+async function loadOwnJob(req, res) {
+  const job = await Job.findById(req.params.id);
+  if (!job) { res.status(404).json({ error: 'Job not found.' }); return null; }
+  if (req.user.role !== 'admin' && job.postedBy?.toString() !== req.user._id.toString()) {
+    res.status(403).json({ error: 'Forbidden.' });
+    return null;
+  }
+  return job;
+}
+
+// The candidate fields a partner is allowed to see. Deliberately explicit —
+// never hand the whole user doc to a B2B account (it carries passwordHash,
+// reset tokens, moderation state and batch membership).
+const CANDIDATE_FIELDS = 'fullName email phone resumeUrl education professional createdAt';
+
 // GET /api/lms/jobs/:id/applicants — the posting partner (or admin) sees applicants.
 router.get('/:id/applicants', requireAuth, requireRole('partner', 'admin'), async (req, res) => {
-  const job = await Job.findById(req.params.id);
-  if (!job) return res.status(404).json({ error: 'Job not found.' });
-  if (req.user.role !== 'admin' && job.postedBy?.toString() !== req.user._id.toString()) return res.status(403).json({ error: 'Forbidden.' });
-  const apps = await Application.find({ jobId: job._id }).populate('studentId', 'fullName email resumeUrl education professional').sort({ createdAt: -1 });
+  const job = await loadOwnJob(req, res);
+  if (!job) return;
+  const apps = await Application.find({ jobId: job._id }).populate('studentId', CANDIDATE_FIELDS).sort({ createdAt: -1 });
   res.json({ job: { id: job._id, title: job.title, company: job.company }, applicants: apps });
+});
+
+// PATCH /api/lms/jobs/:id/applicants/:appId — move a candidate through the
+// pipeline. Status is whitelisted against the model's enum so a bad value is a
+// 400 here rather than a mongoose cast error deeper in.
+const STATUSES = ['applied', 'shortlisted', 'rejected'];
+router.patch('/:id/applicants/:appId', requireAuth, requireRole('partner', 'admin'), async (req, res) => {
+  const job = await loadOwnJob(req, res);
+  if (!job) return;
+  const { status } = req.body || {};
+  if (!STATUSES.includes(status)) return res.status(400).json({ error: `Status must be one of: ${STATUSES.join(', ')}.` });
+  // Scope by jobId too — an application id from another posting must not be
+  // reachable just because this partner owns *some* job.
+  const app = await Application.findOneAndUpdate(
+    { _id: req.params.appId, jobId: job._id },
+    { $set: { status } },
+    { new: true },
+  ).populate('studentId', CANDIDATE_FIELDS);
+  if (!app) return res.status(404).json({ error: 'Application not found.' });
+  res.json({ application: app });
 });
 
 export default router;

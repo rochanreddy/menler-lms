@@ -10,7 +10,8 @@
     "seed": "node scripts/seed.js",
     "seed:demo": "node scripts/seedDemo.js",
     "seed:content": "node scripts/seedContent.js",
-    "seed:library": "node scripts/seedLibrary.js"
+    "seed:library": "node scripts/seedLibrary.js",
+    "seed:partner": "node scripts/seedPartner.js"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",

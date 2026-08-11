@@ -9,6 +9,7 @@ const DEMOS = [
   { role: 'Admin', email: 'admin@menler.in', password: 'ChangeMe123!' },
   { role: 'Mentor', email: 'mentor@menler.in', password: 'mentor123' },
   { role: 'Student', email: 'aarav@demo.menler.in', password: 'student123' },
+  { role: 'Partner', email: 'partner@menler.in', password: 'Partner123!' },
 ];
 
 export default function Login({ onLogin }) {
