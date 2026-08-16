@@ -15,6 +15,7 @@ export default function AdminMentors() {
   const [temp, setTemp] = useState(null);
   const [reset, setReset] = useState(null); // { email, password } after a reset
   const [err, setErr] = useState('');
+  const [busy, setBusy] = useState(false);
 
   const load = () => api('/users?role=mentor').then((d) => setMentors(d.users || [])).catch(() => {});
   const loadBatches = () => api('/batches').then((d) => setBatches(d.batches || [])).catch(() => {});
@@ -35,13 +36,16 @@ export default function AdminMentors() {
 
   async function create(e) {
     e.preventDefault();
+    if (busy) return;
     setErr(''); setTemp(null); setReset(null);
+    setBusy(true);
     try {
       const res = await api('/users', { method: 'POST', body: { ...form, role: 'mentor' } });
       setTemp({ email: res.user.email, password: res.tempPassword, custom: res.custom });
       setForm({ email: '', fullName: '', password: '' });
       load();
     } catch (e2) { setErr(e2.message); }
+    finally { setBusy(false); }
   }
 
   async function resetPassword(m) {
@@ -69,10 +73,10 @@ export default function AdminMentors() {
           <input placeholder="Full name" value={form.fullName} onChange={(e) => setForm((f) => ({ ...f, fullName: e.target.value }))} />
           <input type="email" placeholder="Email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} required />
           <input placeholder="Password (optional — auto if blank)" value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} />
-          <button className="btn sm">Create mentor</button>
+          <button className="btn sm" disabled={busy}>{busy ? 'Creating…' : 'Create mentor'}</button>
         </div>
         <p className="muted" style={{ fontSize: 12, marginTop: 6 }}>Leave password blank to auto-generate one. Either way, the mentor must change it on first login.</p>
-        {err && <span className="error">{err}</span>}
+        {err && <span className="error" role="alert">{err}</span>}
         {temp && (
           <div className="tempbox">
             <div className="tempbox-line"><span className="tempbox-ic"><LineIcon name="check" size={16} /></span><span>Created <strong>{temp.email}</strong> — {temp.custom ? 'password' : 'temp password'}: <code>{temp.password}</code></span></div>

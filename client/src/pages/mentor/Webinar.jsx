@@ -9,16 +9,23 @@ export default function Webinar() {
   const canAdd = user.role === 'admin' || user.role === 'mentor';
   const [webinars, setWebinars] = useState([]);
   const [form, setForm] = useState({ title: '', startsAt: '', joinUrl: '' });
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
 
   const load = () => api('/webinars').then((d) => setWebinars(d.webinars || [])).catch(() => {});
   useEffect(() => { load(); }, []);
 
   async function add(e) {
     e.preventDefault();
-    if (!form.title.trim()) return;
-    await api('/webinars', { method: 'POST', body: { ...form, startsAt: form.startsAt ? new Date(form.startsAt).toISOString() : null } });
-    setForm({ title: '', startsAt: '', joinUrl: '' });
-    load();
+    if (!form.title.trim() || busy) return;
+    setBusy(true);
+    setErr('');
+    try {
+      await api('/webinars', { method: 'POST', body: { ...form, startsAt: form.startsAt ? new Date(form.startsAt).toISOString() : null } });
+      setForm({ title: '', startsAt: '', joinUrl: '' });
+      load();
+    } catch (e2) { setErr(e2.message); }
+    finally { setBusy(false); }
   }
 
   const now = Date.now();
@@ -39,8 +46,9 @@ export default function Webinar() {
             <input placeholder="Title" value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} />
             <DateTimePicker value={form.startsAt} onChange={(v) => setForm((f) => ({ ...f, startsAt: v }))} placeholder="Starts at" />
             <input placeholder="Join link" value={form.joinUrl} onChange={(e) => setForm((f) => ({ ...f, joinUrl: e.target.value }))} />
-            <button className="btn sm">Add</button>
+            <button className="btn sm" disabled={busy}>{busy ? 'Adding…' : 'Add'}</button>
           </div>
+          {err && <span className="error" role="alert">{err}</span>}
         </form>
       )}
 
@@ -50,7 +58,7 @@ export default function Webinar() {
           return (
             <div key={w._id} className="panel list-row">
               <div>
-                <strong>{w.title}</strong> <span className="badge">{past ? 'past' : 'upcoming'}</span>
+                <strong>{w.title}</strong> <span className={`badge ${past ? 'badge-muted' : 'badge-student'}`}>{past ? 'past' : 'upcoming'}</span>
                 <div className="muted">{w.startsAt ? new Date(w.startsAt).toLocaleString() : 'Date TBA'}</div>
               </div>
               <div className="row">

@@ -19,11 +19,22 @@ function FileViewer({ label, subtitle, url, onClose, allowNewTab = false }) {
   const isLocal = /^https?:\/\/(localhost|127\.0\.0\.1|\[?::1)/i.test(url);
   const src = isOffice ? `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(url)}` : url;
 
+  const panelRef = useRef(null);
+
   useEffect(() => {
     const onKey = (e) => e.key === 'Escape' && onClose();
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
+
+  // Move focus into the dialog on open and hand it back to whatever launched
+  // the viewer on close — a keyboard user shouldn't be dropped back at the top
+  // of the page, and a screen reader should land inside the dialog.
+  useEffect(() => {
+    const opener = document.activeElement;
+    panelRef.current?.focus();
+    return () => { if (opener instanceof HTMLElement) opener.focus(); };
+  }, []);
 
   // Portalled to <body> on purpose. `.main` carries the page-enter animation,
   // and a filling transform/opacity animation makes the element a stacking
@@ -31,7 +42,7 @@ function FileViewer({ label, subtitle, url, onClose, allowNewTab = false }) {
   // the dock paint over the reader no matter how high its z-index went.
   return createPortal(
     <div className="fv-overlay" onClick={onClose}>
-      <div className="fv" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={`${label} — ${subtitle}`}>
+      <div className="fv" ref={panelRef} tabIndex={-1} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={`${label} — ${subtitle}`}>
         <div className="fv-head">
           <div className="fv-head-copy">
             <div className="fv-kicker">{label}</div>
@@ -267,6 +278,7 @@ function PdfReader({ url }) {
   const [term, setTerm] = useState('');   // debounced — drives search AND repaint
   const [hits, setHits] = useState([]);   // page number per match, in reading order
   const [hitIdx, setHitIdx] = useState(0);
+  const [reloadKey, setReloadKey] = useState(0); // bump to retry a failed load
 
   // Open the document once per URL.
   useEffect(() => {
@@ -309,7 +321,7 @@ function PdfReader({ url }) {
       libRef.current = null;
       try { Promise.resolve(d?.destroy()).catch(() => {}); } catch { /* already gone */ }
     };
-  }, [url]);
+  }, [url, reloadKey]);
 
   const bind = useMemo(() => (n, el) => { if (el) els.current.set(n, el); else els.current.delete(n); }, []);
   const scrollToPage = useMemo(() => (n, smooth = true) => {
@@ -403,7 +415,14 @@ function PdfReader({ url }) {
     return () => window.removeEventListener('keydown', onKey);
   }, [scrollToPage]);
 
-  if (error) return <div className="pdfr-state">{error}</div>;
+  if (error) {
+    return (
+      <div className="pdfr-state">
+        <p>{error}</p>
+        <button className="btn sm ghost" onClick={() => setReloadKey((k) => k + 1)} style={{ marginTop: 14 }}>Try again</button>
+      </div>
+    );
+  }
 
   return (
     <>

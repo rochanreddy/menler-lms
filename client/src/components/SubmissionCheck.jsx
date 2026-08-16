@@ -69,7 +69,7 @@ export function SubmissionCheckPanel({ submission, onRecheck, busy = false, audi
       <div className="sub-check-head">
         <DriveLink href={driveLink} />
         <CheckBadge status={checkStatus} audience={audience} />
-        {submission.locked && <span className="badge">locked</span>}
+        {submission.locked && <span className="badge badge-muted">locked</span>}
         {onRecheck && driveLink && (
           <button type="button" className="btn sm ghost" onClick={onRecheck} disabled={busy}>
             {busy ? 'Re-checking…' : 'Re-check'}

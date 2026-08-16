@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { navFor } from '../nav.jsx';
 import Icon from './Icon.jsx';
@@ -72,7 +72,9 @@ export default function AppShell({ user, setUser, logout }) {
       {/* keyed on the route so each page fades in — movement between sections
           reads as a change of place rather than a flicker. */}
       <main className="main page-enter" key={location.pathname}>
-        <Outlet context={{ user, setUser, logout }} />
+        <Suspense fallback={<div className="route-loading"><div className="skeleton"><div className="skeleton-row tall" /><div className="skeleton-row" /><div className="skeleton-row" /></div></div>}>
+          <Outlet context={{ user, setUser, logout }} />
+        </Suspense>
       </main>
 
       {/* The dock. Icons always; only the active item expands to show its

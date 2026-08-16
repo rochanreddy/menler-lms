@@ -1,21 +1,27 @@
+import { lazy } from 'react';
 import Placeholder from './components/Placeholder.jsx';
-import Profile from './pages/Profile.jsx';
-import Learning from './pages/Learning.jsx';
-import ProgramsManage from './pages/ProgramsManage.jsx';
-import StudentHome from './pages/StudentHome.jsx';
-import StudentGrades from './pages/StudentGrades.jsx';
-import AdminBatches from './pages/admin/Batches.jsx';
-import AdminMentors from './pages/admin/Mentors.jsx';
-import MentorBatches from './pages/mentor/Batches.jsx';
-import MentorHome from './pages/mentor/Home.jsx';
-import MentorStudents from './pages/mentor/Students.jsx';
-import Forum from './pages/Forum.jsx';
-import Library from './pages/Library.jsx';
-import Webinar from './pages/mentor/Webinar.jsx';
-import AdminHome from './pages/admin/Home.jsx';
-import AdminStudents from './pages/admin/Students.jsx';
-import AdminStudentDetail from './pages/admin/StudentDetail.jsx';
-import AdminMentorDetail from './pages/admin/MentorDetail.jsx';
+
+// Every destination is code-split: a role only downloads the screens it can
+// reach, and the heavy ones (lesson player, curriculum editor, PDF reader) load
+// on navigation rather than at first paint. AppShell wraps the Outlet in a
+// Suspense boundary that shows a fallback while a chunk arrives.
+const Profile = lazy(() => import('./pages/Profile.jsx'));
+const Learning = lazy(() => import('./pages/Learning.jsx'));
+const ProgramsManage = lazy(() => import('./pages/ProgramsManage.jsx'));
+const StudentHome = lazy(() => import('./pages/StudentHome.jsx'));
+const StudentGrades = lazy(() => import('./pages/StudentGrades.jsx'));
+const AdminBatches = lazy(() => import('./pages/admin/Batches.jsx'));
+const AdminMentors = lazy(() => import('./pages/admin/Mentors.jsx'));
+const MentorBatches = lazy(() => import('./pages/mentor/Batches.jsx'));
+const MentorHome = lazy(() => import('./pages/mentor/Home.jsx'));
+const MentorStudents = lazy(() => import('./pages/mentor/Students.jsx'));
+const Forum = lazy(() => import('./pages/Forum.jsx'));
+const Library = lazy(() => import('./pages/Library.jsx'));
+const Webinar = lazy(() => import('./pages/mentor/Webinar.jsx'));
+const AdminHome = lazy(() => import('./pages/admin/Home.jsx'));
+const AdminStudents = lazy(() => import('./pages/admin/Students.jsx'));
+const AdminStudentDetail = lazy(() => import('./pages/admin/StudentDetail.jsx'));
+const AdminMentorDetail = lazy(() => import('./pages/admin/MentorDetail.jsx'));
 
 // A placeholder page factory — renders the spec's sections for screens whose
 // backend is Phase 2.

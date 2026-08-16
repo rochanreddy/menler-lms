@@ -11,16 +11,23 @@ export default function Library() {
   const [items, setItems] = useState([]);
   const [filter, setFilter] = useState('All');
   const [form, setForm] = useState({ title: '', category: 'Note', url: '', description: '' });
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
 
   const load = () => api('/library').then((d) => setItems(d.items || [])).catch(() => {});
   useEffect(() => { load(); }, []);
 
   async function add(e) {
     e.preventDefault();
-    if (!form.title.trim()) return;
-    await api('/library', { method: 'POST', body: form });
-    setForm({ title: '', category: 'Note', url: '', description: '' });
-    load();
+    if (!form.title.trim() || busy) return;
+    setBusy(true);
+    setErr('');
+    try {
+      await api('/library', { method: 'POST', body: form });
+      setForm({ title: '', category: 'Note', url: '', description: '' });
+      load();
+    } catch (e2) { setErr(e2.message); }
+    finally { setBusy(false); }
   }
 
   const shown = filter === 'All' ? items : items.filter((i) => i.category === filter);
@@ -44,8 +51,9 @@ export default function Library() {
               {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
             </select>
             <input placeholder="Link (Drive, PDF…)" value={form.url} onChange={(e) => setForm((f) => ({ ...f, url: e.target.value }))} />
-            <button className="btn sm">Add</button>
+            <button className="btn sm" disabled={busy}>{busy ? 'Adding…' : 'Add'}</button>
           </div>
+          {err && <span className="error" role="alert">{err}</span>}
         </form>
       )}
 

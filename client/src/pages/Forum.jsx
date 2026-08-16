@@ -47,6 +47,8 @@ export default function Forum() {
 function Doubts({ batchId, me }) {
   const [doubts, setDoubts] = useState([]);
   const [text, setText] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
   const isStudent = me.role === 'student';
 
   const load = () => api(`/forum/doubts?batchId=${batchId}`).then((d) => setDoubts(d.doubts || [])).catch(() => {});
@@ -59,10 +61,15 @@ function Doubts({ batchId, me }) {
 
   async function post(e) {
     e.preventDefault();
-    if (!text.trim()) return;
-    await api('/forum/doubts', { method: 'POST', body: { batchId, text } });
-    setText('');
-    load();
+    if (!text.trim() || busy) return;
+    setBusy(true);
+    setErr('');
+    try {
+      await api('/forum/doubts', { method: 'POST', body: { batchId, text } });
+      setText('');
+      load();
+    } catch (e2) { setErr(e2.message); }
+    finally { setBusy(false); }
   }
 
   return (
@@ -71,9 +78,10 @@ function Doubts({ batchId, me }) {
         <form className="panel" onSubmit={post}>
           <h3>Ask a doubt</h3>
           <div className="inline-form">
-            <input style={{ flex: 1, minWidth: 260 }} placeholder="What are you stuck on?" value={text} onChange={(e) => setText(e.target.value)} />
-            <button className="btn sm">Post doubt</button>
+            <input style={{ flex: 1, minWidth: 260 }} placeholder="What are you stuck on?" value={text} onChange={(e) => setText(e.target.value)} aria-label="Your doubt" />
+            <button className="btn sm" disabled={busy}>{busy ? 'Posting…' : 'Post doubt'}</button>
           </div>
+          {err && <span className="error" role="alert">{err}</span>}
         </form>
       ) : (
         <div className="panel"><h3>Student doubts</h3><p className="muted">Answer your students' questions below. New doubts appear here live.</p></div>
@@ -90,14 +98,19 @@ function Doubts({ batchId, me }) {
 function DoubtCard({ doubt, me, onChange }) {
   const [comment, setComment] = useState('');
   const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
 
-  async function like() { await api(`/forum/doubts/${doubt.id}/like`, { method: 'POST' }); onChange(); }
+  async function like() { try { await api(`/forum/doubts/${doubt.id}/like`, { method: 'POST' }); onChange(); } catch { /* transient — next poll reconciles */ } }
   async function addComment(e) {
     e.preventDefault();
-    if (!comment.trim()) return;
-    await api(`/forum/doubts/${doubt.id}/comments`, { method: 'POST', body: { text: comment } });
-    setComment('');
-    onChange();
+    if (!comment.trim() || busy) return;
+    setBusy(true);
+    try {
+      await api(`/forum/doubts/${doubt.id}/comments`, { method: 'POST', body: { text: comment } });
+      setComment('');
+      onChange();
+    } catch { /* keep the draft so the reply isn't lost on a failed send */ }
+    finally { setBusy(false); }
   }
 
   return (
@@ -124,8 +137,8 @@ function DoubtCard({ doubt, me, onChange }) {
             </div>
           ))}
           <form className="inline-form" onSubmit={addComment}>
-            <input style={{ flex: 1, minWidth: 220 }} placeholder={me.role === 'mentor' ? 'Write an answer…' : 'Add a comment…'} value={comment} onChange={(e) => setComment(e.target.value)} />
-            <button className="btn sm">{me.role === 'mentor' ? 'Answer' : 'Reply'}</button>
+            <input style={{ flex: 1, minWidth: 220 }} placeholder={me.role === 'mentor' ? 'Write an answer…' : 'Add a comment…'} value={comment} onChange={(e) => setComment(e.target.value)} aria-label={me.role === 'mentor' ? 'Your answer' : 'Your comment'} />
+            <button className="btn sm" disabled={busy}>{busy ? 'Sending…' : (me.role === 'mentor' ? 'Answer' : 'Reply')}</button>
           </form>
         </div>
       )}

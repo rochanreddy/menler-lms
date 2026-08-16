@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api, downloadFile } from '../api.js';
 import LineIcon from './LineIcon.jsx';
@@ -97,7 +97,7 @@ export default function BatchWorkspace({ batchId, mode }) {
           <h2 style={{ margin: 0 }}>{batch.name}</h2>
           <div className="ws-tags">
             {batch.programId?.title && <span className="badge badge-mentor">{batch.programId.title}</span>}
-            <span className="badge">{batch.status}</span>
+            <span className="badge badge-muted">{batch.status}</span>
           </div>
         </div>
         <div className="row">
@@ -269,7 +269,7 @@ export default function BatchWorkspace({ batchId, mode }) {
               <div className="assignment-reqs">
                 <span className="muted">Requires in Drive folder:</span>
                 {a.requiredDriveTypes.map((t) => (
-                  <span key={t} className="badge">{DRIVE_TYPES.find((d) => d.key === t)?.label || t}</span>
+                  <span key={t} className="badge badge-muted">{DRIVE_TYPES.find((d) => d.key === t)?.label || t}</span>
                 ))}
               </div>
             )}
@@ -307,15 +307,15 @@ export default function BatchWorkspace({ batchId, mode }) {
             <table className="grade-table">
               <thead>
                 <tr>
-                  <th>Student</th>
-                  {gradebook.columns.map((c) => <th key={c.id} title={c.title}>{c.title.length > 14 ? c.title.slice(0, 13) + '…' : c.title}</th>)}
-                  <th>Avg</th>
+                  <th scope="col">Student</th>
+                  {gradebook.columns.map((c) => <th scope="col" key={c.id} title={c.title}>{c.title.length > 14 ? c.title.slice(0, 13) + '…' : c.title}</th>)}
+                  <th scope="col">Avg</th>
                 </tr>
               </thead>
               <tbody>
                 {gradebook.rows.map((r) => (
                   <tr key={r.studentId}>
-                    <td>{r.name}</td>
+                    <th scope="row" className="gb-rowhead">{r.name}</th>
                     {r.cells.map((cv, i) => (
                       <td key={gradebook.columns[i].id} className={`gb-cell gb-${cv.status}`}>
                         {cv.score == null
@@ -594,14 +594,24 @@ function Attendance({ session, students, onDone }) {
   const [marks, setMarks] = useState({});
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const modalRef = useRef(null);
 
-  // Lock the page behind the modal so scrolling stays inside it.
+  // Lock the page behind the modal so scrolling stays inside it, move focus in,
+  // hand it back on close, and let Escape dismiss (unless a save is in flight).
   useEffect(() => {
     if (!open) return undefined;
     const prev = document.body.style.overflow;
+    const opener = document.activeElement;
     document.body.style.overflow = 'hidden';
-    return () => { document.body.style.overflow = prev; };
-  }, [open]);
+    modalRef.current?.focus();
+    const onKey = (e) => { if (e.key === 'Escape' && !saving) setOpen(false); };
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.body.style.overflow = prev;
+      window.removeEventListener('keydown', onKey);
+      if (opener instanceof HTMLElement) opener.focus();
+    };
+  }, [open, saving]);
 
   async function openModal() {
     setOpen(true); setLoading(true);
@@ -632,7 +642,7 @@ function Attendance({ session, students, onDone }) {
       <button className="btn sm ghost" onClick={openModal}>Mark attendance</button>
       {open && (
         <div className="att-overlay" onClick={() => !saving && setOpen(false)}>
-          <div className="att-modal" onClick={(e) => e.stopPropagation()}>
+          <div className="att-modal" ref={modalRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={`Attendance — ${session.title}`} onClick={(e) => e.stopPropagation()}>
             <div className="att-head">
               <div>
                 <div className="att-kicker">Attendance</div>
@@ -712,17 +722,25 @@ function GradeRow({ sub, onGrade, onRecheck, onUnlock }) {
   const [score, setScore] = useState(sub.score ?? '');
   const [feedback, setFeedback] = useState(sub.feedback || '');
   const [busy, setBusy] = useState(false);
+  const [grading, setGrading] = useState(false);
 
   async function recheck() {
     setBusy(true);
     try { await onRecheck(sub._id); } finally { setBusy(false); }
   }
 
+  // Grading writes a score — guard against a double-click posting it twice.
+  async function grade() {
+    if (grading) return;
+    setGrading(true);
+    try { await onGrade(sub._id, score, feedback); } finally { setGrading(false); }
+  }
+
   return (
     <div className="grade-row-stack">
       <div className="grade-row-top">
         <strong>{sub.studentId?.fullName || sub.studentId?.email}</strong>
-        <span className="badge">{sub.status}</span>
+        <span className={`badge ${sub.status === 'graded' ? 'badge-student' : sub.status === 'submitted' ? 'badge-submitted' : ''}`}>{sub.status}</span>
       </div>
 
       {/* Drive verification — its own block, independent of the grade below. */}
@@ -739,7 +757,7 @@ function GradeRow({ sub, onGrade, onRecheck, onUnlock }) {
           {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => <option key={n} value={n}>{n} / 10</option>)}
         </select>
         <input placeholder="Feedback" value={feedback} onChange={(e) => setFeedback(e.target.value)} />
-        <button className="btn sm" onClick={() => onGrade(sub._id, score, feedback)}>Grade</button>
+        <button className="btn sm" onClick={grade} disabled={grading}>{grading ? 'Saving…' : 'Grade'}</button>
       </div>
     </div>
   );

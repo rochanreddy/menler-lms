@@ -86,6 +86,7 @@ h3 { font-size: 15.5px; font-weight: 700; margin: 0 0 12px; }
 .eyebrow { font-size: 11px; font-weight: 700; letter-spacing: .15em; text-transform: uppercase; color: var(--violet); margin-bottom: 9px; }
 .muted { color: var(--muted); }
 .error { color: #c0362c; font-size: 13.5px; }
+.auth-error { margin-bottom: 12px; }
 .center { min-height: 100vh; display: grid; place-items: center; }
 .row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .stack { display: flex; flex-direction: column; gap: 18px; max-width: 680px; }
@@ -353,6 +354,15 @@ h3 { font-size: 15.5px; font-weight: 700; margin: 0 0 12px; }
 .badge-student { background: var(--a6-soft); color: var(--a6-ink); }
 .badge-mentor { background: var(--a5-soft); color: var(--a5-ink); }
 .badge-admin { background: var(--a4-soft); color: var(--a4-ink); }
+
+/* ── Badge taxonomy ───────────────────────────────────────────────────────────
+   The default violet .badge labels an item's TYPE / category (assignment, quiz,
+   eBook). Everything else gets a distinct tone so a row of pills reads at a
+   glance instead of blurring into one violet block:
+     status  → semantic (amber awaiting, green done, red blocked)
+     tags    → quiet neutral (file types, counts, "locked", batch state)      */
+.badge-submitted { background: var(--a3-soft); color: var(--a3-ink); }  /* amber: awaiting */
+.badge-muted { background: var(--line-soft); color: var(--muted); }     /* neutral metadata */
 
 
 /* ── Status pills (work state, not role) ── */
@@ -799,6 +809,9 @@ h1.md-h { font-size: 22px; } h2.md-h { font-size: 19px; } h3.md-h { font-size: 1
 .grade-table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
 .grade-table th, .grade-table td { padding: 9px 12px; text-align: left; border-bottom: 1px solid #eef0f4; white-space: nowrap; }
 .grade-table th { font-size: 12px; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); font-weight: 600; }
+/* Row-header cells (student names) are a th for grid semantics, but read as
+   body text, not a column label. */
+.grade-table th.gb-rowhead { font-size: 13.5px; text-transform: none; letter-spacing: 0; color: var(--ink); font-weight: 600; }
 .grade-table tbody tr:hover { background: #f8f9fc; }
 .gt-kind { font-size: 11.5px; padding: 2px 8px; border-radius: 999px; background: #eef1fb; color: var(--brand); font-weight: 600; }
 .gt-kind.gt-exam { background: #fdeeee; color: #b5352f; }
@@ -907,6 +920,20 @@ h1.md-h { font-size: 22px; } h2.md-h { font-size: 19px; } h3.md-h { font-size: 1
 
 /* Student assignment card */
 .assign-card { margin-bottom: 14px; }
+/* One calm vertical rhythm: every top-level block in the card sits 14px below
+   the last, instead of the mix of 6/8/12/16px (default <p>) it grew into. */
+.assign-card > .assign-desc,
+.assign-card > .sub-check,
+.assign-card > .graded,
+.assign-card > .assign-note,
+.assign-card > .sub-form,
+.assign-card > .sub-check-error,
+.assign-card > .inline-form { margin-top: 14px; }
+/* File-type tags are secondary metadata; keep them quiet so the file names lead. */
+.sub-files .badge { background: var(--line-soft); color: var(--muted); }
+/* Trailing status sentences ("deadline passed", "locked") — a quiet note, not a
+   full-size paragraph with browser margins. */
+.assign-note { margin: 0; font-size: 13.5px; color: var(--muted); line-height: 1.5; }
 .assign-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 .assign-title { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .assign-title strong { font-size: 16px; }
@@ -1476,5 +1503,8 @@ input:hover:not(:disabled):not(:focus), select:hover:not(:disabled):not(:focus),
   padding: 34px 22px; text-align: center; color: var(--muted); font-size: 14px;
 }
 .empty-icon { font-size: 26px; margin-bottom: 8px; opacity: .8; }
+
+/* Route-level Suspense fallback while a lazily-loaded page chunk downloads. */
+.route-loading { padding-top: 4px; }
 .empty strong { display: block; color: var(--ink-2); font-size: 15px; margin-bottom: 3px; }
 

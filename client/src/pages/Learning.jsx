@@ -79,6 +79,16 @@ function QuizCard({ quiz, onDone }) {
   const [showReview, setShowReview] = useState(false);
   const attempt = quiz.myAttempt;
 
+  // Once answering has begun, warn before an accidental tab close / reload —
+  // draft answers live only in local state and aren't saved until submit.
+  const dirty = open && !attempt && Object.keys(answers).length > 0 && !busy;
+  useEffect(() => {
+    if (!dirty) return undefined;
+    const warn = (e) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [dirty]);
+
   async function submit(e) {
     e.preventDefault();
     setBusy(true);
@@ -298,8 +308,8 @@ function Content() {
       {/* Header: program picker + progress ring */}
       <div className="learn-top">
         <div className="learn-prog-pick">
-          <span className="learn-eyebrow">Program</span>
-          <select value={program?._id || ''} onChange={(e) => { if (e.target.value) { setParams({ program: e.target.value }, { replace: true }); pick(e.target.value); } }}>
+          <span className="learn-eyebrow" id="learn-prog-label">Program</span>
+          <select aria-labelledby="learn-prog-label" value={program?._id || ''} onChange={(e) => { if (e.target.value) { setParams({ program: e.target.value }, { replace: true }); pick(e.target.value); } }}>
             <option value="">Select a program…</option>
             {programs.map((p) => <option key={p._id} value={p._id}>{p.title}</option>)}
           </select>
@@ -364,7 +374,7 @@ function Content() {
                   <div className="lesson-head-top">
                     <div className="lesson-crumb">{current.mod}{current.chap && current.chap !== 'Lessons' ? ` · ${current.chap}` : ''}</div>
                   </div>
-                  <h1 className="lesson-title">{topic.title}</h1>
+                  <h2 className="lesson-title">{topic.title}</h2>
                   {/* Same numbers the old chip read from — position in the
                       flattened lesson list, so it tracks as you move around. */}
                   <div className="lesson-position">Lesson {idx + 1} of {flat.length}</div>
@@ -391,7 +401,7 @@ function Content() {
                 </div>
 
                 <div className="lesson-body">
-                  {topic.contentType === 'video' && topic.contentUrl && <video src={topic.contentUrl} controls className="lesson-video" />}
+                  {topic.contentType === 'video' && topic.contentUrl && <LessonVideo key={topic._id} url={topic.contentUrl} />}
                   {topic.contentType === 'pdf' && topic.contentUrl && <a className="btn" href={topic.contentUrl} target="_blank" rel="noreferrer">📄 Open PDF</a>}
                   {topic.body ? <Markdown text={topic.body} /> : (topic.contentType === 'text' && <p className="muted">No content for this lesson yet.</p>)}
                 </div>
@@ -415,6 +425,25 @@ function Content() {
       {viewer && <FileViewer {...viewer} onClose={() => setViewer(null)} />}
     </div>
   );
+}
+
+// Lesson video with a graceful failure path — a dead CDN link or an
+// unsupported codec should offer a retry and a direct link, not a black frame.
+function LessonVideo({ url }) {
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  if (failed) {
+    return (
+      <div className="panel empty-state lesson-video-error">
+        <p className="muted">This video couldn’t be loaded. It may have moved, or your connection dropped.</p>
+        <div className="row" style={{ justifyContent: 'center', marginTop: 12 }}>
+          <button className="btn sm" onClick={() => { setFailed(false); setAttempt((n) => n + 1); }}>Try again</button>
+          <a className="btn sm ghost" href={url} target="_blank" rel="noreferrer">Open in new tab</a>
+        </div>
+      </div>
+    );
+  }
+  return <video key={attempt} src={url} controls className="lesson-video" onError={() => setFailed(true)} />;
 }
 
 // Circular progress indicator.
@@ -526,7 +555,7 @@ function AssignmentCard({ a, onChange }) {
           {notOpenYet && <div className="assign-due"><LineIcon name="clock" size={13} /> Opens {start}</div>}
           {a.dueDate && <div className={`assign-due ${overdue && !sub ? 'overdue' : ''}`}><LineIcon name="clock" size={13} /> Due {due}{overdue ? ' · overdue' : ''}</div>}
         </div>
-        {sub && <span className={`badge ${sub.status === 'graded' ? 'badge-student' : ''}`}>{sub.status}</span>}
+        {sub && <span className={`badge ${sub.status === 'graded' ? 'badge-student' : sub.status === 'submitted' ? 'badge-submitted' : ''}`}>{sub.status}</span>}
       </div>
 
       {a.description && <div className="assign-desc"><Markdown text={a.description} /></div>}
@@ -546,7 +575,7 @@ function AssignmentCard({ a, onChange }) {
       {error && <p className="sub-check-error">{error}</p>}
 
       {notOpenYet ? (
-        <p className="muted">Submissions for this {a.type} open on {start}.</p>
+        <p className="assign-note">Submissions for this {a.type} open on {start}.</p>
       ) : showForm ? (
         <form className="sub-form" onSubmit={submit}>
           {/* On an edit after a failed check, lead with what needs fixing. */}
@@ -599,9 +628,9 @@ function AssignmentCard({ a, onChange }) {
           <p className="muted sub-form-hint">Share the folder as “Anyone with the link can view”, and include your video, screenshots, and write-up.</p>
         </form>
       ) : sub?.locked ? (
-        <p className="muted">This submission has been reviewed and is locked. Ask your mentor to unlock it if you need to change it.</p>
+        <p className="assign-note">This submission has been reviewed and is locked. Ask your mentor to unlock it if you need to change it.</p>
       ) : overdue ? (
-        <p className="muted">The deadline has passed, so this submission can no longer be changed.</p>
+        <p className="assign-note">The deadline has passed, so this submission can no longer be changed.</p>
       ) : (
         <div className="inline-form">
           <button type="button" className="btn sm ghost" onClick={() => setEditing(true)} disabled={!editable}>Edit</button>

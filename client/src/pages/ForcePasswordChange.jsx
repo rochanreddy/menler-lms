@@ -28,14 +28,14 @@ export default function ForcePasswordChange({ user, onDone, onLogout }) {
         <h1 style={{ fontSize: 24 }}>Set your password</h1>
         <p className="muted">Welcome, {user.full_name || user.email}. For security, choose your own password before continuing.</p>
         <div className="field" style={{ marginTop: 14 }}>
-          <label>New password</label>
-          <input type="password" value={pw} onChange={(e) => setPw(e.target.value)} minLength={8} placeholder="Min 8 characters" required />
+          <label htmlFor="fpc-new">New password</label>
+          <input id="fpc-new" type="password" autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} minLength={8} placeholder="Min 8 characters" required aria-describedby={err ? 'fpc-error' : undefined} />
         </div>
         <div className="field">
-          <label>Confirm password</label>
-          <input type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} required />
+          <label htmlFor="fpc-confirm">Confirm password</label>
+          <input id="fpc-confirm" type="password" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} required aria-describedby={err ? 'fpc-error' : undefined} />
         </div>
-        {err && <div className="error" style={{ marginBottom: 10 }}>{err}</div>}
+        {err && <div id="fpc-error" className="error auth-error" role="alert">{err}</div>}
         <button className="btn" style={{ width: '100%', justifyContent: 'center' }} disabled={busy}>{busy ? 'Saving…' : 'Set password & continue'}</button>
         <p style={{ textAlign: 'center', marginTop: 14 }}>
           <button type="button" className="linklike" onClick={onLogout}>Log out</button>

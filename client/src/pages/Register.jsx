@@ -45,18 +45,18 @@ export default function Register({ onLogin }) {
           <p className="sub">For students joining the Menler LMS.</p>
 
           <div className="field">
-            <label>Full name</label>
-            <input value={form.fullName} onChange={(e) => set('fullName', e.target.value)} required />
+            <label htmlFor="reg-name">Full name</label>
+            <input id="reg-name" autoComplete="name" value={form.fullName} onChange={(e) => set('fullName', e.target.value)} required />
           </div>
           <div className="field">
-            <label>Email</label>
-            <input type="email" value={form.email} onChange={(e) => set('email', e.target.value)} required />
+            <label htmlFor="reg-email">Email</label>
+            <input id="reg-email" type="email" autoComplete="email" value={form.email} onChange={(e) => set('email', e.target.value)} required aria-describedby={err ? 'reg-error' : undefined} />
           </div>
           <div className="field">
-            <label>Password</label>
-            <input type="password" value={form.password} onChange={(e) => set('password', e.target.value)} minLength={8} required placeholder="Min 8 characters" />
+            <label htmlFor="reg-password">Password</label>
+            <input id="reg-password" type="password" autoComplete="new-password" value={form.password} onChange={(e) => set('password', e.target.value)} minLength={8} required placeholder="Min 8 characters" aria-describedby={err ? 'reg-error' : undefined} />
           </div>
-          {err && <div className="error" style={{ marginBottom: 12 }}>{err}</div>}
+          {err && <div id="reg-error" className="error auth-error" role="alert">{err}</div>}
           <button className="btn" disabled={busy}>{busy ? 'Creating…' : 'Create account →'}</button>
 
           <p className="auth-alt">Already have an account? <Link to="/login">Sign in</Link></p>
