@@ -33,10 +33,9 @@ router.get('/overview', requireAuth, requireRole('admin'), async (_req, res) => 
 // need in one round trip: role/batch/submission/attendance distributions,
 // enrolment per batch, and student signups over the last 8 weeks.
 router.get('/admin-dashboard', requireAuth, requireRole('admin'), async (_req, res) => {
-  const [students, mentors, partners, batches, programs, quizzes, blockedUsers] = await Promise.all([
+  const [students, mentors, batches, programs, quizzes, blockedUsers] = await Promise.all([
     User.countDocuments({ role: 'student' }),
     User.countDocuments({ role: 'mentor' }),
-    User.countDocuments({ role: 'partner' }),
     Batch.countDocuments(),
     Program.countDocuments(),
     Quiz.countDocuments(),
@@ -64,7 +63,7 @@ router.get('/admin-dashboard', requireAuth, requireRole('admin'), async (_req, r
   });
 
   res.json({
-    stats: { students, mentors, partners, batches, programs, quizzes, blockedUsers },
+    stats: { students, mentors, batches, programs, quizzes, blockedUsers },
     batchStatus: ['ongoing', 'upcoming', 'past'].map((s) => ({ label: s, count: batchDocs.filter((b) => b.status === s).length })),
     assignmentTypes: ['assignment', 'project'].map((t) => ({ label: t, count: assignmentDocs.filter((a) => a.type === t).length })),
     submissionStatus: [

@@ -43,7 +43,7 @@ router.get('/', requireAuth, async (req, res) => {
   const results = [];
 
   // Which batches (and therefore which programs) this user can see at all.
-  const batchIds = user.role === 'partner' ? [] : await myBatchIds(user);
+  const batchIds = await myBatchIds(user);
   const batches = batchIds.length
     ? await Batch.find({ _id: { $in: batchIds } }).select('name programId')
     : [];
@@ -53,50 +53,48 @@ router.get('/', requireAuth, async (req, res) => {
   // ── Lessons ──────────────────────────────────────────────────────────────
   // The curriculum is an embedded tree, so match at the document level then
   // walk it in JS to find the exact topic(s) and build a deep link.
-  if (user.role !== 'partner') {
-    const programFilter = isStudent
-      ? { published: true, _id: { $in: [...myProgramIds] } }
-      : {};
-    const programs = await Program.find({
-      ...programFilter,
-      $or: [
-        { title: rx },
-        { 'modules.chapters.topics.title': rx },
-        { 'modules.chapters.topics.body': rx },
-      ],
-    }).select('title modules published');
+  const programFilter = isStudent
+    ? { published: true, _id: { $in: [...myProgramIds] } }
+    : {};
+  const programs = await Program.find({
+    ...programFilter,
+    $or: [
+      { title: rx },
+      { 'modules.chapters.topics.title': rx },
+      { 'modules.chapters.topics.body': rx },
+    ],
+  }).select('title modules published');
 
-    for (const p of programs) {
-      for (const m of p.modules || []) {
-        for (const c of m.chapters || []) {
-          for (const t of c.topics || []) {
-            const inTitle = rx.test(t.title || '');
-            const inBody = rx.test(t.body || '');
-            if (!inTitle && !inBody) continue;
-            results.push({
-              type: 'lesson',
-              id: String(t._id),
-              title: t.title,
-              // Module name gives the lesson somewhere to sit in the student's head.
-              subtitle: `${p.title} · ${String(m.title).split('·').pop().trim()}`,
-              detail: inBody && !inTitle ? excerpt(t.body, rx) : '',
-              to: `/app/learning?program=${p._id}&topic=${t._id}`,
-              // Title hits beat body hits.
-              rank: inTitle ? 0 : 2,
-            });
-          }
+  for (const p of programs) {
+    for (const m of p.modules || []) {
+      for (const c of m.chapters || []) {
+        for (const t of c.topics || []) {
+          const inTitle = rx.test(t.title || '');
+          const inBody = rx.test(t.body || '');
+          if (!inTitle && !inBody) continue;
+          results.push({
+            type: 'lesson',
+            id: String(t._id),
+            title: t.title,
+            // Module name gives the lesson somewhere to sit in the student's head.
+            subtitle: `${p.title} · ${String(m.title).split('·').pop().trim()}`,
+            detail: inBody && !inTitle ? excerpt(t.body, rx) : '',
+            to: `/app/learning?program=${p._id}&topic=${t._id}`,
+            // Title hits beat body hits.
+            rank: inTitle ? 0 : 2,
+          });
         }
       }
-      if (rx.test(p.title)) {
-        results.push({
-          type: 'program',
-          id: String(p._id),
-          title: p.title,
-          subtitle: `Programme · ${(p.modules || []).length} modules`,
-          to: `/app/learning?program=${p._id}`,
-          rank: 1,
-        });
-      }
+    }
+    if (rx.test(p.title)) {
+      results.push({
+        type: 'program',
+        id: String(p._id),
+        title: p.title,
+        subtitle: `Programme · ${(p.modules || []).length} modules`,
+        to: `/app/learning?program=${p._id}`,
+        rank: 1,
+      });
     }
   }
 
@@ -137,18 +135,16 @@ router.get('/', requireAuth, async (req, res) => {
   }
 
   // ── Library ──────────────────────────────────────────────────────────────
-  if (user.role !== 'partner') {
-    const items = await LibraryItem.find({ $or: [{ title: rx }, { description: rx }] }).limit(6);
-    for (const it of items) {
-      results.push({
-        type: 'library',
-        id: String(it._id),
-        title: it.title,
-        subtitle: `${it.category} · Library`,
-        to: '/app/library',
-        rank: 2,
-      });
-    }
+  const items = await LibraryItem.find({ $or: [{ title: rx }, { description: rx }] }).limit(6);
+  for (const it of items) {
+    results.push({
+      type: 'library',
+      id: String(it._id),
+      title: it.title,
+      subtitle: `${it.category} · Library`,
+      to: '/app/library',
+      rank: 2,
+    });
   }
 
   // ── People (staff only) ──────────────────────────────────────────────────

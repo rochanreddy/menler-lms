@@ -1,6 +1,6 @@
 // One-off cleanup: keep ONE batch (the ongoing 5-student demo cohort) with a
 // single mentor; delete every other batch, every other student/mentor account,
-// and all their scattered data. Admin + partner accounts are untouched.
+// and all their scattered data. Admin accounts are untouched.
 // Run:  node scripts/trimDemo.js
 import 'dotenv/config';
 import { connectDb } from '../db.js';
@@ -17,7 +17,6 @@ import { Message } from '../models/Message.js';
 import { Doubt } from '../models/Doubt.js';
 import { Progress } from '../models/Progress.js';
 import { Notification } from '../models/Notification.js';
-import { Application } from '../models/Application.js';
 
 async function run() {
   await connectDb();
@@ -66,7 +65,6 @@ async function run() {
     Attendance.deleteMany({ studentId: { $in: dropUserIds } }),
     Progress.deleteMany({ studentId: { $in: dropUserIds } }),
     Notification.deleteMany({ userId: { $in: dropUserIds } }),
-    Application.deleteMany({ studentId: { $in: dropUserIds } }),
     Message.deleteMany({ authorId: { $in: dropUserIds } }),
     Doubt.deleteMany({ authorId: { $in: dropUserIds } }),
     User.deleteMany({ _id: { $in: dropUserIds } }),

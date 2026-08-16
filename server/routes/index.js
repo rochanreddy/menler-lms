@@ -14,7 +14,6 @@ import forumRoutes from './forum.js';
 import libraryRoutes from './library.js';
 import webinarRoutes from './webinars.js';
 import statsRoutes from './stats.js';
-import jobRoutes from './jobs.js';
 import uploadRoutes from './uploads.js';
 import zoomRoutes from './zoom.js';
 import progressRoutes from './progress.js';
@@ -45,7 +44,6 @@ router.use('/forum', forumRoutes);
 router.use('/library', libraryRoutes);
 router.use('/webinars', webinarRoutes);
 router.use('/stats', statsRoutes);
-router.use('/jobs', jobRoutes);
 router.use('/uploads', uploadRoutes);
 router.use('/zoom', zoomRoutes); // public webhook (signature-verified)
 router.use('/progress', progressRoutes);
