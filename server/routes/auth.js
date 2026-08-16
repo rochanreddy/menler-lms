@@ -2,7 +2,7 @@ import { Router } from 'express';
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 
-import { User } from '../models/User.js';
+import { User, ROLES } from '../models/User.js';
 import { signAccessToken, signRefreshToken, verifyToken } from '../utils/token.js';
 import { isSmtpConfigured, sendMail } from '../utils/email.js';
 
@@ -56,6 +56,10 @@ router.post('/login', async (req, res) => {
     const user = await User.findOne({ email: String(email || '').toLowerCase().trim() });
     const ok = user && user.passwordHash && (await bcrypt.compare(String(password || ''), user.passwordHash));
     if (!ok) return res.status(401).json({ error: 'Invalid email or password.' });
+    // Retired/unknown roles (e.g. legacy 'partner' accounts) cannot sign in.
+    if (!ROLES.includes(user.role)) {
+      return res.status(403).json({ error: 'Your account role no longer has access to this portal.' });
+    }
     if (user.role !== 'admin' && user.blocked?.lms) {
       return res.status(403).json({
         error: user.blocked?.reason
@@ -77,6 +81,9 @@ router.post('/refresh', async (req, res) => {
   if (!payload?.sub || payload.typ !== 'refresh') return res.status(401).json({ error: 'Invalid refresh token.' });
   const user = await User.findById(payload.sub);
   if (!user) return res.status(401).json({ error: 'Invalid refresh token.' });
+  if (!ROLES.includes(user.role)) {
+    return res.status(403).json({ error: 'Your account role no longer has access to this portal.' });
+  }
   if (user.role !== 'admin' && user.blocked?.lms) {
     return res.status(403).json({ error: 'Your account has been blocked by the administrator.', code: 'blocked' });
   }

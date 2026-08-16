@@ -1,4 +1,4 @@
-import { User } from '../models/User.js';
+import { User, ROLES } from '../models/User.js';
 import { verifyToken } from '../utils/token.js';
 
 /** Reads the Bearer token, loads the user, or null. */
@@ -18,6 +18,12 @@ const ACTIVITY_THROTTLE_MS = 15 * 60 * 1000;
 export async function requireAuth(req, res, next) {
   const user = await getUser(req);
   if (!user) return res.status(401).json({ error: 'Not authenticated.' });
+
+  // Accounts with a retired/unknown role (e.g. legacy 'partner') have no
+  // access anywhere — reject at the chokepoint rather than in every route.
+  if (!ROLES.includes(user.role)) {
+    return res.status(403).json({ error: 'Your account role no longer has access.', code: 'blocked' });
+  }
 
   // Admin-blocked accounts are locked out of every endpoint. Checked on the
   // live user doc, so a block takes effect on the very next request — no token

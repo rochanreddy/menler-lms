@@ -26,7 +26,7 @@ router.get('/', requireAuth, requireRole('admin'), async (req, res) => {
   res.json({ users: users.map((u) => u.toPublic()) });
 });
 
-// POST /api/lms/users — admin provisions a mentor / partner / student. Returns a
+// POST /api/lms/users — admin provisions a mentor / student. Returns a
 // generated temp password if none was supplied (so admin can share it).
 router.post('/', requireAuth, requireRole('admin'), async (req, res) => {
   const { email, fullName, phone, role = 'mentor', password } = req.body || {};

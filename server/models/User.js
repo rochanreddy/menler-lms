@@ -1,7 +1,10 @@
 import mongoose from 'mongoose';
 
-// The four LMS roles from the canvas. A user has exactly one.
-export const ROLES = ['student', 'mentor', 'admin', 'partner'];
+// The LMS roles. A user has exactly one. This list is the single source of
+// truth for role-based access: requireRole() gates routes against it, admin
+// provisioning validates against it, and any account whose role falls outside
+// it (e.g. a retired 'partner') is denied at login.
+export const ROLES = ['student', 'mentor', 'admin'];
 
 const userSchema = new mongoose.Schema(
   {
@@ -15,7 +18,6 @@ const userSchema = new mongoose.Schema(
     education: { type: mongoose.Schema.Types.Mixed, default: {} },     // { degree, institution, year }
     professional: { type: mongoose.Schema.Types.Mixed, default: {} },  // { title, company, experience }
     resumeUrl: { type: String, default: '' },
-    company: { type: String, default: '' }, // partner (B2B) only
 
     batchIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Batch' }],
 
@@ -59,7 +61,6 @@ userSchema.methods.toPublic = function toPublic() {
     education: this.education,
     professional: this.professional,
     resume_url: this.resumeUrl,
-    company: this.company,
     batch_ids: (this.batchIds || []).map((b) => b.toString()),
     email_verified: this.emailVerified,
     must_change_password: this.mustChangePassword,

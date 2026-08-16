@@ -5,7 +5,7 @@ import { requireAuth } from '../middleware/auth.js';
 const router = Router();
 
 // GET /api/lms/me — the frontend calls this on load to pick which dashboard
-// (student/mentor/admin/partner) to render.
+// (student/mentor/admin) to render.
 router.get('/', requireAuth, (req, res) => res.json({ user: req.user.toPublic() }));
 
 // PATCH /api/lms/me/password — change your own password.
