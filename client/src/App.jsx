@@ -43,6 +43,12 @@ export default function App() {
 
   const tabs = user ? navFor(user.role) : [];
 
+  // Role-based access: a signed-in user whose role has no nav (retired roles
+  // like 'partner', or anything unexpected) gets a stop page, not a blank app.
+  if (user && tabs.length === 0) {
+    return <Blocked message="Your account role no longer has access to this portal." onLogout={logout} />;
+  }
+
   return (
     <Routes>
       <Route path="/login" element={user ? <Navigate to="/app" /> : <Login onLogin={setUser} />} />
