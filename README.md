@@ -33,8 +33,10 @@ npm run dev                 # http://localhost:5174
 Open http://localhost:5174 and log in with the seeded admin.
 
 ## Roles
-`student` · `mentor` · `admin` · `partner` — a user has one. Signup is student-only;
-mentors/admins/partners are provisioned by an admin.
+`student` · `mentor` · `admin` — a user has one. Signup is student-only;
+mentors/admins are provisioned by an admin. Access is role-gated end to end:
+the API rejects unknown/retired roles at login and on every request
+(`requireAuth` + `requireRole`), and the client only mounts each role's own routes.
 
 ## API (Phase 1)
 - `POST /api/lms/auth/register | login | refresh | forgot | reset`
