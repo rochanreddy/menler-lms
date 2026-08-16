@@ -13,12 +13,9 @@ import Forum from './pages/Forum.jsx';
 import Library from './pages/Library.jsx';
 import Webinar from './pages/mentor/Webinar.jsx';
 import AdminHome from './pages/admin/Home.jsx';
-import JobBoard from './pages/student/JobBoard.jsx';
 import AdminStudents from './pages/admin/Students.jsx';
 import AdminStudentDetail from './pages/admin/StudentDetail.jsx';
 import AdminMentorDetail from './pages/admin/MentorDetail.jsx';
-import PostJob from './pages/partner/PostJob.jsx';
-import Applicants from './pages/partner/Applicants.jsx';
 
 // A placeholder page factory — renders the spec's sections for screens whose
 // backend is Phase 2.
@@ -54,7 +51,6 @@ export function navFor(role) {
         { label: 'Grades', path: 'grades', Component: StudentGrades },
         { label: 'Library', path: 'library', Component: Library },
         { label: 'Forum', path: 'forum', Component: Forum },
-        { label: 'Job Board', path: 'jobs', Component: JobBoard },
         { label: 'Profile', path: 'profile', Component: Profile },
       ];
     case 'mentor':
@@ -80,13 +76,9 @@ export function navFor(role) {
         ]) },
         { label: 'Account', path: 'account', Component: Profile },
       ];
-    case 'partner':
-      return [
-        { label: 'Post a Job', path: '', Component: PostJob },
-        { label: 'Applicants', path: 'applicants', Component: Applicants },
-        { label: 'Profile', path: 'profile', Component: Profile },
-      ];
+    // Unknown/retired roles (e.g. legacy partner accounts) get no tabs — App
+    // treats an empty nav as "no access" rather than rendering a blank shell.
     default:
-      return [{ label: 'Home', path: '', Component: ph('Home', []) }];
+      return [];
   }
 }

@@ -8,11 +8,10 @@ import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 // exact scroll position you left. PDFs render through the custom reader below
 // (paged, zoomable, searchable); Office formats go through Microsoft's embed.
 //
-// `allowNewTab` exists because the same reader serves two opposite purposes.
+// `allowNewTab` exists because the same reader can serve opposite purposes.
 // For course material the whole point is to withhold the browser's native
-// viewer, download and print included — so it stays off. For a resume on the
-// partner board there is nothing to protect: the candidate submitted it to be
-// read, and a recruiter reasonably wants to save or forward it.
+// viewer, download and print included — so it stays off by default; callers
+// with nothing to protect can opt in.
 function FileViewer({ label, subtitle, url, onClose, allowNewTab = false }) {
   const ext = (url.split(/[?#]/)[0].split('.').pop() || '').toLowerCase();
   const isOffice = ['ppt', 'pptx', 'doc', 'docx', 'xls', 'xlsx'].includes(ext);

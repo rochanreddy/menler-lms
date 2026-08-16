@@ -77,7 +77,7 @@ export default function CommandPalette({ open, onClose, tabs, onLogout }) {
     return () => { alive = false; clearTimeout(id); };
   }, [q]);
 
-  // Subsequence match on destinations, so "jb" still finds "Job Board".
+  // Subsequence match on destinations, so "lb" still finds "Library".
   const localHits = useMemo(() => {
     const needle = q.trim().toLowerCase();
     if (!needle) return navItems;

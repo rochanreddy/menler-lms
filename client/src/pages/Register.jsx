@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { api, setToken } from '../api.js';
 import MenlerWordmark from '../components/MenlerWordmark.jsx';
 
-// Student self-signup. Backend forces role=student; mentors/admins/partners are
+// Student self-signup. Backend forces role=student; mentors/admins are
 // provisioned by an admin. On success it returns a token → straight into the app.
 export default function Register({ onLogin }) {
   const [form, setForm] = useState({ fullName: '', email: '', password: '' });

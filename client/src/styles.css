@@ -353,7 +353,7 @@ h3 { font-size: 15.5px; font-weight: 700; margin: 0 0 12px; }
 .badge-student { background: var(--a6-soft); color: var(--a6-ink); }
 .badge-mentor { background: var(--a5-soft); color: var(--a5-ink); }
 .badge-admin { background: var(--a4-soft); color: var(--a4-ink); }
-.badge-partner { background: var(--a3-soft); color: var(--a3-ink); }
+
 
 /* ── Status pills (work state, not role) ── */
 .status { display: inline-flex; align-items: center; gap: 7px; padding: 5px 12px 5px 10px; border-radius: var(--pill); font-size: 12px; font-weight: 600; background: var(--line-soft); color: var(--ink-2); }
@@ -1139,7 +1139,7 @@ h1.md-h { font-size: 22px; } h2.md-h { font-size: 19px; } h3.md-h { font-size: 1
   .search-trigger { min-width: 0; padding: 8px; border-radius: 50%; }
   .search-trigger-text, .search-trigger .kbd { display: none; }
   /* Dock spans the width on phones. Tabs keep their natural width and the dock
-     scrolls if a role has too many — squeezing them would clip "Job Board". */
+     scrolls if a role has too many — squeezing them would clip a long label. */
   .dock { left: 10px; right: 10px; transform: none; max-width: none; justify-content: flex-start; gap: 0; padding: 5px; border-radius: 20px; }
   .dock-item { min-width: 62px; padding: 8px 7px 7px; gap: 4px; }
   .dock-label { font-size: 10px; }
@@ -1478,46 +1478,3 @@ input:hover:not(:disabled):not(:focus), select:hover:not(:disabled):not(:focus),
 .empty-icon { font-size: 26px; margin-bottom: 8px; opacity: .8; }
 .empty strong { display: block; color: var(--ink-2); font-size: 15px; margin-bottom: 3px; }
 
-/* ── Partner board: candidate review ── The partner is walled off from batches
-   and coursework, so this profile is their whole view of a candidate. */
-.cand-filters { gap: 8px; margin: 0 0 16px; flex-wrap: wrap; }
-.cand-tab {
-  display: inline-flex; align-items: center; gap: 7px;
-  padding: 7px 14px; border-radius: var(--pill);
-  border: 1px solid var(--line); background: var(--card);
-  font-family: var(--font); font-size: 13px; font-weight: 600; color: var(--ink-2);
-  cursor: pointer; transition: background .16s, color .16s, border-color .16s;
-}
-.cand-tab:hover { background: var(--line-soft); }
-.cand-tab.on { background: var(--violet); border-color: var(--violet); color: #fff; }
-.cand-tab-count { font-size: 11.5px; opacity: .75; font-variant-numeric: tabular-nums; }
-
-/* List beside detail on desktop; detail stacks under the list on narrow screens. */
-.cand-layout { display: grid; grid-template-columns: minmax(260px, 380px) 1fr; gap: 18px; align-items: start; }
-@media (max-width: 900px) { .cand-layout { grid-template-columns: 1fr; } }
-
-.cand-row { width: 100%; text-align: left; font: inherit; cursor: pointer; border: 1px solid transparent; transition: border-color .16s, box-shadow .16s; }
-.cand-row:hover { border-color: var(--violet-line); }
-.cand-row.on { border-color: var(--violet); box-shadow: var(--ring); }
-.cand-cv-dot { font-size: 10px; font-weight: 700; letter-spacing: .06em; color: var(--a6-ink); background: var(--a6-soft); padding: 3px 7px; border-radius: var(--pill); }
-
-.cand-st-applied { background: var(--a5-soft); color: var(--a5-ink); }
-.cand-st-shortlisted { background: var(--a6-soft); color: var(--a6-ink); }
-.cand-st-rejected { background: var(--a4-soft); color: var(--a4-ink); }
-
-.cand-detail { padding: 22px 24px; position: sticky; top: 18px; }
-@media (max-width: 900px) { .cand-detail { position: static; } }
-.cand-detail-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; padding-bottom: 16px; border-bottom: 1px solid var(--line); }
-.cand-name { margin: 0 0 4px; font-size: 22px; }
-.cand-applied-on { font-size: 12.5px; margin-top: 4px; }
-
-.cand-sections { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; padding: 18px 0; }
-@media (max-width: 560px) { .cand-sections { grid-template-columns: 1fr; } }
-.cand-field { display: flex; gap: 10px; padding: 5px 0; font-size: 14px; }
-.cand-field-label { flex: none; width: 92px; color: var(--muted); }
-.cand-field-value { color: var(--ink); font-weight: 500; }
-
-.cand-resume { padding: 16px 0; border-top: 1px solid var(--line); }
-.cand-resume-actions { gap: 8px; margin-top: 10px; }
-.cand-actions { gap: 10px; padding-top: 16px; border-top: 1px solid var(--line); flex-wrap: wrap; }
-.cand-empty { padding: 40px 24px; text-align: center; }
