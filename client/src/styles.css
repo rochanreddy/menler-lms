@@ -931,6 +931,18 @@ h1.md-h { font-size: 22px; } h2.md-h { font-size: 19px; } h3.md-h { font-size: 1
 .assign-card > .inline-form { margin-top: 14px; }
 /* File-type tags are secondary metadata; keep them quiet so the file names lead. */
 .sub-files .badge { background: var(--line-soft); color: var(--muted); }
+/* Drive/file links read as chips, not raw underlined text — quieter and
+   consistent with the badge/pill language used everywhere else. */
+.drive-link {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 7px 13px; border-radius: var(--pill);
+  background: var(--violet-soft); color: var(--violet-dark);
+  font-size: 13px; font-weight: 600; text-decoration: none;
+  border: 1px solid var(--violet-line);
+  transition: background .15s ease, border-color .15s ease;
+}
+.drive-link:hover { background: #e3dffb; border-color: var(--lavender); }
+.drive-link svg { flex: none; opacity: .85; }
 /* Trailing status sentences ("deadline passed", "locked") — a quiet note, not a
    full-size paragraph with browser margins. */
 .assign-note { margin: 0; font-size: 13.5px; color: var(--muted); line-height: 1.5; }
