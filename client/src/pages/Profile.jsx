@@ -60,34 +60,42 @@ export default function Profile() {
 
       <section className="panel">
         <h3>Personal</h3>
-        <label>Full name<input value={form.fullName} onChange={(e) => set('fullName', e.target.value)} /></label>
-        <label>Email<input value={user.email} disabled /></label>
-        <label>Phone<input value={form.phone} onChange={(e) => set('phone', e.target.value)} /></label>
+        <div className="field-grid">
+          <label>Full name<input value={form.fullName} onChange={(e) => set('fullName', e.target.value)} /></label>
+          <label>Email<input value={user.email} disabled /></label>
+          <label>Phone<input value={form.phone} onChange={(e) => set('phone', e.target.value)} /></label>
+        </div>
       </section>
 
       <section className="panel">
         <h3>Educational</h3>
-        <label>Degree<input value={form.education.degree || ''} onChange={(e) => setEdu('degree', e.target.value)} /></label>
-        <label>Institution<input value={form.education.institution || ''} onChange={(e) => setEdu('institution', e.target.value)} /></label>
-        <label>Year<input value={form.education.year || ''} onChange={(e) => setEdu('year', e.target.value)} /></label>
+        <div className="field-grid">
+          <label>Degree<input value={form.education.degree || ''} onChange={(e) => setEdu('degree', e.target.value)} /></label>
+          <label>Institution<input value={form.education.institution || ''} onChange={(e) => setEdu('institution', e.target.value)} /></label>
+          <label>Year<input value={form.education.year || ''} onChange={(e) => setEdu('year', e.target.value)} /></label>
+        </div>
       </section>
 
       <section className="panel">
         <h3>Professional</h3>
-        <label>Title<input value={form.professional.title || ''} onChange={(e) => setPro('title', e.target.value)} /></label>
-        <label>Company<input value={form.professional.company || ''} onChange={(e) => setPro('company', e.target.value)} /></label>
-        <label>Experience<input value={form.professional.experience || ''} onChange={(e) => setPro('experience', e.target.value)} /></label>
+        <div className="field-grid">
+          <label>Title<input value={form.professional.title || ''} onChange={(e) => setPro('title', e.target.value)} /></label>
+          <label>Company<input value={form.professional.company || ''} onChange={(e) => setPro('company', e.target.value)} /></label>
+          <label>Experience<input value={form.professional.experience || ''} onChange={(e) => setPro('experience', e.target.value)} /></label>
+        </div>
       </section>
 
       {/* Resume is student-facing; mentors just keep personal + professional info. */}
       {user.role !== 'mentor' && (
         <section className="panel">
           <h3>Resume</h3>
-          <label>Upload a file (PDF/DOC, ≤ 8 MB)
-            <input type="file" accept=".pdf,.doc,.docx" onChange={onResumeFile} disabled={uploading} />
-          </label>
+          <div className="field-grid">
+            <label>Upload a file (PDF/DOC, ≤ 8 MB)
+              <input type="file" accept=".pdf,.doc,.docx" onChange={onResumeFile} disabled={uploading} />
+            </label>
+            <label>…or paste a link<input value={form.resumeUrl} onChange={(e) => set('resumeUrl', e.target.value)} placeholder="https://…" /></label>
+          </div>
           {uploading && <p className="muted">Uploading…</p>}
-          <label>…or paste a link<input value={form.resumeUrl} onChange={(e) => set('resumeUrl', e.target.value)} placeholder="https://…" /></label>
           {form.resumeUrl && <p className="muted"><a href={form.resumeUrl} target="_blank" rel="noreferrer">View current resume →</a></p>}
         </section>
       )}
@@ -139,9 +147,11 @@ function ChangePassword() {
   return (
     <form onSubmit={submit} className="panel" id="password" ref={ref}>
       <h3>Change password</h3>
-      <label>Current password<input type="password" value={cur} onChange={(e) => setCur(e.target.value)} required /></label>
-      <label>New password (min 8 characters)<input type="password" value={next} onChange={(e) => setNext(e.target.value)} minLength={8} required /></label>
-      <div className="row" style={{ marginTop: 12 }}>
+      <div className="field-grid">
+        <label>Current password<input type="password" value={cur} onChange={(e) => setCur(e.target.value)} required /></label>
+        <label>New password (min 8 characters)<input type="password" value={next} onChange={(e) => setNext(e.target.value)} minLength={8} required /></label>
+      </div>
+      <div className="row" style={{ marginTop: 18 }}>
         <button className="btn" disabled={busy}>{busy ? 'Updating…' : 'Update password'}</button>
         {msg && <span className="muted">{msg}</span>}
       </div>
