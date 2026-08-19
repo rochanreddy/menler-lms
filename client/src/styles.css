@@ -982,7 +982,8 @@ h1.md-h { font-size: 22px; } h2.md-h { font-size: 19px; } h3.md-h { font-size: 1
 .sub-check-head { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
 .sub-check-error { margin: 8px 0 0; padding: 10px 12px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 9px; color: #991b1b; font-size: 13.5px; }
 .sub-files { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-.sub-files li { display: flex; align-items: center; gap: 8px; font-size: 13.5px; }
+.sub-files li { display: flex; align-items: center; gap: 8px; font-size: 13.5px; max-width: 100%; }
+.sub-files .file-chip { flex: 0 1 auto; max-width: 100%; }
 .sub-cell { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .sub-detail-row > td { background: #f9fafb; padding: 12px 14px; }
 .sub-detail-row .sub-check { margin-top: 0; }
