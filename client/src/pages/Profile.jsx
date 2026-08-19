@@ -46,6 +46,18 @@ export default function Profile() {
     }
   }
 
+  // Fields that count toward "profile completeness" — resume only applies to
+  // students/admins (mentors don't get that section, so it shouldn't drag their %).
+  const fields = [
+    form.fullName, form.phone,
+    form.education.degree, form.education.institution, form.education.year,
+    form.professional.title, form.professional.company, form.professional.experience,
+    ...(user.role !== 'mentor' ? [form.resumeUrl] : []),
+  ];
+  const pct = Math.round((fields.filter((v) => String(v || '').trim()).length / fields.length) * 100);
+
+  const name = form.fullName || user.email;
+
   return (
     <div className="profile-page">
       <div className="page-head">
@@ -55,6 +67,24 @@ export default function Profile() {
           <p>Keep your details current — mentors and certificates use them.</p>
         </div>
       </div>
+
+      <section className="panel profile-hero">
+        <div className="profile-hero-id">
+          <span className="avatar avatar-xl">{(name || '?')[0].toUpperCase()}</span>
+          <div style={{ minWidth: 0 }}>
+            <div className="profile-hero-name">{name}</div>
+            <div className="profile-hero-mail">{user.email}</div>
+            <span className={`badge badge-${user.role}`}>{user.role}</span>
+          </div>
+        </div>
+        <div className="profile-meter">
+          <div className="profile-meter-top">
+            <span>Profile completeness</span>
+            <span className="profile-meter-pct">{pct}%</span>
+          </div>
+          <div className="progress-bar-wrap"><div className="progress-bar-fill" style={{ width: `${pct}%` }} /></div>
+        </div>
+      </section>
 
       <form onSubmit={save} className="profile-sections">
 

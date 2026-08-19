@@ -334,11 +334,22 @@ h3 { font-size: 15.5px; font-weight: 700; margin: 0 0 12px; }
 .panel input:disabled { background: var(--line-soft); color: #a5a1bd; }
 
 /* ── Profile page ──
-   Its own column rather than the 680px .stack: the sections below lay their
-   fields out across the panel, which needs the room. */
+   An identity banner, then the sections. Its own column rather than the 680px
+   .stack: the sections lay their fields out across the panel, which needs room. */
 .profile-page, .profile-sections { display: flex; flex-direction: column; gap: 20px; }
 .profile-page { max-width: 1080px; }
 .profile-page > .page-head { margin-bottom: 0; } /* the column gap already spaces it */
+.profile-hero { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
+.profile-hero-id { flex: 1; min-width: 240px; display: flex; align-items: center; gap: 16px; }
+.avatar-xl { width: 58px; height: 58px; font-size: 22px; flex: none; }
+.profile-hero-name { font-family: var(--display); font-weight: 700; font-size: 22px; letter-spacing: -.03em; line-height: 1.15; word-break: break-word; }
+.profile-hero-mail { color: var(--muted); font-size: 13.5px; margin: 3px 0 8px; word-break: break-word; }
+.profile-meter { width: 250px; flex: none; }
+.profile-meter-top { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+.profile-meter-top span { font-size: 12.5px; color: var(--muted); }
+.profile-meter-pct { font-family: var(--display); font-weight: 700; font-size: 15px; color: var(--ink); }
+.profile-meter .progress-bar-wrap { max-width: none; height: 8px; }
+@media (max-width: 860px) { .profile-meter { width: 100%; } }
 
 /* Fields across the panel instead of one per row. auto-fit collapses the empty
    tracks, so a 3-field section gets 3 columns and a 2-field section gets 2 —
