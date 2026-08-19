@@ -75,9 +75,13 @@ function QuizCard({ quiz, onDone }) {
   const [answers, setAnswers] = useState({});
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState(false);
+  const [qIndex, setQIndex] = useState(0);
   const [review, setReview] = useState(null);
   const [showReview, setShowReview] = useState(false);
   const attempt = quiz.myAttempt;
+  const total = quiz.questions.length;
+  const allAnswered = quiz.questions.every((_, i) => answers[i] != null);
+  const q = quiz.questions[qIndex];
 
   // Once answering has begun, warn before an accidental tab close / reload —
   // draft answers live only in local state and aren't saved until submit.
@@ -118,7 +122,7 @@ function QuizCard({ quiz, onDone }) {
         <span className="badge">{quiz.type}</span>
         {attempt && <span className="badge badge-student">Scored {attempt.score}/{attempt.total}</span>}
       </div>
-      {!attempt && !open && <button className="btn sm" onClick={() => setOpen(true)}>Take quiz</button>}
+      {!attempt && !open && <button className="btn sm" onClick={() => { setOpen(true); setQIndex(0); }}>Take quiz</button>}
       {attempt && (
         <div className="quiz-review-bar">
           <div className="qr-score">
@@ -132,61 +136,115 @@ function QuizCard({ quiz, onDone }) {
       )}
       {showReview && review && <QuizReview questions={review.questions} />}
       {!attempt && open && (
-        <form onSubmit={submit}>
-          {quiz.questions.map((q, qi) => (
-            <div key={q._id} className="quiz-take-q">
-              <p><strong>{qi + 1}. {q.text}</strong></p>
-              {q.options.map((o, oi) => (
-                <label key={oi} className="quiz-opt">
-                  <input type="radio" name={`q-${quiz._id}-${qi}`} checked={answers[qi] === oi} onChange={() => setAnswers((a) => ({ ...a, [qi]: oi }))} required />
-                  {o}
-                </label>
-              ))}
-            </div>
-          ))}
-          <button className="btn sm" disabled={busy}>{busy ? 'Submitting…' : 'Submit answers'}</button>
+        <form onSubmit={submit} className="quiz-take">
+          <QuizStepper
+            count={total}
+            current={qIndex}
+            onSelect={setQIndex}
+            statusFor={(i) => (answers[i] != null ? 'answered' : 'unanswered')}
+          />
+          <div className="quiz-take-q-solo">
+            <p className="quiz-take-q-count">Question {qIndex + 1} of {total}</p>
+            <p className="quiz-take-q-text"><strong>{q.text}</strong></p>
+            {q.options.map((o, oi) => (
+              <label key={oi} className="quiz-opt">
+                <input type="radio" name={`q-${quiz._id}-${qIndex}`} checked={answers[qIndex] === oi} onChange={() => setAnswers((a) => ({ ...a, [qIndex]: oi }))} />
+                {o}
+              </label>
+            ))}
+          </div>
+          <div className="quiz-take-nav">
+            <button type="button" className="btn ghost sm" disabled={qIndex === 0} onClick={() => setQIndex((i) => i - 1)}>← Previous</button>
+            {qIndex < total - 1 ? (
+              <button type="button" className="btn sm" onClick={() => setQIndex((i) => i + 1)}>Next →</button>
+            ) : (
+              <button className="btn sm" disabled={busy || !allAnswered}>{busy ? 'Submitting…' : 'Submit answers'}</button>
+            )}
+          </div>
+          {qIndex === total - 1 && !allAnswered && <p className="muted quiz-take-hint">Answer every question to submit.</p>}
         </form>
       )}
     </div>
   );
 }
 
+// Numbered step navigation shared by the take-quiz and review-quiz views, so
+// a student jumps straight to any question instead of scrolling a stack of
+// blocks. `statusFor` colors each pip: answered/unanswered while taking,
+// correct/incorrect while reviewing.
+function QuizStepper({ count, current, onSelect, statusFor }) {
+  return (
+    <div className="quiz-stepper" role="tablist" aria-label="Questions">
+      {Array.from({ length: count }, (_, i) => (
+        <button
+          key={i}
+          type="button"
+          role="tab"
+          aria-selected={i === current}
+          className={`quiz-step ${statusFor(i)} ${i === current ? 'current' : ''}`}
+          onClick={() => onSelect(i)}
+        >
+          {i + 1}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 // Post-attempt feedback: every question with the student's pick, the right
-// answer, and the mentor's explanation. This is where the quiz actually teaches.
+// answer, and the mentor's explanation. This is where the quiz actually
+// teaches — shown one question at a time via the stepper above it.
 function QuizReview({ questions }) {
+  const [qIndex, setQIndex] = useState(0);
+  const total = questions.length;
+  const q = questions[qIndex];
+
   return (
     <div className="quiz-review">
-      {questions.map((q, qi) => (
-        <div key={q._id} className={`qr-q ${q.isCorrect ? 'ok' : 'bad'}`}>
-          <div className="qr-q-head">
-            <span className={`qr-mark ${q.isCorrect ? 'ok' : 'bad'}`}>{q.isCorrect ? '✓' : '✗'}</span>
-            <strong>{qi + 1}. {q.text}</strong>
+      <QuizStepper
+        count={total}
+        current={qIndex}
+        onSelect={setQIndex}
+        statusFor={(i) => (questions[i].isCorrect ? 'correct' : 'incorrect')}
+      />
+
+      <div className={`qr-q ${q.isCorrect ? 'ok' : 'bad'}`}>
+        <div className="qr-q-head">
+          <span className={`qr-mark ${q.isCorrect ? 'ok' : 'bad'}`}>{q.isCorrect ? '✓' : '✗'}</span>
+          <div>
+            <div className="qr-q-count">Question {qIndex + 1} of {total}</div>
+            <strong>{q.text}</strong>
           </div>
-
-          <div className="qr-opts">
-            {q.options.map((o, oi) => {
-              const isCorrect = oi === q.correctIndex;
-              const isMine = oi === q.myAnswer;
-              return (
-                <div key={oi} className={`qr-opt ${isCorrect ? 'correct' : isMine ? 'wrong' : ''}`}>
-                  <span>{o}</span>
-                  {isCorrect && <span className="qr-tag tag-correct">{isMine ? 'Your answer · correct' : 'Correct answer'}</span>}
-                  {isMine && !isCorrect && <span className="qr-tag tag-wrong">Your answer</span>}
-                </div>
-              );
-            })}
-          </div>
-
-          {q.myAnswer === null && <p className="muted qr-blank">You left this one blank.</p>}
-
-          {q.explanation && (
-            <div className="qr-why">
-              <div className="qr-why-label">Why</div>
-              <Markdown text={q.explanation} />
-            </div>
-          )}
         </div>
-      ))}
+
+        <div className="qr-opts">
+          {q.options.map((o, oi) => {
+            const isCorrect = oi === q.correctIndex;
+            const isMine = oi === q.myAnswer;
+            return (
+              <div key={oi} className={`qr-opt ${isCorrect ? 'correct' : isMine ? 'wrong' : ''}`}>
+                <span>{o}</span>
+                {isCorrect && <span className="qr-tag tag-correct">{isMine ? 'Your answer · correct' : 'Correct answer'}</span>}
+                {isMine && !isCorrect && <span className="qr-tag tag-wrong">Your answer</span>}
+              </div>
+            );
+          })}
+        </div>
+
+        {q.myAnswer === null && <p className="muted qr-blank">You left this one blank.</p>}
+
+        {q.explanation && (
+          <div className="qr-why">
+            <div className="qr-why-label">Why</div>
+            <Markdown text={q.explanation} />
+          </div>
+        )}
+      </div>
+
+      <div className="quiz-take-nav">
+        <button type="button" className="btn ghost sm" disabled={qIndex === 0} onClick={() => setQIndex((i) => i - 1)}>← Previous</button>
+        <button type="button" className="btn ghost sm" disabled={qIndex === total - 1} onClick={() => setQIndex((i) => i + 1)}>Next →</button>
+      </div>
     </div>
   );
 }
