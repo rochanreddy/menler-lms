@@ -36,7 +36,14 @@ export function CheckBadge({ status, audience = 'staff' }) {
  *  human can open the folder and override a wrong automated verdict. */
 export function DriveLink({ href, label = 'Open Drive folder' }) {
   if (!href) return <span className="muted">No Drive link</span>;
-  return <a href={href} target="_blank" rel="noreferrer">{label}</a>;
+  return (
+    <a href={href} target="_blank" rel="noreferrer" className="drive-link">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+      </svg>
+      {label}
+    </a>
+  );
 }
 
 /** Individual file links, so a mentor doesn't have to navigate the folder. */
