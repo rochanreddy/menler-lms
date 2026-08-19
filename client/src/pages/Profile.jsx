@@ -47,9 +47,16 @@ export default function Profile() {
   }
 
   return (
-    <div className="stack">
-      <h1>Profile</h1>
-      <form onSubmit={save} className="stack">
+    <div className="profile-page">
+      <div className="page-head">
+        <div>
+          <div className="eyebrow">Account</div>
+          <h1>Profile</h1>
+          <p>Keep your details current — mentors and certificates use them.</p>
+        </div>
+      </div>
+
+      <form onSubmit={save} className="profile-sections">
 
       <section className="panel">
         <h3>Personal</h3>
