@@ -53,7 +53,13 @@ export function FileLinks({ files }) {
     <ul className="sub-files">
       {files.map((f, i) => (
         <li key={f.webViewLink || `${f.name}-${i}`}>
-          <a href={f.webViewLink} target="_blank" rel="noreferrer">{f.name}</a>
+          <a href={f.webViewLink} target="_blank" rel="noreferrer" className="file-chip">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M6 2h9l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+              <path d="M14 2v5h5" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+            </svg>
+            <span className="file-chip-name">{f.name}</span>
+          </a>
           <span className="badge">{f.type}</span>
         </li>
       ))}

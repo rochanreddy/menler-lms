@@ -943,6 +943,19 @@ h1.md-h { font-size: 22px; } h2.md-h { font-size: 19px; } h3.md-h { font-size: 1
 }
 .drive-link:hover { background: #e3dffb; border-color: var(--lavender); }
 .drive-link svg { flex: none; opacity: .85; }
+.file-chip {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 6px 11px; border-radius: 9px;
+  background: var(--line-soft); color: var(--ink-2);
+  font-size: 13px; font-weight: 500; text-decoration: none;
+  border: 1px solid transparent;
+  transition: background .15s ease, color .15s ease, border-color .15s ease;
+  min-width: 0;
+}
+.file-chip:hover { background: var(--violet-soft); color: var(--violet-dark); border-color: var(--violet-line); }
+.file-chip svg { flex: none; color: var(--muted); }
+.file-chip:hover svg { color: var(--violet); }
+.file-chip-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* Trailing status sentences ("deadline passed", "locked") — a quiet note, not a
    full-size paragraph with browser margins. */
 .assign-note { margin: 0; font-size: 13.5px; color: var(--muted); line-height: 1.5; }
