@@ -1393,6 +1393,25 @@ select:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
 .dock-item:hover svg { transform: translateY(-1px) scale(1.06); }
 .dock-item.on svg { transform: none; }
 
+/* An icon inner stroke redraws itself -- on hover, and once when a tab becomes
+   the active one, so arriving somewhere has the same small gesture as reaching
+   for it. Icons with several such strokes lay them down in order rather than at
+   once. pathLength="1" on those paths makes one dash length the whole stroke,
+   whatever its real geometry. */
+.ico-draw { stroke-dasharray: 1; stroke-dashoffset: 0; }
+.dock-item:hover .ico-draw,
+.dock-item.on .ico-draw { animation: ico-draw .6s cubic-bezier(.4,0,.2,1); }
+.dock-item:hover .ico-draw + .ico-draw,
+.dock-item.on .ico-draw + .ico-draw { animation-delay: .1s; }
+.dock-item:hover .ico-draw + .ico-draw + .ico-draw,
+.dock-item.on .ico-draw + .ico-draw + .ico-draw { animation-delay: .2s; }
+@keyframes ico-draw {
+  from { stroke-dashoffset: 1; opacity: 0; }
+  33%  { opacity: 1; }
+  to   { stroke-dashoffset: 0; opacity: 1; }
+}
+
+
 /* ── Buttons ── A little more life on press, and a soft lift on the primary. */
 .btn { position: relative; will-change: transform; }
 .btn:hover { box-shadow: 0 4px 14px rgba(83,74,183,.26); }
