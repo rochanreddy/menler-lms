@@ -10,6 +10,10 @@ import routes from './routes/index.js';
 const app = express();
 const port = Number(process.env.PORT || 4100); // 4100 avoids clashing with the marketing API (4000) in local dev.
 
+// The API runs behind a TLS-terminating proxy in production, so req.protocol and
+// req.ip are only truthful once the forwarding headers are trusted.
+app.set('trust proxy', 1);
+
 // CORS allowlist — the LMS frontend (app.menler.in / localhost:5174) calls this
 // API cross-origin. Bearer tokens (no cookies) keep this simple.
 const normalizeOrigin = (s) => (s || '').trim().replace(/\/+$/, '');
@@ -32,8 +36,6 @@ app.use(
 );
 
 app.get('/health', (_req, res) => res.json({ ok: true }));
-// Serve uploaded files (resumes, submissions). CORS-open so links open anywhere.
-app.use('/uploads', (req, res, next) => { res.setHeader('Access-Control-Allow-Origin', '*'); next(); }, express.static('uploads'));
 app.use('/api/lms', routes);
 
 async function start() {
