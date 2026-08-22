@@ -19,9 +19,9 @@ const submissionFileSchema = new mongoose.Schema(
 //   1. Drive folder verification (checkStatus/errorDetail/files/checkedAt) —
 //      automated structural check, see utils/driveVerify.js.
 //   2. Mentor grading (status/score/feedback) — unchanged, human-driven.
-//   3. (future) automated content scoring — not built yet; give it its own
-//      field group (e.g. aiReview: { score, feedback, reviewedAt }) rather
-//      than reusing #1 or #2's fields.
+//   3. Automated content scoring (aiReview) — see utils/aiGrade.js. Advisory
+//      only: it never writes to #2's score/feedback/status. A mentor reads it
+//      and still grades by hand.
 const submissionSchema = new mongoose.Schema(
   {
     assignmentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Assignment', required: true, index: true },
@@ -39,6 +39,20 @@ const submissionSchema = new mongoose.Schema(
     errorDetail: { type: String, default: null },
     files: { type: [submissionFileSchema], default: [] },
     checkedAt: { type: Date, default: null },
+
+    // Automated review (see utils/aiGrade.js). Null until an AI review has been
+    // run at least once. Each stage's raw JSON is kept as-is so the pipeline can
+    // change shape without a migration, and so a mentor can see what the model
+    // actually said rather than only the rolled-up number.
+    aiReview: {
+      status: { type: String, enum: ['running', 'done', 'failed', null], default: null },
+      writeup: { type: mongoose.Schema.Types.Mixed, default: null },   // stage 1
+      screenshots: { type: mongoose.Schema.Types.Mixed, default: null }, // stage 2
+      final: { type: mongoose.Schema.Types.Mixed, default: null },      // stage 3
+      model: { type: String, default: '' },
+      error: { type: String, default: null },
+      reviewedAt: { type: Date, default: null },
+    },
 
     // Set once a mentor grades the submission; blocks further student edits
     // until a mentor explicitly unlocks it (POST /:id/unlock).
