@@ -14,7 +14,7 @@ import { PDFParse } from 'pdf-parse';
 
 const DRIVE_API = 'https://www.googleapis.com/drive/v3';
 
-// Claude accepts these four image formats; anything else is skipped rather than
+// The vision models accept these four; anything else is skipped rather than
 // sent and rejected.
 const IMAGE_MIME = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp']);
 
@@ -78,8 +78,8 @@ async function docToText(file, apiKey) {
 /**
  * Gather everything reviewable from a verified submission.
  *
- * Returns { text, images, notes } where images are base64 blocks ready to drop
- * into a Claude message, and notes records what was skipped so the review can
+ * Returns { text, images, notes } where each image carries a data: URL ready to
+ * drop into a chat message, and notes records what was skipped so the review can
  * say "3 screenshots were too large" instead of silently grading fewer.
  */
 export async function collectSubmissionContent(submission) {
@@ -130,7 +130,7 @@ export async function collectSubmissionContent(submission) {
       }
       images.push({
         name: file.name,
-        source: { type: 'base64', media_type: file.mimeType, data: buf.toString('base64') },
+        dataUrl: `data:${file.mimeType};base64,${buf.toString('base64')}`,
       });
     } catch (err) {
       notes.push(`Could not read "${file.name}": ${err.message}`);
