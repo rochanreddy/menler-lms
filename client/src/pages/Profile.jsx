@@ -16,12 +16,15 @@ export default function Profile() {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [resumeFileName, setResumeFileName] = useState('');
+  const resumeFileRef = useRef(null);
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
   async function onResumeFile(e) {
     const file = e.target.files?.[0];
     if (!file) return;
+    setResumeFileName(file.name);
     setUploading(true);
     setMsg('');
     try { const { url } = await uploadFile(file); set('resumeUrl', url); setMsg('Uploaded ✓ — click Save changes'); }
@@ -121,7 +124,13 @@ export default function Profile() {
           <h3>Resume</h3>
           <div className="field-grid">
             <label>Upload a file (PDF/DOC, ≤ 8 MB)
-              <input type="file" accept=".pdf,.doc,.docx" onChange={onResumeFile} disabled={uploading} />
+              <div className="file-picker">
+                <input ref={resumeFileRef} type="file" accept=".pdf,.doc,.docx" onChange={onResumeFile} disabled={uploading} hidden />
+                <button type="button" className="btn quiet sm" onClick={() => resumeFileRef.current?.click()} disabled={uploading}>
+                  {uploading ? 'Uploading…' : 'Choose file'}
+                </button>
+                <span className="muted file-picker-name">{resumeFileName || 'No file chosen'}</span>
+              </div>
             </label>
             <label>…or paste a link<input value={form.resumeUrl} onChange={(e) => set('resumeUrl', e.target.value)} placeholder="https://…" /></label>
           </div>
