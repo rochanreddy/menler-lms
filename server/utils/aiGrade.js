@@ -22,7 +22,7 @@ import { z } from 'zod';
 // just a config string — swap it without touching this file. The screenshot
 // stage can point somewhere else than the two text stages if you want to tune
 // them separately; by default it follows the same model.
-const MODEL = process.env.OPENROUTER_MODEL || 'openai/gpt-5.6-sol';
+const MODEL = process.env.OPENROUTER_MODEL || 'google/gemini-3.7-flash';
 const VISION_MODEL = process.env.OPENROUTER_VISION_MODEL || MODEL;
 
 // Constructed lazily: the server should boot fine without a key, and only the
