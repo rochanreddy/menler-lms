@@ -3,6 +3,8 @@ import { useParams, Link, useOutletContext } from 'react-router-dom';
 import { api, downloadFile } from '../../api.js';
 import { Donut, Meter, SEQ, SEQ_AQUA } from '../../components/Charts.jsx';
 import { CheckBadge, SubmissionCheckPanel } from '../../components/SubmissionCheck.jsx';
+import AiReview from '../../components/AiReview.jsx';
+import Empty from '../../components/Empty.jsx';
 
 const fmtDate = (d) => (d ? new Date(d).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' }) : '—');
 
@@ -75,7 +77,7 @@ export default function StudentDetail() {
   }
 
   if (err && !data) return <p className="error">{err}</p>;
-  if (!data) return <div className="skeleton"><div className="skeleton-row" /><div className="skeleton-row tall" /><div className="skeleton-row tall" /></div>;
+  if (!data) return <div className="skeleton-stack"><div className="skeleton-row" /><div className="skeleton-row tall" /><div className="skeleton-row tall" /></div>;
 
   const u = data.user;
   const lmsBlocked = u.blocked?.lms;
@@ -207,7 +209,7 @@ export default function StudentDetail() {
       {/* Assignments & projects — with per-item block */}
       <section className="panel" style={{ marginTop: 18 }}>
         <h3>Assignments &amp; projects</h3>
-        {data.assignments.length === 0 && <p className="muted">No assignments in their batches yet.</p>}
+        {data.assignments.length === 0 && <Empty inline icon="grades" title="No assignments in their batches yet." />}
         {data.assignments.length > 0 && (
           <div className="table-wrap">
             <table className="grade-table">
@@ -260,6 +262,10 @@ export default function StudentDetail() {
                             onRecheck={s.id ? () => recheck(s.id) : null}
                             busy={rechecking === s.id}
                           />
+                          {/* No onApply: there is no grade form on this page.
+                              An admin reads the review here and grades from
+                              the batch workspace. */}
+                          <AiReview submission={{ ...s, _id: s.id }} onDone={load} />
                         </td>
                       </tr>
                     ) : null,
@@ -274,7 +280,7 @@ export default function StudentDetail() {
       {/* Quiz attempts */}
       <section className="panel" style={{ marginTop: 18 }}>
         <h3>Quiz &amp; exam attempts</h3>
-        {data.quizAttempts.length === 0 ? <p className="muted">No attempts yet.</p> : (
+        {data.quizAttempts.length === 0 ? <Empty inline icon="learning" title="No quiz attempts yet." /> : (
           <div className="table-wrap">
             <table className="grade-table">
               <thead><tr><th>Quiz</th><th>Type</th><th>Batch</th><th>Score</th><th>Taken</th></tr></thead>

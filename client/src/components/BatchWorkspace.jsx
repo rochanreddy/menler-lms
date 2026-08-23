@@ -4,6 +4,8 @@ import { api, downloadFile } from '../api.js';
 import LineIcon from './LineIcon.jsx';
 import Markdown from './Markdown.jsx';
 import { SubmissionCheckPanel } from './SubmissionCheck.jsx';
+import AiReview from './AiReview.jsx';
+import Empty, { Loading } from './Empty.jsx';
 import DateTimePicker from './DateTimePicker.jsx';
 
 const dueLabel = (d) => new Date(d).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
@@ -81,7 +83,7 @@ export default function BatchWorkspace({ batchId, mode }) {
     );
   }
 
-  if (!batch) return <div className="skeleton"><div className="skeleton-row" /><div className="skeleton-row tall" /><div className="skeleton-row tall" /></div>;
+  if (!batch) return <div className="skeleton-stack"><div className="skeleton-row" /><div className="skeleton-row tall" /><div className="skeleton-row tall" /></div>;
 
   // Admin gets every mentor power (the backend already allows it) plus
   // admin-only member management and moderation.
@@ -218,7 +220,7 @@ export default function BatchWorkspace({ batchId, mode }) {
             {a.body && <p className="muted" style={{ marginTop: 4 }}>{a.body}</p>}
           </div>
         ))}
-        {announcements.length === 0 && <p className="muted">No announcements yet.</p>}
+        {announcements.length === 0 && <Empty inline icon="forum" title="No announcements yet." hint="Anything you post here reaches every student in the batch." />}
       </section>
 
       {/* Sessions — with Zoom link */}
@@ -247,7 +249,7 @@ export default function BatchWorkspace({ batchId, mode }) {
               </div>
             );
           })}
-          {sessions.length === 0 && <p className="muted">No sessions yet.</p>}
+          {sessions.length === 0 && <Empty inline icon="webinar" title="No sessions yet." hint="Schedule one above — students see it on their home page and join from there." />}
         </div>
       </section>
 
@@ -277,7 +279,7 @@ export default function BatchWorkspace({ batchId, mode }) {
             {canManage && <Submissions assignmentId={a._id} />}
           </div>
         ))}
-        {assignments.length === 0 && <p className="muted">No assignments yet.</p>}
+        {assignments.length === 0 && <Empty inline icon="grades" title="No assignments yet." hint="Set one above. Students submit a Drive folder, which is checked automatically." />}
       </section>
 
       {/* Quizzes & exams (mentor authors + tracks results) */}
@@ -292,16 +294,16 @@ export default function BatchWorkspace({ batchId, mode }) {
             {canManage && <QuizResults quizId={q._id} />}
           </div>
         ))}
-        {quizzes.length === 0 && <p className="muted">No quizzes yet.</p>}
+        {quizzes.length === 0 && <Empty inline icon="learning" title="No quizzes yet." hint="Build one above to test the batch on what you have covered." />}
       </section>
 
       {/* Gradebook — students × assessments matrix */}
       <section className="panel">
         <h3>Gradebook</h3>
         {!gradebook || gradebook.rows.length === 0 ? (
-          <p className="muted">No students to grade yet.</p>
+          <Empty inline icon="students" title="No students to grade yet." hint="Enrol students in the roster above and the gradebook fills in." />
         ) : gradebook.columns.length === 0 ? (
-          <p className="muted">No assignments or quizzes yet — add some above and grades will appear here.</p>
+          <Empty inline icon="grades" title="Nothing to grade yet." hint="Add an assignment or a quiz above and every student gets a column here." />
         ) : (
           <div className="table-wrap">
             <table className="grade-table">
@@ -471,8 +473,8 @@ function QuizResults({ quizId }) {
         {open ? 'Hide results' : 'View results'}
       </button>
       {open && (
-        !data ? <p className="muted">Loading…</p> :
-          attempts.length === 0 ? <p className="muted">No attempts yet.</p> :
+        !data ? <Loading rows={2} inline /> :
+          attempts.length === 0 ? <Empty inline icon="learning" title="Nobody has attempted this quiz yet." /> :
             attempts.map((a) => (
               <div key={a._id} className="grade-row">
                 <strong>{a.studentId?.fullName || a.studentId?.email}</strong>
@@ -661,8 +663,8 @@ function Attendance({ session, students, onDone }) {
             </div>
 
             <div className="att-list">
-              {loading ? <p className="muted att-empty">Loading…</p>
-                : students.length === 0 ? <p className="muted att-empty">No students enrolled in this batch.</p>
+              {loading ? <div className="att-empty"><Loading rows={4} inline /></div>
+                : students.length === 0 ? <Empty inline icon="students" title="No students enrolled in this batch." hint="Add them from the roster before marking attendance." />
                 : students.map((s) => {
                   const p = !!marks[s._id];
                   return (
@@ -680,7 +682,7 @@ function Attendance({ session, students, onDone }) {
 
             <div className="att-foot">
               <button className="btn ghost" onClick={() => setOpen(false)} disabled={saving}>Cancel</button>
-              <button className="btn" onClick={save} disabled={saving || loading || students.length === 0}>{saving ? 'Saving…' : 'Save attendance'}</button>
+              <button className={`btn ${saving ? 'is-busy' : ''}`} onClick={save} disabled={saving || loading || students.length === 0}>{saving ? 'Saving…' : 'Save attendance'}</button>
             </div>
           </div>
         </div>
@@ -710,15 +712,15 @@ function Submissions({ assignmentId }) {
         {open ? 'Hide submissions' : 'View submissions'}
       </button>
       {open && (
-        subs === null ? <p className="muted">Loading…</p> :
-          subs.length === 0 ? <p className="muted">No submissions yet.</p> :
-            subs.map((s) => <GradeRow key={s._id} sub={s} onGrade={grade} onRecheck={recheck} onUnlock={unlock} />)
+        subs === null ? <Loading rows={2} inline /> :
+          subs.length === 0 ? <Empty inline icon="grades" title="No submissions yet." hint="They appear here as students hand in their Drive folders." /> :
+            subs.map((s) => <GradeRow key={s._id} sub={s} onGrade={grade} onRecheck={recheck} onUnlock={unlock} onReload={load} />)
       )}
     </div>
   );
 }
 
-function GradeRow({ sub, onGrade, onRecheck, onUnlock }) {
+function GradeRow({ sub, onGrade, onRecheck, onUnlock, onReload }) {
   const [score, setScore] = useState(sub.score ?? '');
   const [feedback, setFeedback] = useState(sub.feedback || '');
   const [busy, setBusy] = useState(false);
@@ -727,6 +729,12 @@ function GradeRow({ sub, onGrade, onRecheck, onUnlock }) {
   async function recheck() {
     setBusy(true);
     try { await onRecheck(sub._id); } finally { setBusy(false); }
+  }
+
+  // The AI review can only populate these two fields; saving stays manual.
+  function applySuggestion({ score: s, feedback: f }) {
+    setScore(String(s));
+    if (f) setFeedback(f);
   }
 
   // Grading writes a score — guard against a double-click posting it twice.
@@ -750,14 +758,20 @@ function GradeRow({ sub, onGrade, onRecheck, onUnlock }) {
         busy={busy}
       />
 
+      {/* Automated review. Advisory: the only thing it can do to the form
+          below is fill it in — the mentor still presses Grade. */}
+      <AiReview submission={sub} onDone={onReload} onApply={applySuggestion} />
+
       <div className="inline-form">
         {sub.locked && <button type="button" className="btn sm ghost" onClick={() => onUnlock(sub._id)}>Unlock</button>}
-        <select className="grade-score" value={score} onChange={(e) => setScore(e.target.value)}>
+        <label className="sr-only" htmlFor={`score-${sub._id}`}>Score</label>
+        <select id={`score-${sub._id}`} className="grade-score" value={score} onChange={(e) => setScore(e.target.value)}>
           <option value="">Score…</option>
           {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => <option key={n} value={n}>{n} / 10</option>)}
         </select>
-        <input placeholder="Feedback" value={feedback} onChange={(e) => setFeedback(e.target.value)} />
-        <button className="btn sm" onClick={grade} disabled={grading}>{grading ? 'Saving…' : 'Grade'}</button>
+        <label className="sr-only" htmlFor={`fb-${sub._id}`}>Feedback</label>
+        <input id={`fb-${sub._id}`} placeholder="Feedback" value={feedback} onChange={(e) => setFeedback(e.target.value)} />
+        <button className={`btn sm ${grading ? 'is-busy' : ''}`} onClick={grade} disabled={grading}>{grading ? 'Saving…' : 'Grade'}</button>
       </div>
     </div>
   );

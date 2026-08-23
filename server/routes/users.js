@@ -106,7 +106,7 @@ router.get('/:id/overview', requireAuth, requireRole('admin', 'mentor'), async (
     Attendance.find({ studentId: uid }).select('batchId status'),
     Assignment.find({ batchId: { $in: batchIds } }).sort({ createdAt: -1 }),
     Submission.find({ studentId: uid, isDeleted: false })
-      .select('assignmentId status score feedback updatedAt driveLink url checkStatus errorDetail files locked checkedAt'),
+      .select('assignmentId status score feedback updatedAt driveLink url checkStatus errorDetail files locked checkedAt aiReview'),
     Quiz.find({ batchId: { $in: batchIds } }).select('title type batchId'),
     QuizAttempt.find({ studentId: uid }).select('quizId score total createdAt'),
     Progress.find({ studentId: uid }).select('programId completedTopics'),
@@ -172,6 +172,9 @@ router.get('/:id/overview', requireAuth, requireRole('admin', 'mentor'), async (
                   errorDetail: s.errorDetail,
                   files: s.files || [],
                   checkedAt: s.checkedAt,
+                  // Read-only here: this page has no grade form, so an admin
+                  // can see (and re-run) a review but never apply it from here.
+                  aiReview: s.aiReview || null,
                 }
               : null,
             blocked: blockedAssignments.has(String(a._id)),
