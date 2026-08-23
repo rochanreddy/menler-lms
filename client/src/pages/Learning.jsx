@@ -5,6 +5,7 @@ import FileViewer from '../components/FileViewer.jsx';
 import Markdown from '../components/Markdown.jsx';
 import LessonIcon from '../components/LessonIcon.jsx';
 import LineIcon from '../components/LineIcon.jsx';
+import Empty from '../components/Empty.jsx';
 import { CheckBadge, SubmissionCheckPanel } from '../components/SubmissionCheck.jsx';
 
 // TEMPORARY test files, until mentors attach real ones. Both are real Menler
@@ -67,7 +68,7 @@ function Quizzes() {
   const [items, setItems] = useState([]);
   const load = () => api('/quizzes?scope=mine').then((d) => setItems(d.quizzes || [])).catch(() => {});
   useEffect(() => { load(); }, []);
-  if (items.length === 0) return <p className="muted">No quizzes yet. Your mentor will post them here.</p>;
+  if (items.length === 0) return <Empty icon="learning" title="No quizzes yet." hint="Your mentor posts them here as the programme moves along — nothing for you to do until then." />;
   return <div className="list">{items.map((q) => <QuizCard key={q._id} quiz={q} onDone={load} />)}</div>;
 }
 
@@ -129,7 +130,7 @@ function QuizCard({ quiz, onDone }) {
             <span className="qr-score-pct">{pct}%</span>
             <span className="muted">{attempt.score} of {attempt.total} correct</span>
           </div>
-          <button className="btn sm ghost" onClick={toggleReview} disabled={busy}>
+          <button className={`btn sm ghost ${busy ? 'is-busy' : ''}`} onClick={toggleReview} disabled={busy}>
             {busy ? 'Loading…' : showReview ? 'Hide review' : 'Review answers'}
           </button>
         </div>
@@ -158,7 +159,7 @@ function QuizCard({ quiz, onDone }) {
             {qIndex < total - 1 ? (
               <button type="button" className="btn sm" onClick={() => setQIndex((i) => i + 1)}>Next →</button>
             ) : (
-              <button className="btn sm" disabled={busy || !allAnswered}>{busy ? 'Submitting…' : 'Submit answers'}</button>
+              <button className={`btn sm ${busy ? 'is-busy' : ''}`} disabled={busy || !allAnswered}>{busy ? 'Submitting…' : 'Submit answers'}</button>
             )}
           </div>
           {qIndex === total - 1 && !allAnswered && <p className="muted quiz-take-hint">Answer every question to submit.</p>}
@@ -379,15 +380,15 @@ function Content() {
               <div className="learn-progress-pct">{pct}% complete</div>
               <div className="muted">{done} of {total} lessons</div>
             </div>
-            {pct === 100 && <button className="btn sm" onClick={viewCertificate}>🎓 Certificate</button>}
+            {pct === 100 && <button className="btn sm" onClick={viewCertificate}><LineIcon name="award" size={14} /> Certificate</button>}
           </div>
         )}
       </div>
 
       {!program ? (
-        <div className="panel empty-state"><p className="muted">Choose a program above to start learning.</p></div>
+        <div className="panel"><Empty icon="programs" title="Pick a programme to start." hint="Choose one from the selector above and its curriculum loads here." /></div>
       ) : flat.length === 0 ? (
-        <div className="panel empty-state"><p className="muted">No lessons published yet.{!isStudent ? ' Add curriculum in Programs → Manage curriculum.' : ' Check back soon.'}</p></div>
+        <div className="panel"><Empty icon="learning" title="No lessons published yet." hint={isStudent ? 'Your mentor is still building this programme out. Check back soon.' : 'Add curriculum under Programs → Manage curriculum, then publish it.'} /></div>
       ) : (
         <div className="learn-grid">
           {/* Curriculum sidebar */}
@@ -545,7 +546,7 @@ function Assignments() {
   const load = () => api('/assignments?scope=mine').then((d) => setItems(d.assignments || [])).catch(() => {});
   useEffect(() => { load(); }, []);
 
-  if (items.length === 0) return <p className="muted">No assignments yet. They appear once your mentor sets them.</p>;
+  if (items.length === 0) return <Empty icon="grades" title="No assignments yet." hint="They appear here once your mentor sets them, with the deadline and what your Drive folder needs to contain." />;
   return (
     <div className="list">
       {items.map((a) => <AssignmentCard key={a._id} a={a} onChange={load} />)}
@@ -663,27 +664,58 @@ function AssignmentCard({ a, onChange }) {
             </div>
           </div>
 
-          {/* What the automated check will look for — shown so the student
-              isn't guessing at what the folder must contain. */}
-          {required.length > 0 && (
-            <p className="muted sub-form-hint">
-              <strong>Your folder must contain:</strong> {required.join(', ')}.
-            </p>
-          )}
+          {/* Both preconditions come BEFORE the field, not after the button.
+              They were below it, which is where a student reads them only
+              after the automated check has already rejected the folder. */}
+          <div className="sub-reqs">
+            <p className="sub-reqs-lead">Before you paste the link</p>
+            <ul className="sub-reqs-list">
+              <li>
+                <span className="sub-req-tick" aria-hidden="true" />
+                Share the folder as <strong>“Anyone with the link can view”</strong> — a private
+                folder fails the check even when everything is in it.
+              </li>
+              {required.length > 0 && (
+                <li>
+                  <span className="sub-req-tick" aria-hidden="true" />
+                  It must contain {required.join(', ')}.
+                </li>
+              )}
+            </ul>
+          </div>
 
           <label className="sub-field-label" htmlFor={`drive-${a._id}`}>Google Drive folder link</label>
           <div className="assign-submit">
             <input
               id={`drive-${a._id}`}
+              type="url"
+              inputMode="url"
+              autoComplete="off"
+              spellCheck="false"
               placeholder="https://drive.google.com/drive/folders/…"
               value={driveLink}
               onChange={(e) => setDriveLink(e.target.value)}
               required
             />
-            <button className="btn sm" disabled={busy}>{busy ? 'Checking…' : (sub ? 'Save' : 'Submit')}</button>
-            {sub && <button type="button" className="btn sm ghost" onClick={() => { setEditing(false); setError(''); setDriveLink(sub.driveLink || ''); }}>Cancel</button>}
           </div>
-          <p className="muted sub-form-hint">Share the folder as “Anyone with the link can view”, and include your video, screenshots, and write-up.</p>
+          {/* Full-size primary: this is the single most important thing a
+              student does in the product. Cancel drops to .quiet so the two
+              stop reading as equal choices. */}
+          <div className="sub-actions">
+            <button className={`btn ${busy ? 'is-busy' : ''}`} disabled={busy}>
+              {busy ? 'Checking your folder…' : (sub ? 'Save changes' : 'Submit for review')}
+            </button>
+            {sub && (
+              <button
+                type="button"
+                className="btn quiet"
+                onClick={() => { setEditing(false); setError(''); setDriveLink(sub.driveLink || ''); }}
+              >
+                Cancel
+              </button>
+            )}
+            {busy && <span className="sub-actions-note">We open the folder and check its contents — this takes a few seconds.</span>}
+          </div>
         </form>
       ) : sub?.locked ? (
         <p className="assign-note">This submission has been reviewed and is locked. Ask your mentor to unlock it if you need to change it.</p>
@@ -691,8 +723,8 @@ function AssignmentCard({ a, onChange }) {
         <p className="assign-note">The deadline has passed, so this submission can no longer be changed.</p>
       ) : (
         <div className="inline-form">
-          <button type="button" className="btn sm ghost" onClick={() => setEditing(true)} disabled={!editable}>Edit</button>
-          <button type="button" className="btn sm ghost" onClick={remove} disabled={busy || !editable}>Delete</button>
+          <button type="button" className="btn sm ghost" onClick={() => setEditing(true)} disabled={!editable}>Edit submission</button>
+          <button type="button" className={`btn sm ghost-danger ${busy ? 'is-busy' : ''}`} onClick={remove} disabled={busy || !editable}>Delete</button>
         </div>
       )}
     </div>
