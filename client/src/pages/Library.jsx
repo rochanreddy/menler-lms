@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { api } from '../api.js';
+import Empty from '../components/Empty.jsx';
 
 const CATEGORIES = ['PPT', 'eBook', 'Note', 'Library'];
 
@@ -51,7 +52,7 @@ export default function Library() {
               {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
             </select>
             <input placeholder="Link (Drive, PDF…)" value={form.url} onChange={(e) => setForm((f) => ({ ...f, url: e.target.value }))} />
-            <button className="btn sm" disabled={busy}>{busy ? 'Adding…' : 'Add'}</button>
+            <button className={`btn sm ${busy ? 'is-busy' : ''}`} disabled={busy}>{busy ? 'Adding…' : 'Add'}</button>
           </div>
           {err && <span className="error" role="alert">{err}</span>}
         </form>
@@ -72,7 +73,7 @@ export default function Library() {
             <span className="lib-open">{i.url ? 'Open →' : 'No link'}</span>
           </a>
         ))}
-        {shown.length === 0 && <p className="muted">No resources yet.</p>}
+        {shown.length === 0 && <Empty icon="library" title="Nothing in the library yet." hint="Reading material, recordings and templates your mentors share end up here." />}
       </div>
     </div>
   );

@@ -3,6 +3,7 @@ import { useOutletContext } from 'react-router-dom';
 import { api } from '../../api.js';
 import BatchWorkspace from '../../components/BatchWorkspace.jsx';
 import CurriculumEditor from '../../components/CurriculumEditor.jsx';
+import Empty from '../../components/Empty.jsx';
 
 // Mentor "Programs" screen: their batches → open one to schedule sessions, mark
 // attendance, set assignments, and grade submissions (BatchWorkspace, mentor
@@ -57,7 +58,7 @@ export default function MentorBatches() {
           </div>
         ))}
         {batches.length === 0 && (
-          <div className="empty"><div className="empty-icon">📚</div><strong>No batches yet</strong>An admin assigns you to a batch under Admin → Batches.</div>
+          <Empty icon="batches" title="You are not assigned to a batch yet." hint="An admin assigns mentors to batches under Admin → Batches." />
         )}
       </div>
 

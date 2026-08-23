@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api, downloadFile } from '../../api.js';
 import AtRiskPanel from '../../components/AtRiskPanel.jsx';
+import Empty from '../../components/Empty.jsx';
 import { Donut, MiniLine, SERIES, SEQ, SEQ_AQUA } from '../../components/Charts.jsx';
 
 // Admin platform overview — headline counts, distribution donuts, signup trend,
@@ -93,7 +94,7 @@ export default function AdminHome() {
         <div className="eyebrow">Enrolment by batch</div>
         <h2>Students per cohort</h2>
         {chart.length === 0 ? (
-          <p className="muted" style={{ marginTop: 12 }}>No enrolments yet.</p>
+          <Empty inline icon="students" title="No enrolments yet." hint="Enrolment activity appears here once students start joining batches." />
         ) : (
           <div className="chart" style={{ marginTop: 22 }}>
             {chart.map((b) => (

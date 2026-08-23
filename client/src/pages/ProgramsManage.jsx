@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { api } from '../api.js';
+import Empty from '../components/Empty.jsx';
 import CurriculumEditor from '../components/CurriculumEditor.jsx';
 
 // Admin: create + list programs, and manage each program's curriculum (upload
@@ -58,7 +59,7 @@ export default function ProgramsManage() {
             {isAdmin && <button className="btn sm" onClick={() => setEditing(p._id)}>Manage curriculum</button>}
           </div>
         ))}
-        {programs.length === 0 && <p className="muted">No programs yet.{isAdmin ? ' Create one above.' : ''}</p>}
+        {programs.length === 0 && <Empty icon="programs" title="No programmes yet." hint={isAdmin ? 'Create one above, then add batches and curriculum to it.' : 'An admin needs to create one before batches can be set up.'} />}
       </div>
     </div>
   );

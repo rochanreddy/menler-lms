@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api.js';
+import Empty, { Loading } from '../components/Empty.jsx';
 
 // Student gradebook: one consolidated view of every assignment/quiz/exam and
 // the grade received — the single place a student checks "how am I doing".
@@ -34,8 +35,8 @@ export default function StudentGrades() {
       </div>
 
       <div className="panel">
-        {loading ? <p className="muted">Loading…</p> : rows.length === 0 ? (
-          <p className="muted">No assessments yet — assignments and quizzes will appear here as your mentor posts them.</p>
+        {loading ? <Loading rows={4} /> : rows.length === 0 ? (
+          <Empty icon="grades" title="No assessments yet." hint="Assignments and quizzes appear here as your mentor posts them, along with every score you are given." />
         ) : (
           <div className="table-wrap">
             <table className="grade-table">

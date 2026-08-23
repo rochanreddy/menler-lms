@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { api } from '../../api.js';
 import DateTimePicker from '../../components/DateTimePicker.jsx';
+import Empty from '../../components/Empty.jsx';
 
 // Webinars — mentor/admin schedule; the list shows join link, slides, recording.
 export default function Webinar() {
@@ -46,7 +47,7 @@ export default function Webinar() {
             <input placeholder="Title" value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} />
             <DateTimePicker value={form.startsAt} onChange={(v) => setForm((f) => ({ ...f, startsAt: v }))} placeholder="Starts at" />
             <input placeholder="Join link" value={form.joinUrl} onChange={(e) => setForm((f) => ({ ...f, joinUrl: e.target.value }))} />
-            <button className="btn sm" disabled={busy}>{busy ? 'Adding…' : 'Add'}</button>
+            <button className={`btn sm ${busy ? 'is-busy' : ''}`} disabled={busy}>{busy ? 'Adding…' : 'Add'}</button>
           </div>
           {err && <span className="error" role="alert">{err}</span>}
         </form>
@@ -69,7 +70,7 @@ export default function Webinar() {
             </div>
           );
         })}
-        {webinars.length === 0 && <p className="muted">No webinars scheduled yet.</p>}
+        {webinars.length === 0 && <Empty inline icon="webinar" title="No webinars scheduled yet." hint="Add one above and it appears on every invited student’s home page." />}
       </div>
     </div>
   );

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import { api } from '../api.js';
+import Empty from '../components/Empty.jsx';
 import LineIcon from '../components/LineIcon.jsx';
 
 // THE PATH — the student home.
@@ -167,7 +168,7 @@ export default function StudentHome() {
             </div>
             {liveClass.url ? (
               <a
-                className="btn live-cta-btn"
+                className="btn"
                 href={liveClass.url}
                 target="_blank"
                 rel="noreferrer"
@@ -288,7 +289,7 @@ export default function StudentHome() {
         <section>
           <h3 className="ruled-head">Due next</h3>
           {openDue.length === 0 ? (
-            <p className="muted">Nothing outstanding. {assignments.length > 0 && 'All submitted.'}</p>
+            <Empty inline icon="grades" title={assignments.length > 0 ? 'All caught up.' : 'Nothing outstanding.'} hint={assignments.length > 0 ? 'Every assignment set so far has been submitted.' : undefined} />
           ) : (
             <div className="qlist">
               {openDue.slice(0, 4).map((a) => {
@@ -314,7 +315,7 @@ export default function StudentHome() {
         <section>
           <h3 className="ruled-head">Coming up</h3>
           {sessions.length === 0 ? (
-            <p className="muted">No sessions scheduled yet.</p>
+            <Empty inline icon="webinar" title="No sessions scheduled yet." hint="Your next live class shows up here with a join link." />
           ) : (
             <div className="qlist">
               {sessions.slice(0, 4).map((s) => (

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../../api.js';
+import Empty from '../../components/Empty.jsx';
 
 const fmtDate = (d) => (d ? new Date(d).toLocaleDateString([], { day: 'numeric', month: 'short' }) : '—');
 
@@ -45,11 +46,13 @@ export default function MentorStudents() {
           </div>
         ))}
         {shown.length === 0 && (
-          <div className="empty">
-            <div className="empty-icon">🎒</div>
-            <strong>{students.length === 0 ? 'No students yet' : 'No matches'}</strong>
-            {students.length === 0 ? 'Students appear here once they are enrolled in one of your batches.' : 'Try a different name or email.'}
-          </div>
+          <Empty
+            icon="students"
+            title={students.length === 0 ? 'No students yet.' : 'No matches.'}
+            hint={students.length === 0
+              ? 'Students appear here once they are enrolled in one of your batches.'
+              : 'Try a different name or email address.'}
+          />
         )}
       </div>
     </div>

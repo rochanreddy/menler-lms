@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../api.js';
 import BatchWorkspace from '../../components/BatchWorkspace.jsx';
+import Empty from '../../components/Empty.jsx';
 
 // Admin: create batches under a program, then open one to assign mentors,
 // enroll students, and schedule sessions (via BatchWorkspace, admin mode).
@@ -72,7 +73,7 @@ export default function AdminBatches() {
           </div>
         ))}
         {batches.length === 0 && (
-          <div className="empty"><div className="empty-icon">🎓</div><strong>No batches yet</strong>Create your first cohort with the form above.</div>
+          <Empty icon="batches" title="No batches yet." hint="Create your first cohort with the form above, then assign a mentor and enrol students." />
         )}
       </div>
     </div>

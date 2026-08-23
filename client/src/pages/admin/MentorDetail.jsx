@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { api } from '../../api.js';
+import Empty from '../../components/Empty.jsx';
 
 const fmtDate = (d) => (d ? new Date(d).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' }) : '—');
 
@@ -58,7 +59,7 @@ export default function MentorDetail() {
   }
 
   if (err && !data) return <p className="error">{err}</p>;
-  if (!data) return <div className="skeleton"><div className="skeleton-row" /><div className="skeleton-row tall" /><div className="skeleton-row tall" /></div>;
+  if (!data) return <div className="skeleton-stack"><div className="skeleton-row" /><div className="skeleton-row tall" /><div className="skeleton-row tall" /></div>;
 
   const u = data.user;
   const lmsBlocked = u.blocked?.lms;
@@ -133,7 +134,7 @@ export default function MentorDetail() {
       {/* Every student under this mentor */}
       <section className="panel" style={{ marginTop: 18 }}>
         <h3>Students under this mentor</h3>
-        {(!data.students || data.students.length === 0) ? <p className="muted">No students yet.</p> : (
+        {(!data.students || data.students.length === 0) ? <Empty inline icon="students" title="No students yet." hint="Students in this mentor’s batches are listed here." /> : (
           <div className="table-wrap">
             <table className="grade-table">
               <thead><tr><th>Student</th><th>Email</th><th>Status</th><th>Last active</th><th></th></tr></thead>
