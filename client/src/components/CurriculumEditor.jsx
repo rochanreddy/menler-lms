@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { api, postFile } from '../api.js';
+import Empty from './Empty.jsx';
 import LessonIcon from './LessonIcon.jsx';
+import LineIcon from './LineIcon.jsx';
 
 // Admin curriculum builder for one program. Upload a doc to auto-structure it,
 // then review/edit the Module → Chapter → Topic tree and publish.
@@ -77,7 +79,7 @@ export default function CurriculumEditor({ programId, onClose }) {
 
       <div className="ce-import">
         <div>
-          <strong>📥 Import from a document</strong>
+          <strong className="ce-import-title"><LineIcon name="upload" size={16} /> Import from a document</strong>
           <p className="muted" style={{ margin: '2px 0 0' }}>Upload a <b>.docx</b>, <b>.pdf</b>, <b>.md</b> or <b>.txt</b> — headings become modules & lessons automatically. Review below, then Save.</p>
         </div>
         <div>
@@ -88,7 +90,7 @@ export default function CurriculumEditor({ programId, onClose }) {
 
       <div className="ce-grid">
         <aside className="ce-tree">
-          {modules.length === 0 && <p className="muted" style={{ padding: 12 }}>No content yet — import a doc or add a module.</p>}
+          {modules.length === 0 && <Empty inline icon="learning" title="No content yet." hint="Import a document above, or add a module by hand." />}
           {modules.map((m, mi) => (
             <div key={mi} className="ce-mod">
               <div className="ce-mod-head">

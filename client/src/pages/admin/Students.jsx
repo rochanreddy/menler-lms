@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../../api.js';
+import LineIcon from '../../components/LineIcon.jsx';
+import Empty from '../../components/Empty.jsx';
 
 // Admin: add students and see everyone. Add a student here (creates the account),
 // or enrol them straight into a cohort under Batches (which also auto-creates).
@@ -51,13 +53,13 @@ export default function AdminStudents() {
           <input placeholder="Full name" value={form.fullName} onChange={(e) => setForm((f) => ({ ...f, fullName: e.target.value }))} />
           <input type="email" placeholder="Email (the one they enrolled with)" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} required />
           <input placeholder="Password (optional — auto if blank)" value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} />
-          <button className="btn sm" disabled={busy}>{busy ? 'Adding…' : 'Add student'}</button>
+          <button className={`btn sm ${busy ? 'is-busy' : ''}`} disabled={busy}>{busy ? 'Adding…' : 'Add student'}</button>
         </div>
         <p className="muted" style={{ fontSize: 12, marginTop: 6 }}>They must change the password on first login. To also put them in a cohort, use Batches → Enrol student.</p>
         {err && <span className="error" role="alert">{err}</span>}
         {temp && (
           <div className="tempbox">
-            ✅ Created <strong>{temp.email}</strong> — {temp.custom ? 'password' : 'temp password'}: <code>{temp.password}</code>
+            <LineIcon name="check" size={15} className="tempbox-ic" /> Created <strong>{temp.email}</strong> — {temp.custom ? 'password' : 'temp password'}: <code>{temp.password}</code>
             <div className="muted">Share it; they'll set their own password on first login.</div>
           </div>
         )}
@@ -84,8 +86,8 @@ export default function AdminStudents() {
         ))}
         {students.length === 0 && (
           activeQuery
-            ? <div className="empty"><div className="empty-icon">🔍</div><strong>No matches for “{activeQuery}”</strong>Try a different name or email.</div>
-            : <div className="empty"><div className="empty-icon">🎒</div><strong>No students yet</strong>Add one above, or enrol them straight into a cohort under Batches.</div>
+            ? <Empty icon="students" title={`No matches for “${activeQuery}”.`} hint="Try a different name or email address." />
+            : <Empty icon="students" title="No students yet." hint="Add one above, or enrol them straight into a cohort under Batches." />
         )}
       </div>
     </div>

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api.js';
+import Empty from './Empty.jsx';
 
 // Live notification bell — polls, shows an unread badge, and a dropdown.
 export default function NotificationBell() {
@@ -37,7 +38,7 @@ export default function NotificationBell() {
       {open && (
         <div className="notif-menu">
           <div className="notif-head">Notifications</div>
-          {items.length === 0 && <div className="notif-empty">You're all caught up 🎉</div>}
+          {items.length === 0 && <div className="notif-empty"><Empty inline icon="forum" title="You’re all caught up." /></div>}
           {items.map((n) => (
             <button key={n._id} className={`notif-item ${n.read ? '' : 'unread'}`} onClick={() => go(n)}>
               <div className="notif-text">{n.text}</div>

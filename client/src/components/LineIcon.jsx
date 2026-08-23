@@ -8,11 +8,15 @@ const ICONS = {
   clock: <><circle cx="12" cy="12" r="9" /><path d="M12 7.5V12l3 2" /></>,
   slides: <><rect x="3" y="4" width="18" height="12" rx="2" /><path d="M12 16v4" /><path d="M8.5 20h7" /></>,
   alert: <><path d="M10.3 3.9 1.9 18a2 2 0 0 0 1.7 3h16.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" /><path d="M12 9v4" /><path d="M12 17h.01" /></>,
+  upload: <><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="m7.5 9 4.5-4.5L16.5 9" /><path d="M12 4.5V16" /></>,
+  award: <><circle cx="12" cy="9" r="6" /><path d="m8.2 14.3-1.7 6.4 5.5-2.9 5.5 2.9-1.7-6.4" /></>,
+  ban: <><circle cx="12" cy="12" r="9" /><path d="m5.6 5.6 12.8 12.8" /></>,
+  inbox: <><path d="M3 13h5l1.5 3h5L16 13h5" /><path d="M4.6 6.4 3 13v5a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5l-1.6-6.6A2 2 0 0 0 17.5 5h-11a2 2 0 0 0-1.9 1.4z" /></>,
 };
 
-export default function LineIcon({ name, size = 16 }) {
+export default function LineIcon({ name, size = 16, className = '' }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ display: 'block', flex: 'none' }}>
+    <svg className={className} width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ display: 'block', flex: 'none' }}>
       {ICONS[name] || null}
     </svg>
   );

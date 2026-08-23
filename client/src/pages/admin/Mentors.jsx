@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../../api.js';
 import LineIcon from '../../components/LineIcon.jsx';
+import Empty from '../../components/Empty.jsx';
 
 const shortName = (n) => (n || '').replace(/^Demo — /, '');
 
@@ -73,7 +74,7 @@ export default function AdminMentors() {
           <input placeholder="Full name" value={form.fullName} onChange={(e) => setForm((f) => ({ ...f, fullName: e.target.value }))} />
           <input type="email" placeholder="Email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} required />
           <input placeholder="Password (optional — auto if blank)" value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} />
-          <button className="btn sm" disabled={busy}>{busy ? 'Creating…' : 'Create mentor'}</button>
+          <button className={`btn sm ${busy ? 'is-busy' : ''}`} disabled={busy}>{busy ? 'Creating…' : 'Create mentor'}</button>
         </div>
         <p className="muted" style={{ fontSize: 12, marginTop: 6 }}>Leave password blank to auto-generate one. Either way, the mentor must change it on first login.</p>
         {err && <span className="error" role="alert">{err}</span>}
@@ -130,7 +131,7 @@ export default function AdminMentors() {
           );
         })}
         {mentors.length === 0 && (
-          <div className="empty"><div className="empty-icon">🧑‍🏫</div><strong>No mentors yet</strong>Invite your first mentor with the form above.</div>
+          <Empty icon="mentors" title="No mentors yet." hint="Create one with the form above — they get a temporary password and set their own on first sign-in." />
         )}
       </div>
     </div>
