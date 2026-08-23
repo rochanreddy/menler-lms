@@ -79,7 +79,7 @@ function Doubts({ batchId, me }) {
           <h3>Ask a doubt</h3>
           <div className="inline-form">
             <input style={{ flex: 1, minWidth: 260 }} placeholder="What are you stuck on?" value={text} onChange={(e) => setText(e.target.value)} aria-label="Your doubt" />
-            <button className="btn sm" disabled={busy}>{busy ? 'Posting…' : 'Post doubt'}</button>
+            <button className={`btn sm ${busy ? 'is-busy' : ''}`} disabled={busy}>{busy ? 'Posting…' : 'Post doubt'}</button>
           </div>
           {err && <span className="error" role="alert">{err}</span>}
         </form>
@@ -138,7 +138,7 @@ function DoubtCard({ doubt, me, onChange }) {
           ))}
           <form className="inline-form" onSubmit={addComment}>
             <input style={{ flex: 1, minWidth: 220 }} placeholder={me.role === 'mentor' ? 'Write an answer…' : 'Add a comment…'} value={comment} onChange={(e) => setComment(e.target.value)} aria-label={me.role === 'mentor' ? 'Your answer' : 'Your comment'} />
-            <button className="btn sm" disabled={busy}>{busy ? 'Sending…' : (me.role === 'mentor' ? 'Answer' : 'Reply')}</button>
+            <button className={`btn sm ${busy ? 'is-busy' : ''}`} disabled={busy}>{busy ? 'Sending…' : (me.role === 'mentor' ? 'Answer' : 'Reply')}</button>
           </form>
         </div>
       )}

@@ -160,7 +160,7 @@ export default function Profile() {
       )}
 
       <div className="row">
-        <button className="btn" disabled={busy}>{busy ? 'Saving…' : 'Save changes'}</button>
+        <button className={`btn ${busy ? 'is-busy' : ''}`} disabled={busy}>{busy ? 'Saving…' : 'Save changes'}</button>
         {msg && <span className="muted">{msg}</span>}
       </div>
       </form>
@@ -211,7 +211,7 @@ function ChangePassword() {
         <label>New password (min 8 characters)<input type="password" value={next} onChange={(e) => setNext(e.target.value)} minLength={8} required /></label>
       </div>
       <div className="row" style={{ marginTop: 18 }}>
-        <button className="btn" disabled={busy}>{busy ? 'Updating…' : 'Update password'}</button>
+        <button className={`btn ${busy ? 'is-busy' : ''}`} disabled={busy}>{busy ? 'Updating…' : 'Update password'}</button>
         {msg && <span className="muted">{msg}</span>}
       </div>
     </form>

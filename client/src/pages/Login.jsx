@@ -82,7 +82,7 @@ export default function Login({ onLogin }) {
             </div>
           </div>
           {err && <div id="login-error" className="error auth-error" role="alert">{err}</div>}
-          <button className="btn" disabled={busy}>{busy ? 'Signing in…' : 'Sign in →'}</button>
+          <button className={`btn ${busy ? 'is-busy' : ''}`} disabled={busy}>{busy ? 'Signing in…' : 'Sign in →'}</button>
 
           {SHOW_DEMOS && (
             <div className="demo-box">

@@ -36,7 +36,7 @@ export default function ForcePasswordChange({ user, onDone, onLogout }) {
           <input id="fpc-confirm" type="password" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} required aria-describedby={err ? 'fpc-error' : undefined} />
         </div>
         {err && <div id="fpc-error" className="error auth-error" role="alert">{err}</div>}
-        <button className="btn" style={{ width: '100%', justifyContent: 'center' }} disabled={busy}>{busy ? 'Saving…' : 'Set password & continue'}</button>
+        <button className={`btn block ${busy ? 'is-busy' : ''}`} disabled={busy}>{busy ? 'Saving…' : 'Set password & continue'}</button>
         <p style={{ textAlign: 'center', marginTop: 14 }}>
           <button type="button" className="linklike" onClick={onLogout}>Log out</button>
         </p>

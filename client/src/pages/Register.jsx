@@ -57,7 +57,7 @@ export default function Register({ onLogin }) {
             <input id="reg-password" type="password" autoComplete="new-password" value={form.password} onChange={(e) => set('password', e.target.value)} minLength={8} required placeholder="Min 8 characters" aria-describedby={err ? 'reg-error' : undefined} />
           </div>
           {err && <div id="reg-error" className="error auth-error" role="alert">{err}</div>}
-          <button className="btn" disabled={busy}>{busy ? 'Creating…' : 'Create account →'}</button>
+          <button className={`btn ${busy ? 'is-busy' : ''}`} disabled={busy}>{busy ? 'Creating…' : 'Create account →'}</button>
 
           <p className="auth-alt">Already have an account? <Link to="/login">Sign in</Link></p>
         </form>
