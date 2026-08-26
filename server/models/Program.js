@@ -13,11 +13,9 @@ const topicSchema = new mongoose.Schema(
     // a Zoom URL while the class is running, swapped for a YouTube URL once the
     // recording is up. We never inspect it — empty just means "not posted yet".
     classLink: { type: String, default: '' },
-    // Two files per lecture, both opened in the in-page viewer. The extension
-    // decides how they render (PDF inline, Office formats via the embed), so a
-    // mentor can attach either kind to either slot without declaring which.
-    readingUrl: { type: String, default: '' },  // handout / reading, usually PDF
-    notesUrl: { type: String, default: '' },    // slide deck, usually PPTX
+    // Two PDF files per lecture, both opened in the in-page PDF viewer.
+    readingUrl: { type: String, default: '' },  // handout / reading (PDF)
+    notesUrl: { type: String, default: '' },    // teacher notes (PDF)
     order: { type: Number, default: 0 },
   },
   { _id: true },

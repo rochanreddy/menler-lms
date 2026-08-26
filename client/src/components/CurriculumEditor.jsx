@@ -166,10 +166,10 @@ export default function CurriculumEditor({ programId, onClose }) {
                 onChange={(e) => setTopicField(sel.mi, sel.ci, sel.ti, { readingUrl: e.target.value })}
               />
 
-              <label className="ce-label">Teacher notes <span className="muted">(PPTX or PDF — a PPTX must sit on a public URL to preview)</span></label>
+              <label className="ce-label">Teacher notes <span className="muted">(PDF — opens in the in-page viewer)</span></label>
               <input
                 className="ce-field"
-                placeholder="https://… .pptx"
+                placeholder="https://… .pdf"
                 value={selTopic.notesUrl || ''}
                 onChange={(e) => setTopicField(sel.mi, sel.ci, sel.ti, { notesUrl: e.target.value })}
               />

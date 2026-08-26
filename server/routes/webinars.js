@@ -9,16 +9,16 @@ router.get('/', requireAuth, async (_req, res) => {
   res.json({ webinars: await Webinar.find().sort({ startsAt: -1, createdAt: -1 }) });
 });
 
-// POST /api/lms/webinars — admin/mentor schedule.
-router.post('/', requireAuth, requireRole('admin', 'mentor'), async (req, res) => {
+// POST /api/lms/webinars — admin schedules (mentors can only join).
+router.post('/', requireAuth, requireRole('admin'), async (req, res) => {
   const { title, description, startsAt, joinUrl, pptUrl, recordingUrl } = req.body || {};
   if (!title) return res.status(400).json({ error: 'Title is required.' });
   const webinar = await Webinar.create({ title, description: description || '', startsAt: startsAt || null, joinUrl: joinUrl || '', pptUrl: pptUrl || '', recordingUrl: recordingUrl || '' });
   res.status(201).json({ webinar });
 });
 
-// PATCH /api/lms/webinars/:id — admin/mentor edit (add slides/recording).
-router.patch('/:id', requireAuth, requireRole('admin', 'mentor'), async (req, res) => {
+// PATCH /api/lms/webinars/:id — admin edit (add slides/recording).
+router.patch('/:id', requireAuth, requireRole('admin'), async (req, res) => {
   const allowed = (({ title, description, startsAt, joinUrl, pptUrl, recordingUrl }) => ({ title, description, startsAt, joinUrl, pptUrl, recordingUrl }))(req.body || {});
   Object.keys(allowed).forEach((k) => allowed[k] === undefined && delete allowed[k]);
   const webinar = await Webinar.findByIdAndUpdate(req.params.id, allowed, { new: true });

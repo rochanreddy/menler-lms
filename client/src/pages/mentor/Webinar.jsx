@@ -4,10 +4,10 @@ import { api } from '../../api.js';
 import DateTimePicker from '../../components/DateTimePicker.jsx';
 import Empty from '../../components/Empty.jsx';
 
-// Webinars — mentor/admin schedule; the list shows join link, slides, recording.
+// Webinars — admin schedules; everyone else (mentor, student) just joins.
 export default function Webinar() {
   const { user } = useOutletContext();
-  const canAdd = user.role === 'admin' || user.role === 'mentor';
+  const canAdd = user.role === 'admin';
   const [webinars, setWebinars] = useState([]);
   const [form, setForm] = useState({ title: '', startsAt: '', joinUrl: '' });
   const [busy, setBusy] = useState(false);

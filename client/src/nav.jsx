@@ -36,12 +36,16 @@ export function extraRoutesFor(role) {
     return [
       { path: 'students/:id', Component: AdminStudentDetail },
       { path: 'mentors/:id', Component: AdminMentorDetail },
+      { path: 'account', Component: Profile },
     ];
   }
   // Mentors reuse the same student drill-down, rendered read-only (no block
   // or account controls) — the backend only serves them their own students.
   if (role === 'mentor') {
-    return [{ path: 'students/:id', Component: AdminStudentDetail }];
+    return [{ path: 'students/:id', Component: AdminStudentDetail }, { path: 'profile', Component: Profile }];
+  }
+  if (role === 'student') {
+    return [{ path: 'profile', Component: Profile }];
   }
   return [];
 }
@@ -57,7 +61,6 @@ export function navFor(role) {
         { label: 'Grades', path: 'grades', Component: StudentGrades },
         { label: 'Library', path: 'library', Component: Library },
         { label: 'Forum', path: 'forum', Component: Forum },
-        { label: 'Profile', path: 'profile', Component: Profile },
       ];
     case 'mentor':
       return [
@@ -67,7 +70,6 @@ export function navFor(role) {
         { label: 'Students', path: 'students', Component: MentorStudents },
         { label: 'Forum', path: 'forum', Component: Forum },
         { label: 'Webinar', path: 'webinar', Component: Webinar },
-        { label: 'Profile', path: 'profile', Component: Profile },
       ];
     case 'admin':
       return [
@@ -77,10 +79,10 @@ export function navFor(role) {
         { label: 'Students', path: 'students', Component: AdminStudents },
         { label: 'Mentors', path: 'mentors', Component: AdminMentors },
         { label: 'Library', path: 'library', Component: Library },
+        { label: 'Webinar', path: 'webinar', Component: Webinar },
         { label: 'Forum', path: 'forum', Component: ph('Forum', [
           S('Announcements', 'Global'), S('Moderation', 'Remove content across batches'),
         ]) },
-        { label: 'Account', path: 'account', Component: Profile },
       ];
     // Unknown/retired roles (e.g. legacy partner accounts) get no tabs — App
     // treats an empty nav as "no access" rather than rendering a blank shell.

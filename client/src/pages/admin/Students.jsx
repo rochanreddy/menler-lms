@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../../api.js';
 import LineIcon from '../../components/LineIcon.jsx';
@@ -9,6 +9,8 @@ import Empty from '../../components/Empty.jsx';
 export default function AdminStudents() {
   const navigate = useNavigate();
   const [students, setStudents] = useState([]);
+  const [batches, setBatches] = useState([]);
+  const [batchId, setBatchId] = useState('');
   const [form, setForm] = useState({ email: '', fullName: '', password: '' });
   const [temp, setTemp] = useState(null);
   const [err, setErr] = useState('');
@@ -20,7 +22,12 @@ export default function AdminStudents() {
     .then((d) => setStudents(d.users || []))
     .catch(() => {})
     .finally(() => setActiveQuery(q));
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); api('/batches').then((d) => setBatches(d.batches || [])).catch(() => {}); }, []);
+
+  const shown = useMemo(
+    () => students.filter((s) => !batchId || (s.batch_ids || []).includes(batchId)),
+    [students, batchId],
+  );
 
   async function create(e) {
     e.preventDefault();
@@ -68,10 +75,18 @@ export default function AdminStudents() {
       <form className="inline-form" style={{ marginTop: 18 }} onSubmit={(e) => { e.preventDefault(); load(search); }}>
         <input placeholder="Search students by name or email" value={search} onChange={(e) => setSearch(e.target.value)} style={{ minWidth: 280 }} />
         <button className="btn sm ghost">Search</button>
+        {batches.length > 0 && (
+          <label>Batch{' '}
+            <select value={batchId} onChange={(e) => setBatchId(e.target.value)}>
+              <option value="">All batches</option>
+              {batches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+            </select>
+          </label>
+        )}
       </form>
 
       <div className="list">
-        {students.map((s) => (
+        {shown.map((s) => (
           <div className="panel list-row row-click" key={s.id} onClick={() => navigate(`/app/students/${s.id}`)}>
             <div>
               <strong>{s.full_name || '—'}</strong>
@@ -84,10 +99,12 @@ export default function AdminStudents() {
             </div>
           </div>
         ))}
-        {students.length === 0 && (
+        {shown.length === 0 && (
           activeQuery
             ? <Empty icon="students" title={`No matches for “${activeQuery}”.`} hint="Try a different name or email address." />
-            : <Empty icon="students" title="No students yet." hint="Add one above, or enrol them straight into a cohort under Batches." />
+            : batchId
+              ? <Empty icon="students" title="No students in this batch." hint="Try a different batch, or clear the filter." />
+              : <Empty icon="students" title="No students yet." hint="Add one above, or enrol them straight into a cohort under Batches." />
         )}
       </div>
     </div>

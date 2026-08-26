@@ -41,7 +41,6 @@ export default function UserMenu({ user, logout }) {
       >
         <span className="avatar">{initial}</span>
         <span className="who-name">{name}</span>
-        <span className={`badge badge-${user.role}`}>{user.role}</span>
         <svg className={`who-caret ${open ? 'up' : ''}`} width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
           <path d="m6 9 6 6 6-6" />
         </svg>
@@ -54,7 +53,6 @@ export default function UserMenu({ user, logout }) {
             <div className="who-menu-id">
               <div className="who-menu-name">{name}</div>
               <div className="who-menu-mail">{user.email}</div>
-              <span className={`badge badge-${user.role}`}>{user.role}</span>
             </div>
           </div>
 

@@ -9,13 +9,12 @@ import Empty from '../components/Empty.jsx';
 import { CheckBadge, SubmissionCheckPanel } from '../components/SubmissionCheck.jsx';
 
 // TEMPORARY test files, until mentors attach real ones. Both are real Menler
-// documents on the public marketing host rather than localhost, so they keep
-// working once this is deployed — and the deck HAS to be public regardless,
-// since Microsoft's embed fetches the file itself and cannot see a local
-// address. Delete both constants and the `||` fallbacks below once real files
-// are attached to lessons.
+// PDFs on the public marketing host rather than localhost, so they keep
+// working once this is deployed — the PDF viewer fetches the file itself and
+// cannot see a local address. Delete both constants and the `||` fallbacks
+// below once real files are attached to lessons.
 const PLACEHOLDER_READING = 'https://menler.in/pdfs/Menler_AI_Kickstarter_Curriculum.pdf';
-const PLACEHOLDER_NOTES = 'https://menler.in/project_decks/Account_Research_Agent.pptx';
+const PLACEHOLDER_NOTES = 'https://menler.in/pdfs/Menler_AI_Kickstarter_Curriculum.pdf';
 
 // Learning. For students: Content + Assignments (submit) + Quizzes (take).
 // For mentors/admins: just the course content to teach from — they create &

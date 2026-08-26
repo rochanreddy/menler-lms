@@ -14,7 +14,7 @@ import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 // with nothing to protect can opt in.
 function FileViewer({ label, subtitle, url, onClose, allowNewTab = false }) {
   const ext = (url.split(/[?#]/)[0].split('.').pop() || '').toLowerCase();
-  const isOffice = ['ppt', 'pptx', 'doc', 'docx', 'xls', 'xlsx'].includes(ext);
+  const isOffice = ['doc', 'docx', 'xls', 'xlsx'].includes(ext);
   const isPdf = ext === 'pdf';
   const isLocal = /^https?:\/\/(localhost|127\.0\.0\.1|\[?::1)/i.test(url);
   const src = isOffice ? `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(url)}` : url;

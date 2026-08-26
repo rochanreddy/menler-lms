@@ -12,6 +12,7 @@ const shortName = (n) => (n || '').replace(/^Demo — /, '');
 export default function AdminMentors() {
   const [mentors, setMentors] = useState([]);
   const [batches, setBatches] = useState([]);
+  const [filterBatchId, setFilterBatchId] = useState('');
   const [form, setForm] = useState({ email: '', fullName: '', password: '' });
   const [temp, setTemp] = useState(null);
   const [reset, setReset] = useState(null); // { email, password } after a reset
@@ -23,6 +24,7 @@ export default function AdminMentors() {
   useEffect(() => { load(); loadBatches(); }, []);
 
   const runs = (mentorId) => batches.filter((b) => (b.mentorIds || []).includes(String(mentorId)));
+  const shownMentors = filterBatchId ? mentors.filter((m) => runs(m.id).some((b) => b.id === filterBatchId)) : mentors;
 
   async function assignBatch(batchId, mentor) {
     setErr('');
@@ -93,8 +95,19 @@ export default function AdminMentors() {
         </div>
       )}
 
+      {batches.length > 0 && (
+        <div className="inline-form" style={{ marginTop: 18 }}>
+          <label>Filter by batch{' '}
+            <select value={filterBatchId} onChange={(e) => setFilterBatchId(e.target.value)}>
+              <option value="">All batches</option>
+              {batches.map((b) => <option key={b.id} value={b.id}>{shortName(b.name)}</option>)}
+            </select>
+          </label>
+        </div>
+      )}
+
       <div className="list">
-        {mentors.map((m) => {
+        {shownMentors.map((m) => {
           const mine = runs(m.id);
           const available = batches.filter((b) => !(b.mentorIds || []).includes(String(m.id)));
           return (
@@ -130,8 +143,10 @@ export default function AdminMentors() {
             </div>
           );
         })}
-        {mentors.length === 0 && (
-          <Empty icon="mentors" title="No mentors yet." hint="Create one with the form above — they get a temporary password and set their own on first sign-in." />
+        {shownMentors.length === 0 && (
+          mentors.length === 0
+            ? <Empty icon="mentors" title="No mentors yet." hint="Create one with the form above — they get a temporary password and set their own on first sign-in." />
+            : <Empty icon="mentors" title="No mentors run this batch." hint="Assign one from a mentor's card below, or clear the filter." />
         )}
       </div>
     </div>

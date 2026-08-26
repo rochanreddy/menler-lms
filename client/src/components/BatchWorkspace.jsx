@@ -226,7 +226,9 @@ export default function BatchWorkspace({ batchId, mode }) {
       {/* Sessions — with Zoom link */}
       <section className="panel">
         <h3>Sessions & Zoom links</h3>
-        <SessionForm onAdd={(body) => act(() => api('/sessions', { method: 'POST', body: { batchId, ...body } }).then(loadSessions), 'Session scheduled')} />
+        {mode === 'admin' && (
+          <SessionForm onAdd={(body) => act(() => api('/sessions', { method: 'POST', body: { batchId, ...body } }).then(loadSessions), 'Session scheduled')} />
+        )}
         <div className="session-list">
           {sessions.map((s) => {
             const d = new Date(s.startsAt);
@@ -249,7 +251,14 @@ export default function BatchWorkspace({ batchId, mode }) {
               </div>
             );
           })}
-          {sessions.length === 0 && <Empty inline icon="webinar" title="No sessions yet." hint="Schedule one above — students see it on their home page and join from there." />}
+          {sessions.length === 0 && (
+            <Empty
+              inline
+              icon="webinar"
+              title="No sessions yet."
+              hint={mode === 'admin' ? 'Schedule one above — students and mentors see it and join from there.' : 'The admin schedules Zoom classes for this batch — they will appear here to join.'}
+            />
+          )}
         </div>
       </section>
 

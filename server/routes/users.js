@@ -71,13 +71,20 @@ router.get('/my-students', requireAuth, requireRole('mentor'), async (req, res) 
   const ids = [...new Set(batches.flatMap((b) => (b.studentIds || []).map(String)))];
   const students = await User.find({ _id: { $in: ids } }).select('fullName email lastActiveAt').sort({ fullName: 1 });
   res.json({
-    students: students.map((s) => ({
-      id: s._id,
-      full_name: s.fullName,
-      email: s.email,
-      last_active_at: s.lastActiveAt,
-      batches: batches.filter((b) => (b.studentIds || []).some((x) => String(x) === String(s._id))).map((b) => b.name),
-    })),
+    // Handed back so the client can offer a "filter by batch" dropdown without
+    // a second request.
+    batches: batches.map((b) => ({ id: b._id, name: b.name })),
+    students: students.map((s) => {
+      const inBatches = batches.filter((b) => (b.studentIds || []).some((x) => String(x) === String(s._id)));
+      return {
+        id: s._id,
+        full_name: s.fullName,
+        email: s.email,
+        last_active_at: s.lastActiveAt,
+        batch_ids: inBatches.map((b) => String(b._id)),
+        batches: inBatches.map((b) => b.name),
+      };
+    }),
   });
 });
 

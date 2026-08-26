@@ -11,15 +11,20 @@ const fmtDate = (d) => (d ? new Date(d).toLocaleDateString([], { day: 'numeric',
 export default function MentorStudents() {
   const navigate = useNavigate();
   const [students, setStudents] = useState([]);
+  const [batches, setBatches] = useState([]);
   const [search, setSearch] = useState('');
+  const [batchId, setBatchId] = useState('');
 
-  useEffect(() => { api('/users/my-students').then((d) => setStudents(d.students || [])).catch(() => {}); }, []);
+  useEffect(() => {
+    api('/users/my-students').then((d) => { setStudents(d.students || []); setBatches(d.batches || []); }).catch(() => {});
+  }, []);
 
   const shown = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return students;
-    return students.filter((s) => (s.full_name || '').toLowerCase().includes(q) || s.email.toLowerCase().includes(q));
-  }, [students, search]);
+    return students
+      .filter((s) => !batchId || (s.batch_ids || []).includes(batchId))
+      .filter((s) => !q || (s.full_name || '').toLowerCase().includes(q) || s.email.toLowerCase().includes(q));
+  }, [students, search, batchId]);
 
   return (
     <div>
@@ -33,6 +38,14 @@ export default function MentorStudents() {
 
       <form className="inline-form" onSubmit={(e) => e.preventDefault()}>
         <input placeholder="Search by name or email" value={search} onChange={(e) => setSearch(e.target.value)} style={{ minWidth: 280 }} />
+        {batches.length > 1 && (
+          <label>Batch{' '}
+            <select value={batchId} onChange={(e) => setBatchId(e.target.value)}>
+              <option value="">All batches</option>
+              {batches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+            </select>
+          </label>
+        )}
       </form>
 
       <div className="list">
@@ -51,7 +64,7 @@ export default function MentorStudents() {
             title={students.length === 0 ? 'No students yet.' : 'No matches.'}
             hint={students.length === 0
               ? 'Students appear here once they are enrolled in one of your batches.'
-              : 'Try a different name or email address.'}
+              : 'Try a different name/email, or clear the batch filter.'}
           />
         )}
       </div>
