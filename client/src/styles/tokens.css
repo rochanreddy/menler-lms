@@ -1,0 +1,253 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   MENLER LMS — TOKEN LAYER
+   The bottom of the dependency chain: tokens → primitives → patterns → pages.
+   Nothing in here may reference a class, a component, or another layer.
+
+   Every colour is derived from the existing palette in styles.css, which is in
+   turn derived from the wordmark. No value here was invented; where a needed
+   value had no source, it is listed at the foot of this file rather than
+   guessed. Semantic names follow shadcn so the layer stays portable.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── Surface & content ──────────────────────────────────────────────────
+     Reach for these first. --background is the page; --card is anything that
+     sits on it; --popover is anything that floats above it. Each surface owns
+     the -foreground that is guaranteed readable on it — never pair a
+     foreground with a surface it is not named for. */
+  --background: #f7f6f3;          /* warm paper, not cool grey — deliberate */
+  --foreground: #26215c;
+  --card: #ffffff;
+  --card-foreground: #26215c;
+  --popover: #ffffff;
+  --popover-foreground: #26215c;
+
+  /* ── Intent ─────────────────────────────────────────────────────────────
+     --primary is the one action a screen is asking for. --secondary is that
+     same action demoted (the ghost button). --accent is the progress/done
+     signal — the dot motif — not a second brand colour; do not use it for
+     emphasis. --destructive is reserved for actions that lose data. */
+  --primary: #534ab7;
+  --primary-foreground: #ffffff;
+  --secondary: #efedfb;
+  --secondary-foreground: #534ab7;
+  --accent: #1d9e75;
+  --accent-foreground: #ffffff;
+  --destructive: #c0362c;
+  --destructive-foreground: #ffffff;
+
+  /* ── Recessive ──────────────────────────────────────────────────────────
+     --muted is a surface (the pressed-in well); --muted-foreground is text
+     that is present but not being offered — captions, metadata, axis labels. */
+  --surface-muted: #f1eff7;
+  --muted-foreground: #6b6690;
+
+  /* ── Edges ──────────────────────────────────────────────────────────────
+     --border is the resting edge. --input is the edge of something you can
+     type into. --ring is focus, and it is the same colour everywhere in the
+     app on purpose — one ring, no exceptions. */
+  --border: #e7e4f0;
+  --input: #e7e4f0;
+  --ring-color: #534ab7;
+
+  /* ── Work state ─────────────────────────────────────────────────────────
+     The lifecycle of one piece of student work, in order. The plain token is
+     the text/dot colour; the -bg is the pill behind it. Always use the pair —
+     each is tuned so the text clears WCAG AA on its own background. These
+     describe WORK, never a person. */
+  --status-not-started: #1a4bb8;   --status-not-started-bg: #e7effd;
+  --status-in-progress: #8c4a00;   --status-in-progress-bg: #fdf1e1;
+  --status-submitted: #0f6f66;     --status-submitted-bg: #e4f6f4;
+  --status-graded: #107253;        --status-graded-bg: #e3f5ef;
+  --status-overdue: #a01345;       --status-overdue-bg: #fce9ef;
+
+  /* ── Role ───────────────────────────────────────────────────────────────
+     Identifies a PERSON, never their work. One value each, readable as text
+     on --card or --background. Deliberately shares hues with the status
+     scale — role and status never appear in the same slot, so there is no
+     collision to resolve. */
+  --role-student: #107253;
+  --role-mentor: #1a4bb8;
+  --role-admin: #a01345;
+
+  /* ── Type families ──────────────────────────────────────────────────────
+     --font-ui is everything chrome: labels, buttons, tables, nav.
+     --font-reading is lesson prose only — long-form body a student reads for
+     minutes at a time. --font-mono is for values that must align or be copied
+     exactly: scores, roll numbers, IDs, codes. Never set running text in
+     mono. Reading and mono are system stacks, so neither adds a request. */
+  --font-ui: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-heading: 'DM Sans', 'Inter', system-ui, sans-serif;
+  --font-reading: Georgia, 'Iowan Old Style', 'Times New Roman', Times, serif;
+  --font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+
+  /* ── Type scale ─────────────────────────────────────────────────────────
+     Eight steps, ratio 1.2, anchored at --text-base = 1rem = 16px. This is
+     the UI scale: everything that is not a hero. Each step ships its own
+     --leading-*; use the pair, never a loose line-height. Leading tightens as
+     size grows, which is why the two travel together. */
+  --text-2xs: 0.579rem;   --leading-2xs: 1.4;    /* 9.26px  */
+  --text-xs: 0.694rem;    --leading-xs: 1.45;    /* 11.11px */
+  --text-sm: 0.833rem;    --leading-sm: 1.5;     /* 13.33px */
+  --text-base: 1rem;      --leading-base: 1.5;   /* 16px    */
+  --text-lg: 1.2rem;      --leading-lg: 1.3;     /* 19.2px  */
+  --text-xl: 1.44rem;     --leading-xl: 1.2;     /* 23.04px */
+  --text-2xl: 1.728rem;   --leading-2xl: 1.15;   /* 27.65px */
+  --text-3xl: 2.074rem;   --leading-3xl: 1.1;    /* 33.18px */
+
+  /* ── Display scale ──────────────────────────────────────────────────────
+     Separate from the UI scale on purpose: these are page-opening moments —
+     the greeting, the hero, the one number a dashboard exists to show. Three
+     steps, no more. If a heading fits in --text-3xl, it is not a display. */
+  --display-sm: 2.375rem;  --leading-display-sm: 1.08;  /* 38px */
+  --display-md: 2.75rem;   --leading-display-md: 1.04;  /* 44px */
+  --display-lg: 3.25rem;   --leading-display-lg: 1;     /* 52px */
+
+  /* ── Weight ─────────────────────────────────────────────────────────────
+     Three weights exist. There is no light, no bold, no black — if something
+     needs more emphasis than semibold, it needs a different size or colour. */
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+
+  /* ── Measure ────────────────────────────────────────────────────────────
+     Cap on lesson prose line length. Over-long lines are the most common
+     reason long-form content is tiring to read. */
+  --measure-prose: 68ch;
+
+  /* ── Spacing ────────────────────────────────────────────────────────────
+     4px base, twelve steps. These are the only spacing values that exist —
+     gap, padding and margin all come from here. If a gap needs a value
+     between two steps, the layout is wrong, not the scale. */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 28px;
+  --space-8: 32px;
+  --space-9: 36px;
+  --space-10: 40px;
+  --space-11: 44px;
+  --space-12: 48px;
+
+  /* ── Shape ──────────────────────────────────────────────────────────────
+     Base radius is --radius-md. -sm is for something inside an already
+     rounded container (an input in a card); -lg is for the outermost
+     surface. */
+  --radius-sm: 12px;
+  --radius-md: 18px;
+  --radius-lg: 26px;
+  /* Buttons, badges and status pills are fully round. This is a brand shape,
+     not a size step, which is why it sits outside the sm/md/lg scale. */
+  --radius-pill: 999px;
+
+  /* --border-hairline is every resting edge in the app. --border-strong is
+     for an edge that has to be seen: a hover border, a divider carrying
+     structure, a selected state. */
+  --border-hairline: 1px;
+  --border-strong: 2px;
+
+  /* ── Depth ──────────────────────────────────────────────────────────────
+     Three levels, and they mean height above the page, not decoration.
+     -sm: a resting card. -md: something lifted under the cursor.
+     -lg: something detached — a popover, a modal, the command palette.
+     Tinted with the brand indigo rather than black, so a shadow sits in the
+     warm background instead of greying it. */
+  --shadow-sm: 0 1px 2px rgba(38, 33, 92, 0.04);
+  --shadow-md: 0 1px 2px rgba(38, 33, 92, 0.04), 0 8px 24px rgba(38, 33, 92, 0.06);
+  --shadow-lg: 0 2px 4px rgba(38, 33, 92, 0.05), 0 20px 48px rgba(38, 33, 92, 0.12);
+
+  /* ── Derived surfaces ───────────────────────────────────────────────────
+     Values the primitives need that the palette already had, lifted from
+     styles.css rather than invented. --overlay is the scrim behind anything
+     modal. --surface-inverted is the dark "stage", reused for tooltips, which
+     invert by convention. --disabled-* is deliberately NOT --faint: --faint on
+     --surface-muted computes to 2.18:1, which fails the 3:1 a disabled control
+     must still clear to stay readable. --muted-foreground clears it at 4.68:1. */
+  --overlay: rgba(26, 22, 64, 0.42);
+  --surface-inverted: #1a1640;
+  --surface-inverted-foreground: #f1efe8;
+  --disabled-surface: #f1eff7;
+  --disabled-foreground: #6b6690;
+  --shimmer: #eae7f3;
+  --avatar-bg: #7c8aa5;
+
+  /* ── Motion ─────────────────────────────────────────────────────────────
+     --duration-fast is for a state change on something already under the
+     cursor (hover, press). --duration-base is for something entering or
+     leaving. One easing curve, everywhere. */
+  --duration-fast: 120ms;
+  --duration-base: 200ms;
+  /* Looping periods, not transitions. Derived from the existing animations in
+     styles.css (spin .6s, skeleton 1.4s) — a spinner driven at --duration-base
+     reads as broken rather than busy. */
+  --duration-spin: 600ms;
+  --duration-shimmer: 1400ms;
+  --ease: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ── Dark ──────────────────────────────────────────────────────────────────
+   Colour tokens only — type, spacing, shape, depth and motion are invariant.
+   Built on the existing "stage" palette, the dark surface the app already
+   uses for lessons and live sessions. Two shifts are deliberate: --primary
+   lightens to lavender and --accent lightens to a brighter green, because the
+   light-mode violet and green both go muddy on indigo.
+
+   INCOMPLETE — see the note at the foot of this file. --destructive and the
+   status/role scales have no dark source and are NOT overridden here; they
+   inherit their light values and will be wrong on this surface. */
+[data-theme='dark'] {
+  --background: #1a1640;
+  --foreground: #f1efe8;
+  --card: #241f52;
+  --card-foreground: #f1efe8;
+  --popover: #241f52;
+  --popover-foreground: #f1efe8;
+
+  --primary: #afa9ec;
+  --primary-foreground: #1a1640;
+  --secondary: #37316b;
+  --secondary-foreground: #f1efe8;
+  --accent: #4ade80;
+  --accent-foreground: #1a1640;
+
+  --surface-muted: #241f52;
+  --muted-foreground: #afa9ec;
+
+  --border: #37316b;
+  --input: #37316b;
+  --ring-color: #afa9ec;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   VALUES WITH NO HOME — decide these; do not let them get inlined later.
+   The audit found values in use today that this system has no token for. None
+   were invented into one. Each needs a decision before the layer is complete:
+
+   1. --destructive on dark. #c0362c is too dark on #1a1640, and the app has
+      never had a dark red. This blocks the dark theme.
+   2. Status and role on dark. Every -bg above is tuned for white; there are
+      no dark equivalents anywhere in the app.
+   3. Display sizes that miss a step: 40px, 42px (.greet), 46px (auth hero),
+      78px (one large numeral). Snap them to --display-*, or add a step.
+   4. UI sizes that miss a step: 13px (48 uses), 13.5px (32), 14px (33),
+      12.5px (28), 12px (25), 11px (19), 10.5px (12), 11.5px (12). Today's
+      body text is ~13-14px, while --text-sm is 13.33px and --text-base is
+      16px — migrating will resize text. Confirm that is intended.
+   5. Radius 8px (15 uses), 9px (17), 10px (22). The three radius tokens are
+      12/18/26, so the most common radii in the app fall below --radius-sm.
+   6. RESOLVED - --radius-pill added, matching --pill/999px in styles.css.
+   7. Border 3px, one use (the auth hero rule ornament).
+   8. Leading values were derived from the bands actually in use (1.04-1.08
+      display, 1.25 heading, 1.6 prose) rather than specified. Confirm.
+   9. Toast auto-dismiss duration. The app has never had a toast, so there is
+      no value to derive. Toast is NOT built until this is supplied.
+
+   NOTE ON NAMES: --ring-color and --surface-muted intentionally break from the
+   shadcn names. styles.css defines --ring as a box-shadow (14 uses) and --muted
+   as a text colour (87 uses), and it loads last, so the shadcn spellings would
+   resolve to the wrong type and silently blank every focus ring. Rename these
+   back once styles.css no longer defines them.
+   ═══════════════════════════════════════════════════════════════════════════ */

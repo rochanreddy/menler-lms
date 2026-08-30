@@ -1,0 +1,432 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   PRIMITIVE STYLES
+   Layer 2. Consumes the token layer and nothing else — there is not a single
+   literal colour, size, spacing, radius or shadow in this file. If a primitive
+   needs a value, it comes from tokens.css or it does not get used.
+
+   Imported by each primitive module, so a primitive is self-contained and
+   works anywhere it is rendered (including a future style-guide route).
+   Vite dedupes it to one chunk.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── The one focus ring ────────────────────────────────────────────────────
+   An outline rather than a box-shadow, offset by one border width so the ring
+   never sits directly on the element's own fill. That offset is what keeps it
+   visible on --primary: without it a violet ring on a violet button is
+   invisible, which is the usual way focus rings quietly fail. */
+.ui-focus:focus-visible,
+.ui-btn:focus-visible,
+.ui-input:focus-visible,
+.ui-select:focus-visible,
+.ui-textarea:focus-visible,
+.ui-tab:focus-visible,
+.ui-choice__control:focus-visible + .ui-choice__box,
+.ui-dialog__close:focus-visible {
+  outline: var(--border-strong) solid var(--ring-color);
+  outline-offset: var(--border-strong);
+}
+
+/* Screen-reader-only, used by loading states and icon-only controls. */
+.ui-sr {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0;
+}
+
+/* ── Button ───────────────────────────────────────────────────────────────── */
+.ui-btn {
+  position: relative;
+  display: inline-flex; align-items: center; justify-content: center;
+  gap: var(--space-2);
+  border: var(--border-hairline) solid transparent;
+  border-radius: var(--radius-pill);
+  font-family: var(--font-ui);
+  font-weight: var(--weight-semibold);
+  text-align: center; text-decoration: none;
+  cursor: pointer;
+}
+.ui-btn:hover, .ui-btn:focus, .ui-btn:visited { text-decoration: none; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .ui-btn { transition: background-color var(--duration-fast) var(--ease), color var(--duration-fast) var(--ease), border-color var(--duration-fast) var(--ease); }
+  .ui-btn:active:not([data-loading='true']):not(:disabled) { transform: translateY(var(--border-hairline)); }
+}
+
+/* Sizes. --size-icon is square and never smaller than --space-11 (44px), the
+   minimum comfortable touch target, even when the glyph inside is small. */
+.ui-btn[data-size='sm'] { padding: var(--space-2) var(--space-4); font-size: var(--text-sm); line-height: var(--leading-sm); }
+.ui-btn[data-size='md'] { padding: var(--space-3) var(--space-5); font-size: var(--text-base); line-height: var(--leading-base); }
+.ui-btn[data-size='lg'] { padding: var(--space-4) var(--space-8); font-size: var(--text-lg); line-height: var(--leading-lg); }
+.ui-btn[data-size='icon'] {
+  padding: var(--space-2);
+  min-width: var(--space-11); min-height: var(--space-11);
+  font-size: var(--text-base); line-height: var(--leading-base);
+}
+
+/* Variants. Each implements default / hover / active; focus-visible and
+   disabled are shared below so they cannot drift per variant. */
+.ui-btn[data-variant='primary'] { background: var(--primary); color: var(--primary-foreground); }
+.ui-btn[data-variant='primary']:hover:not(:disabled) { background: var(--foreground); }
+
+.ui-btn[data-variant='secondary'] { background: var(--secondary); color: var(--secondary-foreground); }
+.ui-btn[data-variant='secondary']:hover:not(:disabled) { background: var(--surface-muted); }
+
+.ui-btn[data-variant='ghost'] { background: transparent; color: var(--foreground); border-color: var(--border); }
+.ui-btn[data-variant='ghost']:hover:not(:disabled) { background: var(--surface-muted); border-color: var(--muted-foreground); }
+
+.ui-btn[data-variant='destructive'] { background: var(--destructive); color: var(--destructive-foreground); }
+.ui-btn[data-variant='destructive']:hover:not(:disabled) { background: var(--foreground); }
+
+.ui-btn[data-variant='link'] {
+  background: transparent; color: var(--primary);
+  padding-left: 0; padding-right: 0; border-radius: var(--radius-sm);
+}
+.ui-btn[data-variant='link']:hover:not(:disabled) { color: var(--foreground); text-decoration: underline; }
+
+/* Disabled is a real colour pair, not a transparency. --disabled-foreground on
+   --disabled-surface clears 3:1, so a disabled control stays readable — an
+   opacity fade would drop it to roughly 2:1 and make it guesswork. */
+.ui-btn:disabled,
+.ui-btn[aria-disabled='true'] {
+  background: var(--disabled-surface);
+  color: var(--disabled-foreground);
+  border-color: var(--border);
+  cursor: not-allowed;
+}
+.ui-btn[data-variant='link']:disabled { background: transparent; text-decoration: none; }
+
+/* Loading. The label stays in the DOM and only loses visibility, so the button
+   keeps its exact width and the row never reflows mid-request. */
+.ui-btn[data-loading='true'] { cursor: progress; }
+.ui-btn[data-loading='true'] .ui-btn__label,
+.ui-btn[data-loading='true'] .ui-btn__icon { visibility: hidden; }
+.ui-btn__spinner { position: absolute; inset: 0; display: grid; place-items: center; }
+.ui-spinner {
+  width: var(--space-4); height: var(--space-4);
+  border: var(--border-strong) solid currentColor;
+  border-top-color: transparent;
+  border-radius: var(--radius-pill);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .ui-spinner { animation: ui-spin var(--duration-spin) linear infinite; }
+}
+@keyframes ui-spin { to { transform: rotate(360deg); } }
+
+/* Icons sit optically tighter to the label than the gap between words, and
+   the padding on the icon side is reduced to compensate for the glyph's own
+   bearing — otherwise a leading icon looks pushed away from the edge. */
+.ui-btn__icon { display: inline-grid; place-items: center; flex: none; }
+.ui-btn__icon[data-side='leading'] { margin-left: calc(var(--space-1) * -1); }
+.ui-btn__icon[data-side='trailing'] { margin-right: calc(var(--space-1) * -1); }
+.ui-btn[data-size='icon'] .ui-btn__icon { margin: 0; }
+
+/* ── Field (label / help / error scaffold) ────────────────────────────────── */
+.ui-field { display: flex; flex-direction: column; gap: var(--space-2); }
+.ui-field__label {
+  font-family: var(--font-ui); font-size: var(--text-sm); line-height: var(--leading-sm);
+  font-weight: var(--weight-semibold); color: var(--foreground);
+}
+.ui-field__required { color: var(--destructive); margin-left: var(--space-1); }
+.ui-field__help {
+  font-family: var(--font-ui); font-size: var(--text-xs); line-height: var(--leading-xs);
+  color: var(--muted-foreground); margin: 0;
+}
+/* The error carries an icon as well as colour: colour alone is not a signal
+   for anyone who cannot distinguish it. */
+.ui-field__error {
+  display: flex; align-items: flex-start; gap: var(--space-2);
+  font-family: var(--font-ui); font-size: var(--text-xs); line-height: var(--leading-xs);
+  color: var(--destructive); margin: 0;
+}
+.ui-field__error svg { flex: none; margin-top: var(--space-1); }
+
+/* ── Input / Textarea / Select ────────────────────────────────────────────── */
+.ui-input, .ui-textarea, .ui-select {
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  border: var(--border-hairline) solid var(--input);
+  border-radius: var(--radius-sm);
+  background: var(--card);
+  color: var(--foreground);
+  font-family: var(--font-ui);
+  font-size: var(--text-base);
+  line-height: var(--leading-base);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .ui-input, .ui-textarea, .ui-select { transition: border-color var(--duration-fast) var(--ease); }
+}
+.ui-input::placeholder, .ui-textarea::placeholder { color: var(--muted-foreground); }
+.ui-input:hover:not(:disabled):not(:focus),
+.ui-textarea:hover:not(:disabled):not(:focus),
+.ui-select:hover:not(:disabled):not(:focus) { border-color: var(--muted-foreground); }
+.ui-input[aria-invalid='true'], .ui-textarea[aria-invalid='true'], .ui-select[aria-invalid='true'] {
+  border-color: var(--destructive);
+}
+.ui-input:disabled, .ui-textarea:disabled, .ui-select:disabled {
+  background: var(--disabled-surface); color: var(--disabled-foreground); cursor: not-allowed;
+}
+.ui-textarea { resize: vertical; min-height: var(--space-12); }
+.ui-select { appearance: none; padding-right: var(--space-10); }
+.ui-select-wrap { position: relative; display: block; }
+.ui-select-wrap svg { position: absolute; right: var(--space-4); top: 50%; transform: translateY(-50%); pointer-events: none; color: var(--muted-foreground); }
+
+/* An input that carries an action inside its own box — a password reveal, a
+   unit suffix. The control keeps the full width and the action overlays the
+   end, so the text never runs under the button. */
+.ui-input-wrap { position: relative; display: block; }
+.ui-input-wrap .ui-input { padding-right: var(--space-11); }
+.ui-input-wrap .ui-input-action {
+  position: absolute; right: var(--space-2); top: 50%; transform: translateY(-50%);
+  display: grid; place-items: center;
+  width: var(--space-9); height: var(--space-9);
+  border: 0; border-radius: var(--radius-pill); background: none;
+  color: var(--muted-foreground); cursor: pointer;
+}
+.ui-input-wrap .ui-input-action:hover { background: var(--surface-muted); color: var(--foreground); }
+.ui-input-wrap .ui-input-action:focus-visible {
+  outline: var(--border-strong) solid var(--ring-color);
+  outline-offset: var(--border-hairline);
+}
+
+/* ── Checkbox / Radio / Switch ────────────────────────────────────────────── */
+.ui-choice { display: flex; align-items: flex-start; gap: var(--space-3); cursor: pointer; }
+.ui-choice[data-disabled='true'] { cursor: not-allowed; color: var(--disabled-foreground); }
+/* The real control stays in the DOM and keeps every native keyboard binding;
+   it is only visually replaced. Sizing it over the box keeps the hit area. */
+.ui-choice__control { position: absolute; opacity: 0; width: 0; height: 0; }
+.ui-choice__box {
+  flex: none; display: grid; place-items: center;
+  width: var(--space-5); height: var(--space-5);
+  border: var(--border-strong) solid var(--input);
+  background: var(--card); color: transparent;
+}
+.ui-choice[data-kind='checkbox'] .ui-choice__box { border-radius: var(--radius-sm); }
+.ui-choice[data-kind='radio'] .ui-choice__box { border-radius: var(--radius-pill); }
+.ui-choice__control:checked + .ui-choice__box {
+  background: var(--primary); border-color: var(--primary); color: var(--primary-foreground);
+}
+.ui-choice__control:disabled + .ui-choice__box {
+  background: var(--disabled-surface); border-color: var(--border); color: var(--disabled-foreground);
+}
+.ui-choice__label {
+  font-family: var(--font-ui); font-size: var(--text-base); line-height: var(--leading-base);
+  color: inherit;
+}
+/* Switch: same control, a track instead of a box. */
+.ui-choice[data-kind='switch'] .ui-choice__box {
+  width: var(--space-10); height: var(--space-6);
+  border-radius: var(--radius-pill); padding: var(--space-1);
+  place-items: center start; background: var(--surface-muted); border-color: var(--border);
+}
+.ui-choice[data-kind='switch'] .ui-choice__thumb {
+  width: var(--space-4); height: var(--space-4);
+  border-radius: var(--radius-pill); background: var(--card);
+  box-shadow: var(--shadow-sm);
+}
+.ui-choice[data-kind='switch'] .ui-choice__control:checked + .ui-choice__box { place-items: center end; }
+@media (prefers-reduced-motion: no-preference) {
+  .ui-choice__box, .ui-choice__thumb { transition: background-color var(--duration-fast) var(--ease), border-color var(--duration-fast) var(--ease); }
+}
+
+/* ── Text ─────────────────────────────────────────────────────────────────── */
+.ui-text { margin: 0; color: var(--foreground); font-family: var(--font-ui); }
+.ui-text[data-role='display'] { font-family: var(--font-heading); font-size: var(--display-md); line-height: var(--leading-display-md); font-weight: var(--weight-semibold); letter-spacing: -0.03em; }
+.ui-text[data-role='heading-1'] { font-family: var(--font-heading); font-size: var(--text-3xl); line-height: var(--leading-3xl); font-weight: var(--weight-semibold); letter-spacing: -0.03em; }
+.ui-text[data-role='heading-2'] { font-family: var(--font-heading); font-size: var(--text-2xl); line-height: var(--leading-2xl); font-weight: var(--weight-semibold); letter-spacing: -0.02em; }
+.ui-text[data-role='heading-3'] { font-family: var(--font-heading); font-size: var(--text-xl); line-height: var(--leading-xl); font-weight: var(--weight-semibold); }
+.ui-text[data-role='body'] { font-size: var(--text-base); line-height: var(--leading-base); font-weight: var(--weight-regular); }
+.ui-text[data-role='body-reading'] { font-family: var(--font-reading); font-size: var(--text-lg); line-height: var(--leading-base); font-weight: var(--weight-regular); max-width: var(--measure-prose); }
+.ui-text[data-role='label'] { font-size: var(--text-sm); line-height: var(--leading-sm); font-weight: var(--weight-semibold); }
+.ui-text[data-role='caption'] { font-size: var(--text-xs); line-height: var(--leading-xs); font-weight: var(--weight-regular); color: var(--muted-foreground); }
+.ui-text[data-role='data'] { font-family: var(--font-mono); font-size: var(--text-sm); line-height: var(--leading-sm); font-variant-numeric: tabular-nums; }
+.ui-text[data-tone='muted'] { color: var(--muted-foreground); }
+.ui-text[data-tone='destructive'] { color: var(--destructive); }
+.ui-text[data-tone='accent'] { color: var(--accent); }
+/* Alignment is a Text prop rather than a utility class, so it stays a
+   semantic choice on a primitive instead of an escape hatch pages can reach
+   for on anything. */
+.ui-text[data-align='center'] { text-align: center; }
+
+/* ── Stack ────────────────────────────────────────────────────────────────
+   Layout, not decoration. Gap is a spacing step, never a number. */
+.ui-stack { display: flex; flex-direction: column; }
+.ui-stack[data-gap='2'] { gap: var(--space-2); }
+.ui-stack[data-gap='3'] { gap: var(--space-3); }
+.ui-stack[data-gap='4'] { gap: var(--space-4); }
+.ui-stack[data-gap='6'] { gap: var(--space-6); }
+.ui-stack[data-gap='8'] { gap: var(--space-8); }
+
+/* ── Badge & status pill ──────────────────────────────────────────────────── */
+.ui-badge {
+  display: inline-flex; align-items: center; gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-ui); font-size: var(--text-2xs); line-height: var(--leading-2xs);
+  font-weight: var(--weight-semibold); letter-spacing: 0.06em; text-transform: uppercase;
+  background: var(--surface-muted); color: var(--muted-foreground);
+}
+.ui-badge[data-role='student'] { color: var(--role-student); background: var(--status-graded-bg); }
+.ui-badge[data-role='mentor'] { color: var(--role-mentor); background: var(--status-not-started-bg); }
+.ui-badge[data-role='admin'] { color: var(--role-admin); background: var(--status-overdue-bg); }
+
+.ui-status {
+  display: inline-flex; align-items: center; gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-ui); font-size: var(--text-xs); line-height: var(--leading-xs);
+  font-weight: var(--weight-semibold);
+}
+.ui-status svg { flex: none; }
+.ui-status[data-status='not-started'] { color: var(--status-not-started); background: var(--status-not-started-bg); }
+.ui-status[data-status='in-progress'] { color: var(--status-in-progress); background: var(--status-in-progress-bg); }
+.ui-status[data-status='submitted'] { color: var(--status-submitted); background: var(--status-submitted-bg); }
+.ui-status[data-status='graded'] { color: var(--status-graded); background: var(--status-graded-bg); }
+.ui-status[data-status='overdue'] { color: var(--status-overdue); background: var(--status-overdue-bg); }
+/* not-started is the one state with no icon in the set, so it carries the dot
+   motif as a hollow ring — a shape difference, so the pill is never
+   distinguished by colour alone. */
+.ui-status__dot {
+  width: var(--space-2); height: var(--space-2); flex: none;
+  border-radius: var(--radius-pill);
+  border: var(--border-strong) solid currentColor;
+}
+
+/* ── Card ─────────────────────────────────────────────────────────────────── */
+.ui-card {
+  background: var(--card); color: var(--card-foreground);
+  border: var(--border-hairline) solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-6);
+  box-shadow: var(--shadow-sm);
+}
+.ui-card[data-padding='none'] { padding: 0; }
+.ui-card[data-elevation='md'] { box-shadow: var(--shadow-md); }
+.ui-card__header { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-4); margin-bottom: var(--space-4); }
+
+/* ── Table ────────────────────────────────────────────────────────────────── */
+.ui-table-wrap { width: 100%; overflow-x: auto; }
+.ui-table { width: 100%; border-collapse: collapse; font-family: var(--font-ui); font-size: var(--text-sm); line-height: var(--leading-sm); }
+.ui-table th, .ui-table td { text-align: left; border-bottom: var(--border-hairline) solid var(--border); }
+.ui-table thead th {
+  position: sticky; top: 0; z-index: 1;
+  background: var(--card); color: var(--muted-foreground);
+  font-size: var(--text-2xs); line-height: var(--leading-2xs);
+  font-weight: var(--weight-semibold); letter-spacing: 0.06em; text-transform: uppercase;
+  border-bottom: var(--border-strong) solid var(--border);
+}
+/* Row density is a defined choice, not per-table improvisation. */
+.ui-table[data-density='compact'] th, .ui-table[data-density='compact'] td { padding: var(--space-2) var(--space-3); }
+.ui-table[data-density='normal'] th, .ui-table[data-density='normal'] td { padding: var(--space-3) var(--space-4); }
+.ui-table[data-density='relaxed'] th, .ui-table[data-density='relaxed'] td { padding: var(--space-5) var(--space-4); }
+/* Numbers align on their digits or they cannot be compared down a column. */
+.ui-table [data-numeric='true'] { text-align: right; font-variant-numeric: tabular-nums; font-family: var(--font-mono); }
+.ui-table__slot { padding: var(--space-8) var(--space-4); }
+
+/* ── Tabs ─────────────────────────────────────────────────────────────────── */
+.ui-tabs { display: flex; gap: var(--space-5); border-bottom: var(--border-hairline) solid var(--border); }
+.ui-tab {
+  position: relative; padding: var(--space-3) 0;
+  border: 0; background: none; cursor: pointer;
+  font-family: var(--font-ui); font-size: var(--text-base); line-height: var(--leading-base);
+  font-weight: var(--weight-medium); color: var(--muted-foreground);
+}
+.ui-tab[aria-selected='true'] { color: var(--foreground); font-weight: var(--weight-semibold); }
+/* The rule, not a filled pill — the app's active-state motif. */
+.ui-tab::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: calc(var(--border-hairline) * -1);
+  height: var(--border-strong); background: var(--primary); transform: scaleX(0); transform-origin: left;
+}
+.ui-tab[aria-selected='true']::after { transform: scaleX(1); }
+@media (prefers-reduced-motion: no-preference) {
+  .ui-tab::after { transition: transform var(--duration-base) var(--ease); }
+}
+
+/* ── Dialog ───────────────────────────────────────────────────────────────── */
+.ui-dialog__overlay {
+  position: fixed; inset: 0; z-index: 200;
+  background: var(--overlay);
+  display: grid; place-items: center; padding: var(--space-5);
+}
+.ui-dialog {
+  width: 100%; max-width: var(--measure-prose);
+  background: var(--popover); color: var(--popover-foreground);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  padding: var(--space-6);
+}
+.ui-dialog__header { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); margin-bottom: var(--space-4); }
+.ui-dialog__close {
+  flex: none; display: grid; place-items: center;
+  width: var(--space-11); height: var(--space-11);
+  border: 0; border-radius: var(--radius-pill); background: none;
+  color: var(--muted-foreground); cursor: pointer;
+}
+.ui-dialog__close:hover { background: var(--surface-muted); color: var(--foreground); }
+.ui-dialog__footer { display: flex; justify-content: flex-end; gap: var(--space-3); margin-top: var(--space-6); }
+@media (prefers-reduced-motion: no-preference) {
+  .ui-dialog { animation: ui-rise var(--duration-base) var(--ease); }
+}
+@keyframes ui-rise { from { opacity: 0; transform: translateY(var(--space-2)); } to { opacity: 1; transform: none; } }
+
+/* ── Tooltip ──────────────────────────────────────────────────────────────── */
+.ui-tooltip-wrap { position: relative; display: inline-flex; }
+.ui-tooltip {
+  position: absolute; bottom: calc(100% + var(--space-2)); left: 50%; transform: translateX(-50%);
+  z-index: 150; white-space: nowrap; pointer-events: none;
+  background: var(--surface-inverted); color: var(--surface-inverted-foreground);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-ui); font-size: var(--text-xs); line-height: var(--leading-xs);
+  box-shadow: var(--shadow-md);
+}
+
+/* ── Alert ────────────────────────────────────────────────────────────────── */
+.ui-alert {
+  display: flex; align-items: flex-start; gap: var(--space-3);
+  padding: var(--space-4);
+  border: var(--border-hairline) solid transparent;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-ui); font-size: var(--text-sm); line-height: var(--leading-sm);
+}
+.ui-alert svg { flex: none; margin-top: var(--space-1); }
+.ui-alert[data-tone='info'] { background: var(--status-not-started-bg); color: var(--status-not-started); }
+.ui-alert[data-tone='success'] { background: var(--status-graded-bg); color: var(--status-graded); }
+.ui-alert[data-tone='warning'] { background: var(--status-in-progress-bg); color: var(--status-in-progress); }
+.ui-alert[data-tone='error'] { background: var(--status-overdue-bg); color: var(--destructive); }
+
+/* ── Progress ─────────────────────────────────────────────────────────────── */
+.ui-progress { display: flex; align-items: center; gap: var(--space-3); }
+.ui-progress__track { flex: 1; height: var(--space-2); border-radius: var(--radius-pill); background: var(--surface-muted); overflow: hidden; }
+.ui-progress__fill { height: 100%; border-radius: var(--radius-pill); background: var(--accent); }
+.ui-progress__value { font-family: var(--font-mono); font-size: var(--text-xs); line-height: var(--leading-xs); font-variant-numeric: tabular-nums; color: var(--muted-foreground); }
+@media (prefers-reduced-motion: no-preference) {
+  .ui-progress__fill { transition: width var(--duration-base) var(--ease); }
+}
+
+/* ── Avatar ───────────────────────────────────────────────────────────────── */
+.ui-avatar {
+  display: grid; place-items: center; flex: none;
+  border-radius: var(--radius-pill);
+  background: var(--avatar-bg); color: var(--primary-foreground);
+  font-family: var(--font-ui); font-weight: var(--weight-semibold);
+  overflow: hidden;
+}
+.ui-avatar[data-size='sm'] { width: var(--space-6); height: var(--space-6); font-size: var(--text-2xs); }
+.ui-avatar[data-size='md'] { width: var(--space-9); height: var(--space-9); font-size: var(--text-sm); }
+.ui-avatar[data-size='lg'] { width: var(--space-12); height: var(--space-12); font-size: var(--text-lg); }
+.ui-avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+/* ── Skeleton ─────────────────────────────────────────────────────────────── */
+.ui-skeleton {
+  background: var(--surface-muted);
+  border-radius: var(--radius-sm);
+  height: var(--space-5);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .ui-skeleton {
+    background: linear-gradient(90deg, var(--surface-muted) 25%, var(--shimmer) 37%, var(--surface-muted) 63%);
+    background-size: 400% 100%;
+    animation: ui-shimmer var(--duration-shimmer) ease infinite;
+  }
+}
+@keyframes ui-shimmer { from { background-position: 100% 50%; } to { background-position: 0 50%; } }
+.ui-skeleton-stack { display: flex; flex-direction: column; gap: var(--space-3); }
