@@ -229,8 +229,9 @@ a:focus-visible,
 /* The rule, drawn large — the brand motif as the hero's only ornament. */
 .auth-hero::after { content: ''; position: absolute; left: 48px; bottom: 168px; width: 84px; height: 3px; border-radius: 3px; background: var(--lavender); }
 .auth-brand { display: flex; align-items: center; gap: 12px; position: relative; z-index: 1; }
-.auth-hero-copy { position: relative; z-index: 1; max-width: 460px; }
-.auth-hero-copy h2 { font-family: var(--serif); font-style: italic; font-size: 46px; line-height: 1.16; font-weight: 400; color: var(--parchment); letter-spacing: -0.02em; margin-bottom: 18px; }
+.auth-hero-copy { position: relative; z-index: 1; max-width: 520px; }
+.auth-hero-copy h2 span { display: block; }
+.auth-hero-copy h2 { font-family: var(--serif); font-style: italic; font-size: 38px; line-height: 1.22; font-weight: 400; color: var(--parchment); letter-spacing: -0.02em; margin-bottom: 18px; }
 .auth-hero-copy p { color: var(--lavender); font-size: 16px; line-height: 1.6; }
 .auth-form-wrap { display: flex; align-items: center; justify-content: center; padding: 40px; background: var(--bg); }
 .auth-form { width: 100%; max-width: 380px; }
@@ -694,15 +695,31 @@ a:focus-visible,
 .tab.active { color: var(--ink); font-weight: 600; }
 .tab.active::after { transform: scaleX(1); }
 /* ── Modern Learning ── */
-.learn-top { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 20px; }
-.learn-prog-pick { display: flex; flex-direction: column; gap: 5px; }
+/* One band, not two islands. The programme sits left, progress right, and the
+   whole thing is a single card so the empty gutter between them reads as
+   deliberate space rather than a layout that fell apart. */
+.learn-top {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 28px; flex-wrap: wrap; margin-bottom: 24px;
+  background: var(--card); border: 1px solid var(--line);
+  border-radius: var(--radius); padding: 18px 22px; box-shadow: var(--shadow);
+}
+.learn-prog-pick { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .learn-eyebrow { font-size: 11px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); font-weight: 600; }
-.learn-prog-pick select { padding: 10px 13px; border: 1px solid var(--line); border-radius: 10px; font-size: 15px; font-family: var(--display); font-weight: 600; color: var(--ink); background: var(--card); min-width: 220px; }
-.learn-progress { display: flex; align-items: center; gap: 12px; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 10px 16px; box-shadow: var(--shadow); }
-.learn-progress-pct { font-family: var(--display); font-weight: 700; font-size: 15px; }
-.ring-bg { fill: none; stroke: var(--line); stroke-width: 5; }
-.ring-fg { fill: none; stroke: var(--brand); stroke-width: 5; stroke-linecap: round; transition: stroke-dashoffset .5s ease; }
-.ring-text { font-size: 13px; font-weight: 700; fill: var(--ink); font-family: var(--display); }
+.learn-prog-pick select { padding: 10px 13px; border: 1px solid var(--line); border-radius: var(--radius-sm); font-size: 15px; font-family: var(--display); font-weight: 600; color: var(--ink); background: var(--card); min-width: 220px; }
+/* With one enrolment there is nothing to choose, so the programme just states
+   its name at heading weight instead of pretending to be a control. */
+.learn-prog-title { font-family: var(--display); font-size: 21px; font-weight: 700; letter-spacing: -0.03em; color: var(--ink); line-height: 1.15; }
+
+/* Progress as the rule motif — a line that fills — rather than a ring in a
+   floating pill. It reads at a glance and costs a third of the height. */
+.learn-progress { display: flex; align-items: center; gap: 14px; flex: 1 1 260px; max-width: 340px; }
+.learn-progress-line { flex: 1; min-width: 0; }
+.learn-progress-nums { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+.learn-progress-nums strong { font-family: var(--display); font-weight: 700; font-size: 17px; color: var(--ink); letter-spacing: -0.02em; }
+.learn-progress-nums span { font-size: 12.5px; color: var(--muted); }
+.learn-progress-track { height: 6px; border-radius: var(--pill); background: var(--line-soft); overflow: hidden; }
+.learn-progress-track span { display: block; height: 100%; border-radius: var(--pill); background: var(--violet); transition: width .5s cubic-bezier(.4,0,.2,1); }
 .empty-state { display: grid; place-items: center; min-height: 220px; text-align: center; }
 
 /* Batch/scope picker used by Forum and Applicants — was never styled, so it
@@ -710,6 +727,10 @@ a:focus-visible,
 .learn-select { display: flex; flex-direction: column; gap: 5px; margin-bottom: 20px; }
 .learn-select select { padding: 11px 14px; border: 1px solid var(--line); border-radius: var(--radius-sm); font-size: 15px; font-family: var(--display); font-weight: 600; color: var(--ink); background: var(--card); min-width: 240px; }
 .learn-select select:focus { outline: none; border-color: var(--violet); box-shadow: var(--ring); }
+.learn-select label { font-size: 11px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); font-weight: 600; }
+/* When the picker rides in the page header it is a control beside the title,
+   not a stacked block pushing the content down. */
+.page-head .learn-select { margin-bottom: 0; flex: none; }
 
 .learn-grid { display: grid; grid-template-columns: 320px 1fr; gap: 24px; align-items: start; }
 
@@ -1053,33 +1074,17 @@ h1.md-h { font-size: 22px; } h2.md-h { font-size: 19px; } h3.md-h { font-size: 1
 .assign-card > .sub-form,
 .assign-card > .sub-check-error,
 .assign-card > .inline-form { margin-top: 14px; }
-/* File-type tags are secondary metadata; keep them quiet so the file names lead. */
-.sub-files .badge { background: var(--line-soft); color: var(--muted); }
-/* Drive/file links read as chips, not raw underlined text — quieter and
-   consistent with the badge/pill language used everywhere else. */
+/* The folder link is an action, not a status — so it reads as a quiet link
+   with the rule under it on hover, rather than a filled violet pill competing
+   with the verdict badge beside it. */
 .drive-link {
-  display: inline-flex; align-items: center; gap: 7px;
-  padding: 7px 13px; border-radius: var(--pill);
-  background: var(--violet-soft); color: var(--violet-dark);
-  font-size: 13px; font-weight: 600; text-decoration: none;
-  border: 1px solid var(--violet-line);
-  transition: background .15s ease, border-color .15s ease;
+  display: inline-flex; align-items: center; gap: 6px;
+  color: var(--violet-dark); font-size: 13px; font-weight: 600;
+  text-decoration: none; border-bottom: 1px solid transparent;
+  padding-bottom: 1px; transition: border-color .15s ease, color .15s ease;
 }
-.drive-link:hover { background: var(--violet-line); border-color: var(--lavender); }
-.drive-link svg { flex: none; opacity: .85; }
-.file-chip {
-  display: inline-flex; align-items: center; gap: 7px;
-  padding: 6px 11px; border-radius: 9px;
-  background: var(--line-soft); color: var(--ink-2);
-  font-size: 13px; font-weight: 500; text-decoration: none;
-  border: 1px solid transparent;
-  transition: background .15s ease, color .15s ease, border-color .15s ease;
-  min-width: 0;
-}
-.file-chip:hover { background: var(--violet-soft); color: var(--violet-dark); border-color: var(--violet-line); }
-.file-chip svg { flex: none; color: var(--muted); }
-.file-chip:hover svg { color: var(--violet); }
-.file-chip-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.drive-link:hover { color: var(--violet); border-bottom-color: var(--violet); }
+.drive-link svg { flex: none; opacity: .8; }
 /* Trailing status sentences ("deadline passed", "locked") — a quiet note, not a
    full-size paragraph with browser margins. */
 .assign-note { margin: 0; font-size: 13.5px; color: var(--muted); line-height: 1.5; }
@@ -1098,19 +1103,82 @@ h1.md-h { font-size: 22px; } h2.md-h { font-size: 19px; } h3.md-h { font-size: 1
 .grade-score { min-width: 96px; }
 .tempbox { background: var(--ok-soft); border: 1px solid var(--ok-line); border-radius: 10px; padding: 13px 15px; margin: 14px 0; font-size: 14px; }
 .tempbox code { background: var(--ok-line); padding: 2px 8px; border-radius: 6px; }
-.graded { display: flex; align-items: center; gap: 16px; margin-top: 8px; }
-.graded .tile-value { color: var(--ok-ink); }
+/* The grade gets a surface of its own. It was a 26px display number floating
+   beside a bold "Score" label with nothing holding the two together. */
+.graded {
+  display: flex; align-items: stretch; gap: 18px; margin-top: 8px;
+  background: var(--ok-soft); border: 1px solid var(--ok-line);
+  border-radius: var(--radius-sm); padding: 16px 18px;
+}
+.graded-score { display: flex; align-items: baseline; gap: 1px; flex: none; }
+.graded-score-num { font-family: var(--display); font-size: 34px; font-weight: 700; letter-spacing: -0.04em; color: var(--ok-ink); line-height: 1; }
+.graded-score-of { font-family: var(--display); font-size: 17px; font-weight: 600; color: var(--ok-ink); opacity: .6; }
+.graded-body { min-width: 0; border-left: 1px solid var(--ok-line); padding-left: 18px; display: flex; flex-direction: column; justify-content: center; gap: 5px; }
+.graded-label { font-size: 11px; font-weight: 700; letter-spacing: .13em; text-transform: uppercase; color: var(--ok-ink); }
+/* Mentor feedback is a human moment — the serif, as on certificates. */
+.graded-feedback { margin: 0; font-family: var(--serif); font-style: italic; font-size: 19px; line-height: 1.4; color: var(--ink); letter-spacing: -0.01em; }
+.graded-none { margin: 0; font-size: 13.5px; color: var(--muted); }
 
-/* ── Drive-folder verification (kept visually distinct from grading) ── */
-.sub-check { margin-top: 12px; }
-.sub-check-head { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
-.sub-check-error { margin: 8px 0 0; padding: 10px 12px; background: var(--danger-soft); border: 1px solid var(--danger-line); border-radius: 9px; color: var(--danger-ink); font-size: 13.5px; }
-.sub-files { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
-.sub-files li { display: flex; align-items: center; gap: 8px; font-size: 13.5px; max-width: 100%; }
-.sub-files .file-chip { flex: 0 1 auto; max-width: 100%; }
+/* ── Drive-folder verification (kept visually distinct from grading) ──
+   A bordered sub-panel, so the check reads as one object. It used to be a bare
+   row of three same-size pills — verdict, folder link and "locked" all shouting
+   equally — sitting directly on the card with nothing grouping them. */
+.sub-check {
+  margin-top: 12px; background: var(--sunken);
+  border: 1px solid var(--sunken-line); border-radius: var(--radius-sm);
+  padding: 12px 14px;
+}
+.sub-check.is-failed { background: var(--danger-soft); border-color: var(--danger-line); }
+.sub-check-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.sub-check-verdict { display: inline-flex; align-items: center; gap: 9px; min-width: 0; }
+/* "Locked" is a condition, not a status — it whispers next to the verdict. */
+.sub-check-lock {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 11.5px; font-weight: 600; letter-spacing: .04em;
+  text-transform: uppercase; color: var(--faint);
+}
+.sub-check-lock::before {
+  content: ''; width: 3px; height: 3px; border-radius: 50%;
+  background: var(--faint); flex: none;
+}
+.sub-check-actions { display: inline-flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+.sub-check-error { margin: 10px 0 0; padding: 10px 12px; background: var(--card); border: 1px solid var(--danger-line); border-radius: 9px; color: var(--danger-ink); font-size: 13.5px; }
+.assign-card > .sub-check-error { background: var(--danger-soft); }
+
+/* Files as ruled rows. Long filenames wrapped a chip onto two lines and pushed
+   its type badge off on its own — the confetti effect. */
+.sub-files {
+  list-style: none; margin: 12px 0 0; padding: 0;
+  background: var(--card); border: 1px solid var(--line-soft);
+  border-radius: 10px; overflow: hidden;
+}
+.sub-files li + li { border-top: 1px solid var(--line-soft); }
+.file-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 13px; text-decoration: none; color: var(--ink-2);
+  font-size: 13.5px; transition: background .15s ease, color .15s ease;
+}
+.file-row:hover { background: var(--violet-soft); color: var(--violet-dark); }
+.file-row svg { flex: none; color: var(--faint); }
+.file-row:hover svg { color: var(--violet); }
+.file-row-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+.file-row-type { flex: none; font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--faint); }
 .sub-cell { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .sub-detail-row > td { background: var(--sunken); padding: 12px 14px; }
 .sub-detail-row .sub-check { margin-top: 0; }
+
+/* The panel is "pressed into" whatever it sits on, so which way it presses
+   depends on the surface. On the student's white assignment card it goes
+   sunken (above). On the mentor grade row and the admin detail row — both of
+   which are ALREADY sunken — it has to lift instead, or it disappears into its
+   parent and only the border survives. */
+.grade-row-stack .sub-check,
+.sub-detail-row .sub-check { background: var(--card); border-color: var(--line-soft); }
+.grade-row-stack .sub-check.is-failed,
+.sub-detail-row .sub-check.is-failed { background: var(--danger-soft); border-color: var(--danger-line); }
+/* Its file list then needs the opposite treatment for the same reason. */
+.grade-row-stack .sub-files,
+.sub-detail-row .sub-files { background: var(--sunken); border-color: var(--sunken-line); }
 
 /* Mentor grading row — stacked so the check block sits above the grade form. */
 .grade-row-stack { background: var(--sunken); padding: 12px 14px; border-radius: 9px; margin-top: 8px; }
@@ -1306,12 +1374,55 @@ h1.md-h { font-size: 22px; } h2.md-h { font-size: 19px; } h3.md-h { font-size: 1
 .lib-card .muted { font-size: 13px; }
 .lib-open { color: var(--brand); font-weight: 600; font-size: 13px; margin-top: auto; }
 
-.doubt-head { display: flex; justify-content: space-between; align-items: flex-start; }
-.like-btn { border: 1px solid var(--line); background: #fff; color: var(--ink-2); border-radius: 999px; padding: 6px 14px; font-size: 13px; font-weight: 600; cursor: pointer; }
-.like-btn:hover { border-color: var(--brand); color: var(--brand); }
-.like-btn.liked { background: var(--brand-soft); border-color: var(--brand); color: var(--brand); }
-.comments { margin-top: 12px; border-top: 1px solid var(--line); padding-top: 12px; }
-.comment { font-size: 14px; padding: 5px 0; }
+/* ── Forum ── */
+.ask-box { margin-bottom: 18px; }
+.ask-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.ask-input {
+  flex: 1; min-width: 220px; padding: 11px 14px;
+  border: 1px solid var(--line); border-radius: var(--radius-sm);
+  font-size: 14.5px; font-family: var(--font); color: var(--ink);
+  background: var(--card);
+}
+.ask-input::placeholder { color: var(--faint); }
+
+.doubt-list { display: flex; flex-direction: column; gap: 14px; }
+.doubt { padding-bottom: 0; }
+.doubt-head { display: flex; align-items: center; gap: 11px; }
+/* One initial on a soft violet disc — a person, without needing an avatar
+   service. The mentor badge sits on the name, where it identifies who is
+   speaking, rather than trailing the line as an afterthought. */
+.doubt-avatar {
+  width: 36px; height: 36px; flex: none; border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--violet-soft); color: var(--violet-dark);
+  border: 1px solid var(--violet-line);
+  font-family: var(--display); font-weight: 700; font-size: 14px;
+}
+.doubt-avatar.sm { width: 27px; height: 27px; font-size: 11.5px; }
+.doubt-byline { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.doubt-who { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.doubt-who strong { font-size: 14.5px; }
+.doubt-when { font-size: 12px; color: var(--faint); }
+.doubt-text { margin: 13px 0 0; font-size: 15px; line-height: 1.55; color: var(--ink-2); }
+
+.doubt-foot { display: flex; align-items: center; gap: 4px; margin-top: 15px; border-top: 1px solid var(--line-soft); padding-top: 4px; }
+/* Both actions are the same object in two states — the rule, not a filled pill. */
+.doubt-act {
+  display: inline-flex; align-items: center; gap: 7px;
+  background: none; border: 0; cursor: pointer;
+  padding: 11px 12px; border-radius: 9px;
+  font-family: var(--font); font-size: 13px; font-weight: 600;
+  color: var(--muted); transition: color .15s ease, background .15s ease;
+}
+.doubt-act:hover { color: var(--violet); background: var(--violet-soft); }
+.doubt-act.liked, .doubt-act.on { color: var(--violet); }
+.doubt-act svg { flex: none; }
+
+.comments { margin-top: 4px; border-top: 1px solid var(--line-soft); padding: 14px 0 18px; display: flex; flex-direction: column; gap: 13px; }
+.comment { display: flex; align-items: flex-start; gap: 10px; }
+.comment-body { min-width: 0; }
+.comment-text { margin: 3px 0 0; font-size: 14px; line-height: 1.5; color: var(--ink-2); }
+.comment-form { margin-top: 3px; }
 
 /* =====================  Responsive  ===================== */
 
@@ -1382,8 +1493,18 @@ h1.md-h { font-size: 22px; } h2.md-h { font-size: 19px; } h3.md-h { font-size: 1
 
   /* Learning: curriculum on top, lesson below */
   .curriculum { position: static; max-height: 320px; }
-  .learn-top { flex-direction: column; align-items: stretch; gap: 12px; }
+  .learn-top { flex-direction: column; align-items: stretch; gap: 16px; padding: 16px 18px; }
+  /* The flex shorthand has to be reset, not just widened: once the container
+     turns into a column, `flex: 1 1 260px` makes 260px a HEIGHT, so the block
+     reserved a quarter-screen of empty space and floated the bar in the middle
+     of it. */
+  .learn-progress { max-width: none; flex: 0 0 auto; }
   .lesson-head, .lesson-body, .lesson-foot { padding-left: 18px; padding-right: 18px; }
+
+  /* The grade stacks rather than squeezing the serif feedback into a sliver. */
+  .graded { flex-direction: column; gap: 12px; }
+  .graded-body { border-left: 0; border-top: 1px solid var(--ok-line); padding-left: 0; padding-top: 12px; }
+  .sub-check-head { align-items: flex-start; }
 
   /* Notifications dropdown fits the viewport */
   .notif-menu { width: calc(100vw - 32px); right: -8px; max-width: 340px; }
