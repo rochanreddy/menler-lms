@@ -3,6 +3,7 @@ import 'dotenv/config';
 
 import express from 'express';
 import cors from 'cors';
+import compression from 'compression';
 
 import { connectDb } from './db.js';
 import routes from './routes/index.js';
@@ -23,6 +24,10 @@ const allowedOrigins = new Set(
     .map(normalizeOrigin)
     .filter(Boolean),
 );
+
+// Gzip every response big enough to be worth it. Students on mobile data are the
+// point here, not server headroom -- the dashboard/search payloads are chunky JSON.
+app.use(compression());
 
 // Keep the raw body so the Zoom webhook can verify its HMAC signature.
 app.use(express.json({ verify: (req, _res, buf) => { req.rawBody = buf; } }));

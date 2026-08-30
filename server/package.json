@@ -10,10 +10,13 @@
     "seed": "node scripts/seed.js",
     "seed:demo": "node scripts/seedDemo.js",
     "seed:content": "node scripts/seedContent.js",
-    "seed:library": "node scripts/seedLibrary.js"
+    "seed:library": "node scripts/seedLibrary.js",
+    "seed:full": "node scripts/seedFull.js",
+    "test:flows": "node scripts/testFlows.mjs"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",
+    "compression": "^1.8.1",
     "cors": "^2.8.5",
     "dotenv": "^17.0.0",
     "express": "^5.1.0",
