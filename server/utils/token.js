@@ -12,7 +12,7 @@ const SECRET = process.env.JWT_SECRET || (() => {
   console.warn('[auth] JWT_SECRET unset — using the insecure dev key. Never run this in production.');
   return 'dev-insecure-lms-secret-change-me';
 })();
-const ACCESS_TTL = '2h';
+const ACCESS_TTL = '8h';
 const REFRESH_TTL = '30d';
 
 export function signAccessToken(user) {
