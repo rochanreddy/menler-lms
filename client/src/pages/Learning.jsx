@@ -363,21 +363,32 @@ function Content() {
 
   return (
     <div className="learn">
-      {/* Header: program picker + progress ring */}
+      {/* Header: one band. The programme names itself, and progress is a rule
+          running under it rather than a detached pill floating off to the right.
+          The picker only appears when there is genuinely something to pick —
+          with a single enrolment it was a dropdown with one option in it. */}
       <div className="learn-top">
         <div className="learn-prog-pick">
           <span className="learn-eyebrow" id="learn-prog-label">Program</span>
-          <select aria-labelledby="learn-prog-label" value={program?._id || ''} onChange={(e) => { if (e.target.value) { setParams({ program: e.target.value }, { replace: true }); pick(e.target.value); } }}>
-            <option value="">Select a program…</option>
-            {programs.map((p) => <option key={p._id} value={p._id}>{p.title}</option>)}
-          </select>
+          {programs.length > 1 ? (
+            <select aria-labelledby="learn-prog-label" value={program?._id || ''} onChange={(e) => { if (e.target.value) { setParams({ program: e.target.value }, { replace: true }); pick(e.target.value); } }}>
+              <option value="">Select a program…</option>
+              {programs.map((p) => <option key={p._id} value={p._id}>{p.title}</option>)}
+            </select>
+          ) : (
+            <span className="learn-prog-title">{program?.title || 'Your programme'}</span>
+          )}
         </div>
         {program && isStudent && total > 0 && (
           <div className="learn-progress">
-            <Ring pct={pct} />
-            <div>
-              <div className="learn-progress-pct">{pct}% complete</div>
-              <div className="muted">{done} of {total} lessons</div>
+            <div className="learn-progress-line">
+              <div className="learn-progress-nums">
+                <strong>{pct}%</strong>
+                <span>{done} of {total} lessons</span>
+              </div>
+              <div className="learn-progress-track" role="img" aria-label={`${pct}% complete — ${done} of ${total} lessons`}>
+                <span style={{ width: `${pct}%` }} />
+              </div>
             </div>
             {pct === 100 && <button className="btn sm" onClick={viewCertificate}><LineIcon name="award" size={14} /> Certificate</button>}
           </div>
@@ -494,7 +505,7 @@ function LessonVideo({ url }) {
     return (
       <div className="panel empty-state lesson-video-error">
         <p className="muted">This video couldn’t be loaded. It may have moved, or your connection dropped.</p>
-        <div className="row" style={{ justifyContent: 'center', marginTop: 12 }}>
+        <div className="row" style={{ justifyContent: 'center', marginTop: 'var(--space-3)' }}>
           <button className="btn sm" onClick={() => { setFailed(false); setAttempt((n) => n + 1); }}>Try again</button>
           <a className="btn sm ghost" href={url} target="_blank" rel="noreferrer">Open in new tab</a>
         </div>
@@ -502,18 +513,6 @@ function LessonVideo({ url }) {
     );
   }
   return <video key={attempt} src={url} controls className="lesson-video" onError={() => setFailed(true)} />;
-}
-
-// Circular progress indicator.
-function Ring({ pct }) {
-  const r = 20, c = 2 * Math.PI * r;
-  return (
-    <svg className="ring" width="52" height="52" viewBox="0 0 52 52">
-      <circle cx="26" cy="26" r={r} className="ring-bg" />
-      <circle cx="26" cy="26" r={r} className="ring-fg" strokeDasharray={c} strokeDashoffset={c * (1 - pct / 100)} transform="rotate(-90 26 26)" />
-      <text x="26" y="30" textAnchor="middle" className="ring-text">{pct}%</text>
-    </svg>
-  );
 }
 
 function CertificateModal({ cert, onClose }) {
@@ -623,10 +622,21 @@ function AssignmentCard({ a, onChange }) {
         <SubmissionCheckPanel submission={{ ...sub, driveLink: sub.driveLink || sub.url }} audience="student" />
       )}
 
+      {/* The grade is the answer to "how did I do" — it gets its own surface
+          instead of floating as a big number beside a label. Mentor feedback is
+          a human moment, so it takes the serif the way certificates do. */}
       {sub?.status === 'graded' && (
         <div className="graded">
-          <div className="tile-value">{sub.score != null ? `${sub.score}/10` : '—'}</div>
-          <div><strong>Score</strong>{sub.feedback && <p className="muted">“{sub.feedback}”</p>}</div>
+          <div className="graded-score">
+            <span className="graded-score-num">{sub.score != null ? sub.score : '—'}</span>
+            {sub.score != null && <span className="graded-score-of">/10</span>}
+          </div>
+          <div className="graded-body">
+            <div className="graded-label">Score</div>
+            {sub.feedback
+              ? <p className="graded-feedback">“{sub.feedback}”</p>
+              : <p className="graded-none">No written feedback left.</p>}
+          </div>
         </div>
       )}
 
