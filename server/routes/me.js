@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, invalidateUser } from '../middleware/auth.js';
+import { FileAsset } from '../models/FileAsset.js';
 
 const router = Router();
 
@@ -23,6 +24,7 @@ router.patch('/password', requireAuth, async (req, res) => {
   u.passwordHash = await bcrypt.hash(String(newPassword), 12);
   u.mustChangePassword = false;
   await u.save();
+  invalidateUser(u._id);
   res.json({ ok: true, user: u.toPublic() });
 });
 
@@ -34,8 +36,18 @@ router.patch('/', requireAuth, async (req, res) => {
   if (phone !== undefined) u.phone = phone;
   if (education !== undefined) u.education = education;
   if (professional !== undefined) u.professional = professional;
-  if (resumeUrl !== undefined) u.resumeUrl = resumeUrl;
+  // Resume bytes live IN the database (see models/FileAsset.js), up to 5 MB a
+  // time, against a 512 MB cluster. Replacing one used to orphan the old file
+  // forever, so a student re-uploading three times cost 15 MB permanently.
+  // Delete what we are replacing; scoped to the owner so a tampered url cannot
+  // reach anyone else's file.
+  if (resumeUrl !== undefined && resumeUrl !== u.resumeUrl) {
+    const stale = /^\/uploads\/([a-f0-9]{24})$/i.exec(u.resumeUrl || '')?.[1];
+    if (stale) await FileAsset.deleteOne({ _id: stale, ownerId: u._id }).catch(() => {});
+    u.resumeUrl = resumeUrl;
+  }
   await u.save();
+  invalidateUser(u._id);
   res.json({ user: u.toPublic() });
 });
 
