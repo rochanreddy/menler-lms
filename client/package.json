@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "lint:ds": "node scripts/lint-design-system.mjs"
   },
   "dependencies": {
     "pdfjs-dist": "^6.1.200",

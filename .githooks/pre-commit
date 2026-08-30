@@ -1,0 +1,29 @@
+#!/bin/sh
+# Design-system gate.
+#
+# Runs the literal-value linter over staged JS/JSX/CSS under client/src.
+# Lives in .githooks/ (version-controlled) rather than .git/hooks/ (which is
+# not), so every clone gets it. Enable once per clone with:
+#
+#   git config core.hooksPath .githooks
+#
+# Bypass with `git commit --no-verify` only when you are committing the fix to
+# the linter itself.
+
+staged=$(git diff --cached --name-only --diff-filter=ACM | grep -E '^client/src/.*\.(jsx?|css)$' || true)
+
+[ -z "$staged" ] && exit 0
+
+# Paths come in repo-relative; the linter runs from client/.
+rel=$(echo "$staged" | sed 's|^client/||')
+
+# shellcheck disable=SC2086
+( cd client && node scripts/lint-design-system.mjs $rel ) || {
+  echo ""
+  echo "Commit blocked: a page re-introduced a literal design value."
+  echo "Add a token in client/src/styles/tokens.css, or use a primitive from"
+  echo "client/src/components/ui. See the UI Conventions section of CLAUDE.md."
+  exit 1
+}
+
+exit 0
