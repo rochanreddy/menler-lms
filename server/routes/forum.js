@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
 import { Message } from '../models/Message.js';
 import { Doubt } from '../models/Doubt.js';
+import { User } from '../models/User.js';
 import { canAccessBatch } from '../utils/access.js';
 import { notify } from '../utils/notify.js';
 
@@ -30,25 +31,49 @@ router.post('/chat', requireAuth, async (req, res) => {
 
 // ── Doubts board ──
 
-const shapeDoubt = (d, meId) => ({
+// Reads a lean object as happily as a hydrated document: `likes`/`comments`
+// are guarded because a plain object from .lean() carries no schema defaults.
+const shapeDoubt = (d, meId, people) => ({
   id: d._id,
   text: d.text,
   at: d.createdAt,
-  author: author(d.authorId),
-  likeCount: d.likes.length,
-  likedByMe: d.likes.some((x) => x.toString() === meId),
-  comments: d.comments.map((c) => ({ id: c._id, text: c.text, at: c.createdAt, author: author(c.authorId) })),
+  author: author(people.get(String(d.authorId))),
+  likeCount: (d.likes || []).length,
+  likedByMe: (d.likes || []).some((x) => x.toString() === meId),
+  comments: (d.comments || []).map((c) => ({
+    id: c._id, text: c.text, at: c.createdAt, author: author(people.get(String(c.authorId))),
+  })),
 });
 
 // GET /api/lms/forum/doubts?batchId=..
+// The board polls this every few seconds from every open tab, so it is the most
+// frequently served query in the app AND the one whose cost grows on its own as
+// a batch accumulates doubts. Hence the two things it did not used to have:
+//   .limit()  so an old batch can't grow this response without bound (200 to
+//             match the chat above; a batch past that needs real pagination)
+//   .lean()   because nothing here mutates -- building full Mongoose documents
+//             for hundreds of doubts, authors and comments was pure waste
 router.get('/doubts', requireAuth, async (req, res) => {
   const { batchId } = req.query;
   if (!batchId || !(await canAccessBatch(req.user, batchId))) return res.status(403).json({ error: 'Forbidden.' });
-  const rows = await Doubt.find({ batchId })
-    .populate('authorId', 'fullName email role')
-    .populate('comments.authorId', 'fullName email role')
-    .sort({ createdAt: -1 });
-  res.json({ doubts: rows.map((d) => shapeDoubt(d, req.user._id.toString())) });
+  const rows = await Doubt.find({ batchId }).sort({ createdAt: -1 }).limit(200).lean();
+
+  // Resolve every author in ONE query rather than two populates. Mongoose issues
+  // each populate as its own round trip, so the board used to cost three trips
+  // per poll; now it costs two. Polled every few seconds from every open tab,
+  // these are the most-repeated database operations in the app.
+  const ids = new Set();
+  for (const d of rows) {
+    if (d.authorId) ids.add(String(d.authorId));
+    for (const c of d.comments || []) if (c.authorId) ids.add(String(c.authorId));
+  }
+  const people = new Map();
+  if (ids.size) {
+    const found = await User.find({ _id: { $in: [...ids] } }).select('fullName email role').lean();
+    for (const u of found) people.set(String(u._id), u);
+  }
+
+  res.json({ doubts: rows.map((d) => shapeDoubt(d, req.user._id.toString(), people)) });
 });
 
 // POST /api/lms/forum/doubts { batchId, text } — only students ask doubts.
