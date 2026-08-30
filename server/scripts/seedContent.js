@@ -302,7 +302,10 @@ async function run() {
   await connectDb();
   const modules = buildModules();
   const topicCount = modules.reduce((n, m) => n + m.chapters.reduce((c, ch) => c + ch.topics.length, 0), 0);
-  for (const title of ['Kickstarter', 'Fellowship']) {
+  // One programme. This is the AI Kickstarter curriculum specifically, and
+  // copying it into a second programme is what left a duplicate 53-lesson
+  // "Fellowship" sitting in the programme picker with no batch behind it.
+  for (const title of ['Kickstarter']) {
     let program = await Program.findOne({ title });
     if (!program) program = await Program.create({ title, type: 'cohort', published: true });
     program.modules = modules;

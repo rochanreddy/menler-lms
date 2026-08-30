@@ -74,7 +74,11 @@ router.get('/admin-dashboard', requireAuth, requireRole('admin'), async (_req, r
       { label: 'present', count: count(attendanceAgg, 'present') },
       { label: 'absent', count: count(attendanceAgg, 'absent') },
     ],
-    perBatch: batchDocs.map((b) => ({ name: b.name.replace(/^Demo — /, ''), count: b.studentIds.length })),
+    // The id travels with the label because the label is NOT unique: stripping
+    // the "Demo — " prefix collapses "Demo — Kickstarter · Jul 2026" and
+    // "Kickstarter · Jul 2026" onto the same string, and the chart that keyed on
+    // it was quietly rendering one bar instead of two.
+    perBatch: batchDocs.map((b) => ({ id: String(b._id), name: b.name.replace(/^Demo — /, ''), count: b.studentIds.length })),
     signups,
   });
 });

@@ -28,9 +28,9 @@ async function run() {
   if ((await Program.countDocuments()) === 0) {
     await Program.create([
       { title: 'Kickstarter', type: 'cohort', description: 'Kickstarter program', published: true },
-      { title: 'Fellowship', type: 'cohort', description: 'Fellowship program', published: true },
+      { title: 'Generalist', type: 'cohort', description: 'Generalist program', published: true },
     ]);
-    console.log('✓ Created sample programs: Kickstarter, Fellowship');
+    console.log('✓ Created sample programs: Kickstarter, Generalist');
   }
 
   console.log('\nDone. Change the admin password after first login.');
