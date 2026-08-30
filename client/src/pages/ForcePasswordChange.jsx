@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { api } from '../api.js';
+import { Alert, Button, Input, Stack, Text } from '../components/ui/index.js';
 
 // Shown right after login when the account was admin-provisioned or reset
 // (must_change_password). Blocks the app until the user sets their own password.
@@ -12,8 +13,8 @@ export default function ForcePasswordChange({ user, onDone, onLogout }) {
   async function submit(e) {
     e.preventDefault();
     setErr('');
-    if (pw.length < 8) return setErr('Password must be at least 8 characters.');
-    if (pw !== confirm) return setErr('Passwords do not match.');
+    if (pw.length < 8) return setErr('That password is too short. Use at least 8 characters.');
+    if (pw !== confirm) return setErr('Those passwords do not match. Retype them to continue.');
     setBusy(true);
     try {
       const { user: updated } = await api('/me/password', { method: 'PATCH', body: { newPassword: pw } });
@@ -23,23 +24,49 @@ export default function ForcePasswordChange({ user, onDone, onLogout }) {
 
   return (
     <div className="center">
-      <form className="panel" style={{ width: 380 }} onSubmit={submit}>
-        <div className="eyebrow">First login</div>
-        <h1 style={{ fontSize: 24 }}>Set your password</h1>
-        <p className="muted">Welcome, {user.full_name || user.email}. For security, choose your own password before continuing.</p>
-        <div className="field" style={{ marginTop: 14 }}>
-          <label htmlFor="fpc-new">New password</label>
-          <input id="fpc-new" type="password" autoComplete="new-password" value={pw} onChange={(e) => setPw(e.target.value)} minLength={8} placeholder="Min 8 characters" required aria-describedby={err ? 'fpc-error' : undefined} />
-        </div>
-        <div className="field">
-          <label htmlFor="fpc-confirm">Confirm password</label>
-          <input id="fpc-confirm" type="password" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} required aria-describedby={err ? 'fpc-error' : undefined} />
-        </div>
-        {err && <div id="fpc-error" className="error auth-error" role="alert">{err}</div>}
-        <button className={`btn block ${busy ? 'is-busy' : ''}`} disabled={busy}>{busy ? 'Saving…' : 'Set password & continue'}</button>
-        <p style={{ textAlign: 'center', marginTop: 14 }}>
-          <button type="button" className="linklike" onClick={onLogout}>Log out</button>
-        </p>
+      {/* .auth-form carries the form measure already; the old inline width:380
+          was a second copy of that same value. */}
+      <form className="auth-form" onSubmit={submit}>
+        <Stack gap="6">
+          <Stack gap="2">
+            <div className="eyebrow">First login</div>
+            <Text role="heading-2">Set your password</Text>
+            <Text role="body" tone="muted">
+              Welcome, {user.full_name || user.email}. Choose your own password before continuing.
+            </Text>
+          </Stack>
+
+          <Stack gap="4">
+            <Input
+              label="New password"
+              id="fpc-new"
+              type="password"
+              autoComplete="new-password"
+              value={pw}
+              onChange={(e) => setPw(e.target.value)}
+              minLength={8}
+              required
+              help="Use at least 8 characters."
+            />
+            <Input
+              label="Confirm password"
+              id="fpc-confirm"
+              type="password"
+              autoComplete="new-password"
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              required
+            />
+          </Stack>
+
+          {err && <Alert tone="error">{err}</Alert>}
+
+          <Button type="submit" size="lg" loading={busy}>Set password</Button>
+
+          <Text role="body" align="center">
+            <Button variant="link" size="sm" onClick={onLogout}>Log out</Button>
+          </Text>
+        </Stack>
       </form>
     </div>
   );

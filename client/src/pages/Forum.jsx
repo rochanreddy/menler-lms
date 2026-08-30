@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { api } from '../api.js';
+import Empty from '../components/Empty.jsx';
 
 // Batch forum: a Doubts board (post, like, comment). Students ask, mentors answer.
 export default function Forum() {
@@ -17,28 +18,28 @@ export default function Forum() {
 
   return (
     <div>
+      {/* One name for one place. This page carried three: the nav tab said
+          "Forum", the eyebrow repeated "Forum", and the heading said "Doubts" —
+          the eyebrow was printing the tab the reader had just clicked. */}
       <div className="page-head">
         <div>
-          <div className="eyebrow">Forum</div>
-          <h1>Doubts</h1>
-          <p>Ask a question and get it answered by your mentor and peers.</p>
+          <h1>Forum</h1>
+          <p>Ask a doubt and get it answered by your mentor and peers.</p>
         </div>
+        {batches.length > 1 && (
+          <div className="learn-select">
+            <label htmlFor="forum-batch">Batch</label>
+            <select id="forum-batch" value={batchId} onChange={(e) => setBatchId(e.target.value)}>
+              {batches.map((b) => <option key={b.id} value={b.id}>{b.name.replace(/^Demo — /, '')}</option>)}
+            </select>
+          </div>
+        )}
       </div>
 
       {batches.length === 0 ? (
         <p className="muted">You're not in any batch yet — the forum opens once you're enrolled.</p>
       ) : (
-        <>
-          <div className="learn-select">
-            <label>Batch{' '}
-              <select value={batchId} onChange={(e) => setBatchId(e.target.value)}>
-                {batches.map((b) => <option key={b.id} value={b.id}>{b.name.replace(/^Demo — /, '')}</option>)}
-              </select>
-            </label>
-          </div>
-
-          {batchId && <Doubts batchId={batchId} me={user} />}
-        </>
+        batchId && <Doubts batchId={batchId} me={user} />
       )}
     </div>
   );
@@ -75,21 +76,25 @@ function Doubts({ batchId, me }) {
   return (
     <div>
       {isStudent ? (
-        <form className="panel" onSubmit={post}>
-          <h3>Ask a doubt</h3>
-          <div className="inline-form">
-            <input style={{ flex: 1, minWidth: 260 }} placeholder="What are you stuck on?" value={text} onChange={(e) => setText(e.target.value)} aria-label="Your doubt" />
-            <button className={`btn sm ${busy ? 'is-busy' : ''}`} disabled={busy}>{busy ? 'Posting…' : 'Post doubt'}</button>
+        <form className="panel ask-box" onSubmit={post}>
+          <h3 className="ruled-head">Ask a doubt</h3>
+          <div className="ask-row">
+            <input className="ask-input" placeholder="What are you stuck on?" value={text} onChange={(e) => setText(e.target.value)} aria-label="Your doubt" />
+            <button className={`btn ${busy ? 'is-busy' : ''}`} disabled={busy}>{busy ? 'Posting…' : 'Post doubt'}</button>
           </div>
           {err && <span className="error" role="alert">{err}</span>}
         </form>
       ) : (
-        <div className="panel"><h3>Student doubts</h3><p className="muted">Answer your students' questions below. New doubts appear here live.</p></div>
+        <div className="panel ask-box">
+          <h3 className="ruled-head">Student doubts</h3>
+          <p className="muted">Answer your students' questions below. New doubts appear here live.</p>
+        </div>
       )}
 
-      <div className="list">
-        {doubts.length === 0 && <p className="muted">{isStudent ? 'No doubts yet. Be the first to ask.' : 'No doubts yet — students will post them here.'}</p>}
-        {doubts.map((d) => <DoubtCard key={d.id} doubt={d} me={me} onChange={load} />)}
+      <div className="doubt-list">
+        {doubts.length === 0
+          ? <Empty icon="forum" title="No doubts yet." hint={isStudent ? 'Be the first to ask — your mentor and your batch both see it.' : 'Students post here, and you will see them arrive live.'} />
+          : doubts.map((d) => <DoubtCard key={d.id} doubt={d} me={me} onChange={load} />)}
       </div>
     </div>
   );
@@ -114,34 +119,72 @@ function DoubtCard({ doubt, me, onChange }) {
   }
 
   return (
-    <div className="panel">
+    <div className="panel doubt">
       <div className="doubt-head">
-        <div>
-          <strong>{doubt.author?.name}</strong>
-          {doubt.author?.role === 'mentor' && <span className="badge badge-mentor" style={{ marginLeft: 6 }}>mentor</span>}
-          <div className="muted" style={{ fontSize: 12 }}>{new Date(doubt.at).toLocaleString()}</div>
+        <span className="doubt-avatar" aria-hidden="true">{initial(doubt.author?.name)}</span>
+        <div className="doubt-byline">
+          <div className="doubt-who">
+            <strong>{doubt.author?.name}</strong>
+            {doubt.author?.role === 'mentor' && <span className="badge badge-mentor">mentor</span>}
+          </div>
+          <time className="doubt-when">{fmtWhen(doubt.at)}</time>
         </div>
       </div>
-      <p style={{ margin: '8px 0 12px' }}>{doubt.text}</p>
-      <div className="row">
-        <button className={`like-btn ${doubt.likedByMe ? 'liked' : ''}`} onClick={like}>▲ {doubt.likeCount}</button>
-        <button className="btn sm ghost" onClick={() => setOpen((o) => !o)}>{doubt.comments.length} comment{doubt.comments.length === 1 ? '' : 's'}</button>
+
+      <p className="doubt-text">{doubt.text}</p>
+
+      {/* The two actions sit on one ruled footer as a toolbar. They were a
+          rounded like-pill next to a ghost button of a different height, which
+          read as two unrelated controls that happened to land side by side. */}
+      <div className="doubt-foot">
+        <button className={`doubt-act ${doubt.likedByMe ? 'liked' : ''}`} onClick={like} aria-pressed={doubt.likedByMe}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M12 5l7 12H5l7-12Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" fill={doubt.likedByMe ? 'currentColor' : 'none'} />
+          </svg>
+          {doubt.likeCount}
+          <span className="sr-only"> likes</span>
+        </button>
+        <button className={`doubt-act ${open ? 'on' : ''}`} onClick={() => setOpen((o) => !o)} aria-expanded={open}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M20 4H4a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h3v4l5-4h8a1 1 0 0 0 1-1V5a1 1 0 0 0-1-1Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+          </svg>
+          {doubt.comments.length} comment{doubt.comments.length === 1 ? '' : 's'}
+        </button>
       </div>
 
       {open && (
         <div className="comments">
           {doubt.comments.map((c) => (
             <div key={c.id} className="comment">
-              <strong>{c.author?.name}</strong>{c.author?.role === 'mentor' && <span className="badge badge-mentor" style={{ marginLeft: 6 }}>mentor</span>}
-              <span> — {c.text}</span>
+              <span className="doubt-avatar sm" aria-hidden="true">{initial(c.author?.name)}</span>
+              <div className="comment-body">
+                <div className="doubt-who">
+                  <strong>{c.author?.name}</strong>
+                  {c.author?.role === 'mentor' && <span className="badge badge-mentor">mentor</span>}
+                </div>
+                <p className="comment-text">{c.text}</p>
+              </div>
             </div>
           ))}
-          <form className="inline-form" onSubmit={addComment}>
-            <input style={{ flex: 1, minWidth: 220 }} placeholder={me.role === 'mentor' ? 'Write an answer…' : 'Add a comment…'} value={comment} onChange={(e) => setComment(e.target.value)} aria-label={me.role === 'mentor' ? 'Your answer' : 'Your comment'} />
+          <form className="ask-row comment-form" onSubmit={addComment}>
+            <input className="ask-input" placeholder={me.role === 'mentor' ? 'Write an answer…' : 'Add a comment…'} value={comment} onChange={(e) => setComment(e.target.value)} aria-label={me.role === 'mentor' ? 'Your answer' : 'Your comment'} />
             <button className={`btn sm ${busy ? 'is-busy' : ''}`} disabled={busy}>{busy ? 'Sending…' : (me.role === 'mentor' ? 'Answer' : 'Reply')}</button>
           </form>
         </div>
       )}
     </div>
   );
+}
+
+const initial = (name) => (name || '?').trim().charAt(0).toUpperCase();
+
+// "8/24/2026, 1:22:14 AM" is a machine timestamp. Nobody needs the seconds, and
+// the rest of the app already formats dates this way.
+function fmtWhen(at) {
+  const d = new Date(at);
+  const mins = Math.round((Date.now() - d.getTime()) / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins} min ago`;
+  if (mins < 60 * 24) return `${Math.round(mins / 60)} h ago`;
+  return d.toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 }

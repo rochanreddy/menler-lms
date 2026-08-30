@@ -46,21 +46,27 @@ export function DriveLink({ href, label = 'Open Drive folder' }) {
   );
 }
 
-/** Individual file links, so a mentor doesn't have to navigate the folder. */
+/** Individual file links, so a mentor doesn't have to navigate the folder.
+ *  Rows on a ruled list, not chips: filenames are long and unpredictable, and a
+ *  pill that wraps mid-name next to a second pill is what made this read as
+ *  confetti. The type sits right-aligned as a quiet label. */
 export function FileLinks({ files }) {
   if (!files?.length) return null;
   return (
     <ul className="sub-files">
+      {/* Keyed on the index as well as the link: two files in one folder can
+          share a webViewLink (or arrive without one), and React then silently
+          drops the duplicate row rather than rendering both. */}
       {files.map((f, i) => (
-        <li key={f.webViewLink || `${f.name}-${i}`}>
-          <a href={f.webViewLink} target="_blank" rel="noreferrer" className="file-chip">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <li key={`${f.webViewLink || f.name}-${i}`}>
+          <a href={f.webViewLink} target="_blank" rel="noreferrer" className="file-row">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <path d="M6 2h9l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
               <path d="M14 2v5h5" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
             </svg>
-            <span className="file-chip-name">{f.name}</span>
+            <span className="file-row-name">{f.name}</span>
+            <span className="file-row-type">{f.type}</span>
           </a>
-          <span className="badge">{f.type}</span>
         </li>
       ))}
     </ul>
@@ -77,17 +83,24 @@ export function SubmissionCheckPanel({ submission, onRecheck, busy = false, audi
   const { checkStatus, errorDetail, files, driveLink } = submission;
   const failed = checkStatus === 'NEEDS_FIXES' || checkStatus === 'CHECK_FAILED';
 
+  // The verdict leads. Previously the folder link, the status and "locked" were
+  // three equal-weight pills in a row, so the one thing that matters — did the
+  // check pass — had to be hunted for among the actions.
   return (
-    <div className="sub-check">
+    <div className={`sub-check ${failed ? 'is-failed' : ''}`}>
       <div className="sub-check-head">
-        <DriveLink href={driveLink} />
-        <CheckBadge status={checkStatus} audience={audience} />
-        {submission.locked && <span className="badge badge-muted">locked</span>}
-        {onRecheck && driveLink && (
-          <button type="button" className={`btn sm ghost ${busy ? 'is-busy' : ''}`} onClick={onRecheck} disabled={busy}>
-            {busy ? 'Re-checking…' : 'Re-check'}
-          </button>
-        )}
+        <span className="sub-check-verdict">
+          <CheckBadge status={checkStatus} audience={audience} />
+          {submission.locked && <span className="sub-check-lock">Locked</span>}
+        </span>
+        <span className="sub-check-actions">
+          {onRecheck && driveLink && (
+            <button type="button" className={`btn sm ghost ${busy ? 'is-busy' : ''}`} onClick={onRecheck} disabled={busy}>
+              {busy ? 'Re-checking…' : 'Re-check'}
+            </button>
+          )}
+          <DriveLink href={driveLink} />
+        </span>
       </div>
 
       {failed && errorDetail && <p className="sub-check-error">{errorDetail}</p>}
