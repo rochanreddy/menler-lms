@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
-import { requireAuth, requireRole } from '../middleware/auth.js';
+import { requireAuth, requireRole, invalidateUser } from '../middleware/auth.js';
 import { Batch } from '../models/Batch.js';
 import { User } from '../models/User.js';
 import { canAccessBatch, myBatchIds } from '../utils/access.js';
@@ -68,6 +68,7 @@ async function addMember(res, batchId, email, field) {
   if (!user) return res.status(404).json({ error: 'No user with that email.' });
   await Batch.findByIdAndUpdate(batchId, { $addToSet: { [field]: user._id } });
   await User.findByIdAndUpdate(user._id, { $addToSet: { batchIds: batchId } });
+  invalidateUser(user._id);
   return res.json({ ok: true, user: user.toPublic() });
 }
 
@@ -94,6 +95,7 @@ router.post('/:id/students', requireAuth, requireRole('admin'), async (req, res)
   }
   await Batch.findByIdAndUpdate(req.params.id, { $addToSet: { studentIds: user._id } });
   await User.findByIdAndUpdate(user._id, { $addToSet: { batchIds: req.params.id } });
+  invalidateUser(user._id);
   res.json({ ok: true, user: user.toPublic(), created: !!tempPassword, tempPassword });
 });
 
@@ -102,6 +104,7 @@ router.delete('/:id/members/:userId', requireAuth, requireRole('admin'), async (
   const { id, userId } = req.params;
   await Batch.findByIdAndUpdate(id, { $pull: { mentorIds: userId, studentIds: userId } });
   await User.findByIdAndUpdate(userId, { $pull: { batchIds: id } });
+  invalidateUser(userId);
   res.json({ ok: true });
 });
 

@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
-import { requireAuth, requireRole } from '../middleware/auth.js';
+import { requireAuth, requireRole, invalidateUser } from '../middleware/auth.js';
 import { User, ROLES } from '../models/User.js';
 import { Batch } from '../models/Batch.js';
 import { Assignment } from '../models/Assignment.js';
@@ -61,6 +61,7 @@ router.post('/:id/reset-password', requireAuth, requireRole('admin'), async (req
   user.resetExpires = null;
   user.mustChangePassword = true; // force a fresh password on next login
   await user.save();
+  invalidateUser(user._id);
   res.json({ ok: true, tempPassword: temp, custom: !!password });
 });
 
@@ -274,6 +275,7 @@ router.patch('/:id/blocks', requireAuth, requireRole('admin'), async (req, res) 
   user.blocked = blocked;
   user.markModified('blocked');
   await user.save();
+  invalidateUser(user._id);
   res.json({ ok: true, user: user.toPublic() });
 });
 
@@ -292,6 +294,8 @@ router.patch('/:id', requireAuth, requireRole('admin'), async (req, res) => {
   if (fullName !== undefined) user.fullName = String(fullName);
   if (phone !== undefined) user.phone = String(phone);
   await user.save();
+  invalidateUser(user._id);
+
   res.json({ ok: true, user: user.toPublic() });
 });
 
