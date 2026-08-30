@@ -39,7 +39,7 @@ const programSchema = new mongoose.Schema(
     description: { type: String, default: '' },
     published: { type: Boolean, default: false },
     // Mentors assigned to teach this program — they get access to ALL its batches.
-    mentorIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+    mentorIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true }],
     modules: { type: [moduleSchema], default: [] },
   },
   { timestamps: true },

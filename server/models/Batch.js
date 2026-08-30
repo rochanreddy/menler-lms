@@ -10,8 +10,8 @@ const batchSchema = new mongoose.Schema(
     startDate: { type: Date, default: null },
     endDate: { type: Date, default: null },
 
-    mentorIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
-    studentIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+    mentorIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true }],
+    studentIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true }],
 
     status: { type: String, enum: ['ongoing', 'past', 'upcoming'], default: 'upcoming', index: true },
   },
