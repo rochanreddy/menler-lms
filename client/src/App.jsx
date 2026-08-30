@@ -26,8 +26,15 @@ export default function App() {
   // the whole app swaps to the stop page immediately.
   useEffect(() => {
     const onBlocked = (e) => setBlocked(e.detail?.message || '');
+    // The refresh token finally expired (or was revoked). api() has already
+    // cleared storage; dropping the in-memory user is what shows the login page.
+    const onSignedOut = () => setUser(null);
     window.addEventListener('lms:blocked', onBlocked);
-    return () => window.removeEventListener('lms:blocked', onBlocked);
+    window.addEventListener('lms:signed-out', onSignedOut);
+    return () => {
+      window.removeEventListener('lms:blocked', onBlocked);
+      window.removeEventListener('lms:signed-out', onSignedOut);
+    };
   }, []);
 
   const logout = () => { setToken(''); setUser(null); setBlocked(null); };

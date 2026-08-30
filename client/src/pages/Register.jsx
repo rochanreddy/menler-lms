@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { api, setToken } from '../api.js';
 import MenlerWordmark from '../components/MenlerWordmark.jsx';
+import { Alert, Button, Input, Stack, Text } from '../components/ui/index.js';
 
 // Student self-signup. Backend forces role=student; mentors/admins are
 // provisioned by an admin. On success it returns a token → straight into the app.
@@ -17,8 +18,8 @@ export default function Register({ onLogin }) {
     setErr('');
     setBusy(true);
     try {
-      const { accessToken, user } = await api('/auth/register', { method: 'POST', body: form });
-      setToken(accessToken);
+      const { accessToken, refreshToken, user } = await api('/auth/register', { method: 'POST', body: form });
+      setToken(accessToken, refreshToken);
       onLogin(user);
       nav('/app');
     } catch (e2) {
@@ -30,6 +31,7 @@ export default function Register({ onLogin }) {
 
   return (
     <div className="auth">
+      {/* Pattern-layer hero on the dark stage — see the note in Login.jsx. */}
       <div className="auth-hero">
         <div className="auth-brand"><MenlerWordmark size={30} theme="dark" tagline /></div>
         <div className="auth-hero-copy">
@@ -41,25 +43,51 @@ export default function Register({ onLogin }) {
 
       <div className="auth-form-wrap">
         <form className="auth-form" onSubmit={submit}>
-          <h1>Create your account</h1>
-          <p className="sub">For students joining the Menler LMS.</p>
+          <Stack gap="6">
+            <Stack gap="2">
+              <Text role="heading-1">Create your account</Text>
+              <Text role="body" tone="muted">For students joining the Menler LMS.</Text>
+            </Stack>
 
-          <div className="field">
-            <label htmlFor="reg-name">Full name</label>
-            <input id="reg-name" autoComplete="name" value={form.fullName} onChange={(e) => set('fullName', e.target.value)} required />
-          </div>
-          <div className="field">
-            <label htmlFor="reg-email">Email</label>
-            <input id="reg-email" type="email" autoComplete="email" value={form.email} onChange={(e) => set('email', e.target.value)} required aria-describedby={err ? 'reg-error' : undefined} />
-          </div>
-          <div className="field">
-            <label htmlFor="reg-password">Password</label>
-            <input id="reg-password" type="password" autoComplete="new-password" value={form.password} onChange={(e) => set('password', e.target.value)} minLength={8} required placeholder="Min 8 characters" aria-describedby={err ? 'reg-error' : undefined} />
-          </div>
-          {err && <div id="reg-error" className="error auth-error" role="alert">{err}</div>}
-          <button className={`btn ${busy ? 'is-busy' : ''}`} disabled={busy}>{busy ? 'Creating…' : 'Create account →'}</button>
+            <Stack gap="4">
+              <Input
+                label="Full name"
+                id="reg-name"
+                autoComplete="name"
+                value={form.fullName}
+                onChange={(e) => set('fullName', e.target.value)}
+                required
+              />
+              <Input
+                label="Email"
+                id="reg-email"
+                type="email"
+                autoComplete="email"
+                value={form.email}
+                onChange={(e) => set('email', e.target.value)}
+                required
+              />
+              <Input
+                label="Password"
+                id="reg-password"
+                type="password"
+                autoComplete="new-password"
+                value={form.password}
+                onChange={(e) => set('password', e.target.value)}
+                minLength={8}
+                required
+                help="Use at least 8 characters."
+              />
+            </Stack>
 
-          <p className="auth-alt">Already have an account? <Link to="/login">Sign in</Link></p>
+            {err && <Alert tone="error">{err}</Alert>}
+
+            <Button type="submit" size="lg" loading={busy}>Create account</Button>
+
+            <Text role="body" tone="muted">
+              Already have an account? <Link to="/login">Sign in</Link>
+            </Text>
+          </Stack>
         </form>
       </div>
     </div>
