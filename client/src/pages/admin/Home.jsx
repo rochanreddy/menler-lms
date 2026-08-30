@@ -42,7 +42,7 @@ export default function AdminHome() {
       </div>
 
       {(s.blockedUsers ?? 0) > 0 && (
-        <div className="blockbox" style={{ marginBottom: 18 }}>
+        <div className="blockbox" style={{ marginBottom: 'var(--space-5)' }}>
           {s.blockedUsers} account{s.blockedUsers === 1 ? ' is' : 's are'} currently blocked from the LMS.
         </div>
       )}
@@ -81,7 +81,7 @@ export default function AdminHome() {
           <div className="panel chart-card">
             <div className="eyebrow">Student signups — last 8 weeks</div>
             <MiniLine points={data.signups} />
-            <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
+            <div className="muted" style={{ fontSize: 'var(--text-sm)', marginTop: 'var(--space-2)' }}>
               {data.assignmentTypes[0].count} assignments · {data.assignmentTypes[1].count} projects across all batches
             </div>
           </div>
@@ -90,15 +90,15 @@ export default function AdminHome() {
 
       <AtRiskPanel />
 
-      <div className="panel" style={{ marginTop: 22 }}>
+      <div className="panel" style={{ marginTop: 'var(--space-6)' }}>
         <div className="eyebrow">Enrolment by batch</div>
         <h2>Students per cohort</h2>
         {chart.length === 0 ? (
           <Empty inline icon="students" title="No enrolments yet." hint="Enrolment activity appears here once students start joining batches." />
         ) : (
-          <div className="chart" style={{ marginTop: 22 }}>
+          <div className="chart" style={{ marginTop: 'var(--space-6)' }}>
             {chart.map((b) => (
-              <div className="bar-col" key={b.name}>
+              <div className="bar-col" key={b.id || b.name}>
                 <div className="bar-val">{b.count}</div>
                 <div className="bar" style={{ height: `${Math.round((b.count / max) * 100)}%` }} />
                 <div className="bar-name">{b.name}</div>
