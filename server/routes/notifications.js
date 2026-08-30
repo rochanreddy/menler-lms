@@ -5,9 +5,15 @@ import { Notification } from '../models/Notification.js';
 const router = Router();
 
 // GET /api/lms/notifications — the user's recent notifications + unread count.
+// Polled every 20s by every signed-in tab, so it is the most-called endpoint in
+// the app. The two reads are independent -- running them concurrently halves the
+// endpoint's latency (it still issues two operations, it just stops waiting for
+// the first before starting the second).
 router.get('/', requireAuth, async (req, res) => {
-  const items = await Notification.find({ userId: req.user._id }).sort({ createdAt: -1 }).limit(30);
-  const unread = await Notification.countDocuments({ userId: req.user._id, read: false });
+  const [items, unread] = await Promise.all([
+    Notification.find({ userId: req.user._id }).sort({ createdAt: -1 }).limit(30).lean(),
+    Notification.countDocuments({ userId: req.user._id, read: false }),
+  ]);
   res.json({ items, unread });
 });
 
