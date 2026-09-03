@@ -1,16 +1,35 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { api, postFile } from '../api.js';
+import { api, postFile, getLessonVideos, setLessonVideo, clearLessonVideo } from '../api.js';
 import Empty from './Empty.jsx';
 import LessonIcon from './LessonIcon.jsx';
 import LineIcon from './LineIcon.jsx';
+import VdoCipherPicker from './VdoCipherPicker.jsx';
+import useMediaQuery, { MOBILE } from '../useMediaQuery.js';
 
 // Admin curriculum builder for one program. Upload a doc to auto-structure it,
 // then review/edit the Module → Chapter → Topic tree and publish.
-export default function CurriculumEditor({ programId, onClose }) {
+//
+// Opened two ways from the Programs page. Without `batch` it edits what every
+// cohort shares — lesson titles, PDFs, notes, the tree itself. With a `batch`
+// it is scoped to that one cohort, and the lesson video slot appears: videos
+// are attached per batch (server/models/BatchLessonVideo.js), so September's
+// students never see October's recordings.
+export default function CurriculumEditor({ programId, batch, onClose }) {
   const [program, setProgram] = useState(null);
   const [modules, setModules] = useState([]);
   const [published, setPublished] = useState(false);
   const [sel, setSel] = useState(null); // { mi, ci, ti }
+  // On a phone the tree is the page and the lesson form opens over it as a
+  // bottom sheet — the form used to sit under a hundred lessons of tree.
+  const isMobile = useMediaQuery(MOBILE);
+  const sheet = isMobile && !!sel;
+  useEffect(() => {
+    if (!sheet) return undefined;
+    document.body.style.overflow = 'hidden';
+    const onKey = (e) => { if (e.key === 'Escape') setSel(null); };
+    window.addEventListener('keydown', onKey);
+    return () => { document.body.style.overflow = ''; window.removeEventListener('keydown', onKey); };
+  }, [sheet]);
   const [dirty, setDirty] = useState(false);
   const [msg, setMsg] = useState('');
   const [importing, setImporting] = useState(false);
@@ -60,7 +79,7 @@ export default function CurriculumEditor({ programId, onClose }) {
   async function save() {
     try {
       await api(`/programs/${programId}`, { method: 'PATCH', body: { modules, published } });
-      setDirty(false); flash('Curriculum saved — students see it now.');
+      setDirty(false); flash('Curriculum saved. Students see it now.');
     } catch (err) { flash(err.message); }
   }
 
@@ -68,10 +87,13 @@ export default function CurriculumEditor({ programId, onClose }) {
   const selTopic = sel ? modules[sel.mi]?.chapters[sel.ci]?.topics[sel.ti] : null;
 
   return (
-    <div className="ce">
+    <div className={`ce ${sheet ? 'ce-sheet-open' : ''}`}>
       <div className="ce-bar">
         <button className="btn ghost sm" onClick={onClose}>← Programs</button>
-        <div className="ce-bar-title"><strong>{program.title}</strong> <span className="muted">· {stats.modules} modules · {stats.topics} lessons</span></div>
+        <div className="ce-bar-title">
+          <strong>{batch ? batch.name : program.title}</strong>
+          <span className="muted">· {stats.modules} modules · {stats.topics} lessons</span>
+        </div>
         <label className="ce-pub"><input type="checkbox" checked={published} onChange={(e) => { setPublished(e.target.checked); setDirty(true); }} /> Published</label>
         {msg && <span className="muted ce-msg">{msg}</span>}
         <button className="btn" onClick={save} disabled={!dirty}>{dirty ? 'Save changes' : 'Saved'}</button>
@@ -80,7 +102,7 @@ export default function CurriculumEditor({ programId, onClose }) {
       <div className="ce-import">
         <div>
           <strong className="ce-import-title"><LineIcon name="upload" size={16} /> Import from a document</strong>
-          <p className="muted" style={{ margin: '2px 0 0' }}>Upload a <b>.docx</b>, <b>.pdf</b>, <b>.md</b> or <b>.txt</b> — headings become modules & lessons automatically. Review below, then Save.</p>
+          <p className="muted" style={{ margin: '2px 0 0' }}>Upload a <b>.docx</b>, <b>.pdf</b>, <b>.md</b> or <b>.txt</b>. Headings become modules & lessons automatically. Review below, then Save.</p>
         </div>
         <div>
           <input ref={fileRef} type="file" accept=".docx,.pdf,.md,.txt,.markdown" onChange={onImport} hidden />
@@ -124,7 +146,15 @@ export default function CurriculumEditor({ programId, onClose }) {
           <button className="btn ghost sm ce-addmod" onClick={addModule}>+ Add module</button>
         </aside>
 
+        {/* Phones: the scrim behind the lesson sheet. */}
+        <div className="ce-backdrop" onClick={() => setSel(null)} aria-hidden="true" />
         <section className="ce-editor panel">
+          {selTopic && (
+            <div className="ce-sheet-head">
+              <strong>Edit lesson</strong>
+              <button type="button" className="rail-toggle" onClick={() => setSel(null)} aria-label="Close"><LineIcon name="close" size={15} /></button>
+            </div>
+          )}
           {!selTopic ? (
             <div className="empty-state"><p className="muted">Select a lesson to edit its content, or import a document above.</p></div>
           ) : (
@@ -141,16 +171,35 @@ export default function CurriculumEditor({ programId, onClose }) {
                 ))}
               </div>
 
-              {selTopic.contentType !== 'text' && (
+              {selTopic.contentType === 'pdf' && (
                 <>
-                  <label className="ce-label">{selTopic.contentType === 'video' ? 'Video URL' : 'PDF URL'}</label>
+                  <label className="ce-label">PDF URL</label>
                   <input className="ce-field" placeholder="https://…" value={selTopic.contentUrl} onChange={(e) => setTopicField(sel.mi, sel.ci, sel.ti, { contentUrl: e.target.value })} />
                 </>
               )}
 
+              {selTopic.contentType === 'video' && (
+                batch ? (
+                  <LessonVideoPicker
+                    key={`${batch.id}-${selTopic._id || `${sel.mi}-${sel.ci}-${sel.ti}`}`}
+                    topic={selTopic}
+                    batch={batch}
+                  />
+                ) : (
+                  <>
+                    <label className="ce-label">Lesson video</label>
+                    <p className="muted">
+                      Videos are set per batch, so each cohort watches its own recording. Go back to
+                      Programs and open this lesson from a batch, “{program.title} · Sept 2026”, say,
+                      to attach one.
+                    </p>
+                  </>
+                )
+              )}
+
               {/* Independent of content type — a reading lesson can still have
                   had a live class about it. */}
-              <label className="ce-label">Class link <span className="muted">(Zoom while it's live, YouTube once recorded — leave empty and students see "Not available yet")</span></label>
+              <label className="ce-label">Class link <span className="muted">(Zoom while it's live, YouTube once recorded. Leave empty and students see "Not available yet")</span></label>
               <input
                 className="ce-field"
                 placeholder="https://zoom.us/j/… or https://youtube.com/watch?v=…"
@@ -158,7 +207,7 @@ export default function CurriculumEditor({ programId, onClose }) {
                 onChange={(e) => setTopicField(sel.mi, sel.ci, sel.ti, { classLink: e.target.value })}
               />
 
-              <label className="ce-label">Reading material <span className="muted">(PDF — opens in the in-page viewer)</span></label>
+              <label className="ce-label">Reading material <span className="muted">(PDF, opens in the in-page viewer)</span></label>
               <input
                 className="ce-field"
                 placeholder="https://… .pdf"
@@ -166,7 +215,7 @@ export default function CurriculumEditor({ programId, onClose }) {
                 onChange={(e) => setTopicField(sel.mi, sel.ci, sel.ti, { readingUrl: e.target.value })}
               />
 
-              <label className="ce-label">Teacher notes <span className="muted">(PDF — opens in the in-page viewer)</span></label>
+              <label className="ce-label">Teacher notes <span className="muted">(PDF, opens in the in-page viewer)</span></label>
               <input
                 className="ce-field"
                 placeholder="https://… .pdf"
@@ -174,12 +223,90 @@ export default function CurriculumEditor({ programId, onClose }) {
                 onChange={(e) => setTopicField(sel.mi, sel.ci, sel.ti, { notesUrl: e.target.value })}
               />
 
-              <label className="ce-label">Content <span className="muted">(Markdown — # headings, **bold**, - lists, `code`)</span></label>
+              <label className="ce-label">Content <span className="muted">(Markdown, # headings, **bold**, - lists, `code`)</span></label>
               <textarea className="ce-body" rows={16} value={selTopic.body} onChange={(e) => setTopicField(sel.mi, sel.ci, sel.ti, { body: e.target.value })} placeholder="Write the lesson content here…" />
             </>
           )}
         </section>
       </div>
     </div>
+  );
+}
+
+// Which VdoCipher video this lesson plays for ONE batch.
+//
+// Deliberately not part of the curriculum tree's Save: the mapping lives in
+// its own collection keyed on (batch, lesson), because two cohorts of the same
+// programme need different recordings — and an October batch must not inherit
+// September's the moment it's attached. Picking saves straight away.
+function LessonVideoPicker({ topic, batch }) {
+  const [video, setVideo] = useState(null); // { videoId, title } | null
+  const [loading, setLoading] = useState(true);
+  const [picking, setPicking] = useState(false);
+  const [msg, setMsg] = useState('');
+
+  // A lesson that has never been saved has no _id yet, so there is nothing to
+  // key a mapping on — save the curriculum first.
+  const topicId = topic._id;
+
+  useEffect(() => {
+    if (!topicId) { setLoading(false); return undefined; }
+    let alive = true;
+    setLoading(true);
+    getLessonVideos(batch.id)
+      .then((d) => {
+        if (!alive) return;
+        setVideo((d.videos || []).find((v) => String(v.topicId) === String(topicId)) || null);
+        setLoading(false);
+      })
+      .catch(() => { if (alive) setLoading(false); });
+    return () => { alive = false; };
+  }, [topicId, batch.id]);
+
+  const flash = (m) => { setMsg(m); setTimeout(() => setMsg(''), 2500); };
+
+  async function attach(picked) {
+    try {
+      await setLessonVideo(batch.id, topicId, picked.id, picked.title || '');
+      setVideo({ videoId: picked.id, title: picked.title || '' });
+      flash(`Attached, students in ${batch.name} can watch it now.`);
+    } catch (e) { flash(e.message); }
+  }
+
+  async function detach() {
+    try {
+      await clearLessonVideo(batch.id, topicId);
+      setVideo(null);
+      flash('Video removed for this batch.');
+    } catch (e) { flash(e.message); }
+  }
+
+  return (
+    <>
+      <label className="ce-label">
+        Lesson video <span className="muted">(from your VdoCipher library, {batch.name} only)</span>
+      </label>
+
+      {!topicId ? (
+        <p className="muted">Save the curriculum first, then you can attach a video to this lesson.</p>
+      ) : loading ? (
+        <p className="muted">Loading…</p>
+      ) : (
+        <div className="lv-row">
+          <div className="lv-batch">
+            <strong>{video ? (video.title || video.videoId) : 'No video posted'}</strong>
+            <span className="muted">{batch.name}</span>
+          </div>
+          <button type="button" className="btn sm" onClick={() => setPicking(true)}>
+            {video ? 'Change' : 'Choose video'}
+          </button>
+          {video && <button type="button" className="btn sm quiet" onClick={detach}>Remove</button>}
+        </div>
+      )}
+
+      {msg && <p className="muted">{msg}</p>}
+
+      {picking && <VdoCipherPicker onPick={attach} onClose={() => setPicking(false)} />}
+    </>
   );
 }
