@@ -26,7 +26,7 @@ const failures = [];
 
 function ok(name, cond, detail = '') {
   if (cond) { pass++; console.log(`  \x1b[32m✓\x1b[0m ${name}`); }
-  else { fail++; failures.push(`${name}${detail ? ` — ${detail}` : ''}`); console.log(`  \x1b[31m✗\x1b[0m ${name}${detail ? ` — ${detail}` : ''}`); }
+  else { fail++; failures.push(`${name}${detail ? `, ${detail}` : ''}`); console.log(`  \x1b[31m✗\x1b[0m ${name}${detail ? `, ${detail}` : ''}`); }
 }
 const section = (t) => console.log(`\n\x1b[1m${t}\x1b[0m`);
 
@@ -46,14 +46,14 @@ async function login(email, password = PASSWORD) {
   // The API rate-limits login to 10 attempts per IP per minute, and this script
   // spends nine of them. Running it twice inside a minute trips the limiter,
   // which is the limiter working — say so rather than reporting a phantom bug.
-  if (r.status === 429) throw new Error(`rate-limited on login (${email}). The API allows 10 logins/minute/IP and this run uses 9 — wait ~60s and re-run.`);
+  if (r.status === 429) throw new Error(`rate-limited on login (${email}). The API allows 10 logins/minute/IP and this run uses 9, wait ~60s and re-run.`);
   const tok = r.json?.accessToken || r.json?.token;
   if (r.status !== 200 || !tok) throw new Error(`login failed for ${email}: ${r.status} ${JSON.stringify(r.json).slice(0, 200)}`);
   return { token: tok, user: r.json.user };
 }
 
 async function run() {
-  console.log(`\n═══ Menler LMS — role flow check ═══\n    ${BASE}`);
+  console.log(`\n═══ Menler LMS, role flow check ═══\n    ${BASE}`);
 
   // ────────────────────────────────────────────────────────────── AUTH
   section('AUTH');
@@ -170,7 +170,7 @@ async function run() {
   ok('mentor sees submissions for the open project', subs.length > 0, `got ${subs.length}`);
   const ungraded = subs.find((s) => s.status !== 'graded');
   if (ungraded) {
-    const graded = await call(`/submissions/${ungraded._id}/grade`, { token: mentorAll.token, method: 'PATCH', body: { score: 9, feedback: 'Flow-test grade — clear reasoning, good walkthrough.' } });
+    const graded = await call(`/submissions/${ungraded._id}/grade`, { token: mentorAll.token, method: 'PATCH', body: { score: 9, feedback: 'Flow-test grade, clear reasoning, good walkthrough.' } });
     ok('mentor grades a submission', graded.status === 200 || graded.status === 201, `got ${graded.status}`);
     ok('…the grade is persisted', graded.json?.submission?.score === 9, `score=${graded.json?.submission?.score}`);
     ok('…and grading locks it', graded.json?.submission?.locked === true);
@@ -197,7 +197,7 @@ async function run() {
   ok('mentor sees a student roster', (mStudents.json.students || mStudents.json.users || []).length > 0, `status=${mStudents.status}`);
 
   // ────────────────────────────────────────────────────────────── STUDENT
-  section('STUDENT FLOW — single batch (Kickstarter)');
+  section('STUDENT FLOW, single batch (Kickstarter)');
   const sBatches = await call('/batches', { token: sK.token });
   ok('student sees exactly their batch', sBatches.json.batches.length === 1, `got ${sBatches.json.batches.length}`);
 
@@ -250,7 +250,7 @@ async function run() {
   const seededDoubts = (doubtsBefore.json.doubts || []).filter((d) => !d.text.startsWith(FLOW));
   ok('student reads the forum', seededDoubts.length === 5, `got ${seededDoubts.length} seeded (${(doubtsBefore.json.doubts || []).length} total)`);
   ok('seeded doubts have mentor answers', seededDoubts.some((d) => d.comments?.length > 0));
-  const posted = await call('/forum/doubts', { token: sK.token, method: 'POST', body: { batchId: bK.id, text: 'Flow-test doubt — does this post?' } });
+  const posted = await call('/forum/doubts', { token: sK.token, method: 'POST', body: { batchId: bK.id, text: 'Flow-test doubt, does this post?' } });
   ok('student posts a doubt', posted.status === 201 || posted.status === 200, `got ${posted.status}`);
   const newDoubtId = posted.json?.doubt?.id || posted.json?.doubt?._id;
   if (newDoubtId) {
@@ -285,7 +285,7 @@ async function run() {
   ok('student cannot grade', sGrades2.status === 403 || sGrades2.status === 404, `got ${sGrades2.status}`);
 
   // ────────────────────────────────── STUDENT — dual enrolment
-  section('STUDENT FLOW — enrolled in BOTH batches');
+  section('STUDENT FLOW, enrolled in BOTH batches');
   const dualBatches = await call('/batches', { token: sBoth.token });
   ok('dual student sees 2 batches', dualBatches.json.batches.length === 2, `got ${dualBatches.json.batches.length}`);
   const dualAssign = await call('/assignments?scope=mine', { token: sBoth.token });
@@ -330,7 +330,28 @@ async function run() {
   // rows this script created, matched on its own prefix.
   section('CLEANUP');
   await connectDb();
+
+  // The assertions above ran over HTTP against whatever database THE SERVER is
+  // using. This teardown connects on its own, from MONGODB_URI — and the two
+  // are not guaranteed to be the same. Run `npm run test:flows` without the
+  // same override the server got and the deletes below aim at a completely
+  // different database, quite possibly the live one.
+  //
+  // The script created at least one assignment through the API moments ago, so
+  // if this connection cannot see it, the two have diverged. Bail rather than
+  // delete: matching nothing looks identical to a clean run, which is exactly
+  // how this would go unnoticed.
   const strayAssignments = await Assignment.find({ title: new RegExp(`^${FLOW}`) }).select('_id');
+  if (strayAssignments.length === 0) {
+    await mongoose.disconnect();
+    console.error(`\n  ✗ ABORTED, cleanup is connected to "${mongoose.connection.name}", which cannot see`);
+    console.error('    the assignment this run just created through the API. That means MONGODB_URI');
+    console.error('    points somewhere other than the database the server is using, so deleting');
+    console.error('    anything here would hit the wrong data. Nothing was deleted.');
+    console.error('    Re-run with the SAME MONGODB_URI the server was started with.');
+    process.exit(1);
+  }
+
   const rmSubs = await Submission.deleteMany({ assignmentId: { $in: strayAssignments.map((a) => a._id) } });
   const rmAssign = await Assignment.deleteMany({ _id: { $in: strayAssignments.map((a) => a._id) } });
   const rmDoubts = await Doubt.deleteMany({ text: new RegExp(`^${FLOW}`) });
