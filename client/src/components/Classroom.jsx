@@ -287,7 +287,7 @@ export default function Classroom() {
         <div className="reader-body" ref={bodyRef} onScroll={onBodyScroll}>
           <div className="reader-inner">
             {topic.contentType === 'video' && myVideo(topic._id) && (
-              <VdoCipherPlayer key={topic._id} fetchOtp={() => getLessonVideoOtp(myVideo(topic._id).batchId, topic._id)} />
+              <VdoCipherPlayer key={topic._id} fetchOtp={(takeover) => getLessonVideoOtp(myVideo(topic._id).batchId, topic._id, takeover)} />
             )}
             {topic.contentType === 'video' && !myVideo(topic._id) && topic.contentUrl && <LessonVideo key={topic._id} url={topic.contentUrl} />}
             {topic.contentType === 'pdf' && topic.contentUrl && <a className="btn" href={topic.contentUrl} target="_blank" rel="noreferrer">📄 Open PDF</a>}
