@@ -1,6 +1,5 @@
 import { Router } from 'express';
 import crypto from 'crypto';
-import bcrypt from 'bcryptjs';
 import { requireAuth, requireRole, invalidateUser } from '../middleware/auth.js';
 import { User, ROLES } from '../models/User.js';
 import { Batch } from '../models/Batch.js';
@@ -11,15 +10,20 @@ import { QuizAttempt } from '../models/QuizAttempt.js';
 import { Attendance } from '../models/Attendance.js';
 import { Progress } from '../models/Progress.js';
 import { Program } from '../models/Program.js';
+import { hashPassword } from '../utils/password.js';
 
 const router = Router();
+
+// Same escaping search.js already applies to its regex search — an
+// unescaped search string is a ReDoS vector (e.g. "(a+)+$").
+const escapeRx = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 // GET /api/lms/users?role=mentor&search=foo — admin lists/searches users.
 router.get('/', requireAuth, requireRole('admin'), async (req, res) => {
   const q = {};
   if (req.query.role) q.role = req.query.role;
   if (req.query.search) {
-    const rx = new RegExp(String(req.query.search).trim(), 'i');
+    const rx = new RegExp(escapeRx(String(req.query.search).trim()), 'i');
     q.$or = [{ email: rx }, { fullName: rx }];
   }
   const users = await User.find(q).sort({ createdAt: -1 }).limit(200);
@@ -43,7 +47,7 @@ router.post('/', requireAuth, requireRole('admin'), async (req, res) => {
     fullName: fullName || '',
     phone: phone || '',
     role,
-    passwordHash: await bcrypt.hash(temp, 12),
+    passwordHash: await hashPassword(temp),
     mustChangePassword: true,
   });
   res.status(201).json({ user: user.toPublic(), tempPassword: temp, custom: !!password });
@@ -56,7 +60,7 @@ router.post('/:id/reset-password', requireAuth, requireRole('admin'), async (req
   if (!user) return res.status(404).json({ error: 'User not found.' });
   const { password } = req.body || {};
   const temp = password || crypto.randomBytes(6).toString('hex');
-  user.passwordHash = await bcrypt.hash(temp, 12);
+  user.passwordHash = await hashPassword(temp);
   user.resetTokenHash = '';
   user.resetExpires = null;
   user.mustChangePassword = true; // force a fresh password on next login
