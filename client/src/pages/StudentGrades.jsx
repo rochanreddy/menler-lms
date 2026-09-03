@@ -29,7 +29,7 @@ export default function StudentGrades() {
         </div>
       </div>
 
-      <div className="tiles" style={{ marginBottom: 22 }}>
+      <div className="tiles" style={{ marginBottom: 'var(--space-6)' }}>
         <div className="tile"><div className="tile-value">{summary.avgPct != null ? `${summary.avgPct}%` : '-'}</div><div className="tile-label">Average score</div></div>
         <div className="tile"><div className="tile-value">{summary.graded}/{summary.total}</div><div className="tile-label">Graded</div></div>
       </div>
