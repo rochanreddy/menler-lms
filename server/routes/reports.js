@@ -14,7 +14,14 @@ const router = Router();
 // All reports are admin-only CSV downloads. CSV is built by hand — no library
 // needed for simple escaped rows, and Excel/Sheets open it directly.
 const esc = (v) => {
-  const s = v === null || v === undefined ? '' : String(v);
+  let s = v === null || v === undefined ? '' : String(v);
+  // Formula injection: quoting makes a cell parse correctly, but Excel and
+  // Sheets still EXECUTE a value that opens with = + - or @. These rows carry
+  // student names and free-text mentor feedback, so a display name of
+  // `=HYPERLINK("http://evil","click")` becomes a live link in the admin's
+  // spreadsheet. A leading apostrophe forces it to text; it is the standard
+  // defence and is invisible in the cell.
+  if (/^[=+\-@\t\r]/.test(s)) s = `'${s}`;
   return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 };
 const toCsv = (rows) => rows.map((r) => r.map(esc).join(',')).join('\r\n');
@@ -26,7 +33,7 @@ const sendCsv = (res, filename, rows) => {
 };
 const pct = (part, total) => (total ? `${Math.round((part / total) * 100)}%` : '');
 
-// GET /api/lms/reports/platform — one row per batch: enrolment + engagement.
+// GET /api/lms/reports/platform, one row per batch: enrolment + engagement.
 router.get('/platform', requireAuth, requireRole('admin'), async (_req, res) => {
   const batches = await Batch.find().populate('programId', 'title').sort({ createdAt: -1 });
   const batchIds = batches.map((b) => b._id);
@@ -37,27 +44,53 @@ router.get('/platform', requireAuth, requireRole('admin'), async (_req, res) => 
   const submissions = await Submission.find({ assignmentId: { $in: assignments.map((a) => a._id) } }).select('assignmentId status');
   const batchOfAssignment = new Map(assignments.map((a) => [String(a._id), String(a.batchId)]));
 
+  // Group each collection by batch ONCE, the loop below was re-scanning
+  // the full assignments/attendance/submissions arrays for every batch
+  // (O(batches × rows)); this makes each row an O(1) Map lookup instead.
+  const assignmentsByBatch = new Map();
+  for (const a of assignments) {
+    const k = String(a.batchId);
+    assignmentsByBatch.set(k, (assignmentsByBatch.get(k) || 0) + 1);
+  }
+  const attendanceByBatch = new Map();
+  for (const a of attendance) {
+    const k = String(a.batchId);
+    const v = attendanceByBatch.get(k) || { total: 0, present: 0 };
+    v.total += 1;
+    if (a.status === 'present') v.present += 1;
+    attendanceByBatch.set(k, v);
+  }
+  const submissionsByBatch = new Map();
+  for (const s of submissions) {
+    const k = batchOfAssignment.get(String(s.assignmentId));
+    if (!k) continue;
+    const v = submissionsByBatch.get(k) || { total: 0, graded: 0 };
+    v.total += 1;
+    if (s.status === 'graded') v.graded += 1;
+    submissionsByBatch.set(k, v);
+  }
+
   const rows = [['Batch', 'Program', 'Status', 'Students', 'Mentors', 'Assignments', 'Submissions', 'Graded', 'Attendance %']];
   for (const b of batches) {
     const bid = String(b._id);
-    const att = attendance.filter((a) => String(a.batchId) === bid);
-    const subs = submissions.filter((s) => batchOfAssignment.get(String(s.assignmentId)) === bid);
+    const att = attendanceByBatch.get(bid) || { total: 0, present: 0 };
+    const subs = submissionsByBatch.get(bid) || { total: 0, graded: 0 };
     rows.push([
       b.name,
       b.programId?.title || '',
       b.status,
       b.studentIds.length,
       b.mentorIds.length,
-      assignments.filter((a) => String(a.batchId) === bid).length,
-      subs.length,
-      subs.filter((s) => s.status === 'graded').length,
-      pct(att.filter((a) => a.status === 'present').length, att.length),
+      assignmentsByBatch.get(bid) || 0,
+      subs.total,
+      subs.graded,
+      pct(att.present, att.total),
     ]);
   }
   sendCsv(res, 'menler-platform-report.csv', rows);
 });
 
-// GET /api/lms/reports/batch/:id — one row per enrolled student. Admin, or the
+// GET /api/lms/reports/batch/:id, one row per enrolled student. Admin, or the
 // mentor who runs this batch.
 router.get('/batch/:id', requireAuth, requireRole('admin', 'mentor'), async (req, res) => {
   if (!(await isMentorOfBatch(req.user, req.params.id))) return res.status(403).json({ error: 'Forbidden.' });
@@ -101,7 +134,7 @@ router.get('/batch/:id', requireAuth, requireRole('admin', 'mentor'), async (req
   sendCsv(res, `batch-${safe}-report.csv`, rows);
 });
 
-// GET /api/lms/reports/student/:id — full academic record for one student.
+// GET /api/lms/reports/student/:id, full academic record for one student.
 // Admin, or a mentor whose batch the student is in.
 router.get('/student/:id', requireAuth, requireRole('admin', 'mentor'), async (req, res) => {
   const student = await User.findById(req.params.id);
@@ -130,7 +163,7 @@ router.get('/student/:id', requireAuth, requireRole('admin', 'mentor'), async (r
   const rows = [
     ['Student report', student.fullName || student.email],
     ['Email', student.email],
-    ['Blocked', student.blocked?.lms ? `YES — ${student.blocked?.reason || ''}` : 'No'],
+    ['Blocked', student.blocked?.lms ? `YES: ${student.blocked?.reason || ''}` : 'No'],
     ['Generated', new Date().toISOString().slice(0, 10)],
     [],
     ['Batch', 'Program', 'Status', 'Attendance %'],
