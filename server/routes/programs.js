@@ -31,16 +31,59 @@ async function canEditProgram(user, program) {
   return !!(await Batch.exists({ programId: program._id, mentorIds: user._id }));
 }
 
-// GET /api/lms/programs — any logged-in user lists programs.
+// Curriculum VISIBILITY, which is not the same thing as editing. Reading a
+// programme exposes every lesson body, both PDF links and the class link, so
+// it has to be scoped to people actually in it:
+//   admin    → everything
+//   mentor   → programmes they're assigned to, or run a batch of (same
+//              two-way rule canEditProgram uses)
+//   student  → programmes of the batches they're enrolled in
+// An admin-blocked batch is not a way in, matching myBatchIds in utils/access.js.
+const batchMemberField = (user) => (user.role === 'mentor' ? { mentorIds: user._id } : { studentIds: user._id });
+
+/** Programme ids this user may see, or null meaning "no restriction" (admin). */
+async function visibleProgramIds(user) {
+  if (user.role === 'admin') return null;
+  const batches = await Batch.find(batchMemberField(user)).select('programId');
+  const blocked = new Set((user.blocked?.batchIds || []).map(String));
+  const ids = new Set(
+    batches.filter((b) => b.programId && !blocked.has(String(b._id))).map((b) => String(b.programId)),
+  );
+  if (user.role === 'mentor') {
+    for (const p of await Program.find({ mentorIds: user._id }).select('_id')) ids.add(String(p._id));
+  }
+  return [...ids];
+}
+
+/** Same rule, asked about one programme — one query instead of loading them all. */
+async function canViewProgram(user, program) {
+  if (user.role === 'admin') return true;
+  if (user.role === 'mentor' && (program.mentorIds || []).some((m) => m.toString() === user._id.toString())) return true;
+  const batches = await Batch.find({ programId: program._id, ...batchMemberField(user) }).select('_id');
+  const blocked = new Set((user.blocked?.batchIds || []).map(String));
+  // Enrolled in more than one batch of it? One unblocked batch is enough.
+  return batches.some((b) => !blocked.has(String(b._id)));
+}
+
+// GET /api/lms/programs — lists the programmes this user is actually in.
+// ?fields=summary skips the embedded curriculum tree (every module, chapter,
+// topic and lesson body) for callers that only need id/title/published to
+// build a picker — opt-in, so anything already reading .modules from this
+// list is unaffected.
 router.get('/', requireAuth, async (req, res) => {
-  const programs = await Program.find().sort({ createdAt: -1 });
+  const summary = req.query.fields === 'summary';
+  const visible = await visibleProgramIds(req.user);
+  const query = Program.find(visible === null ? {} : { _id: { $in: visible } }).sort({ createdAt: -1 });
+  if (summary) query.select('title slug type published');
+  const programs = await query;
   res.json({ programs: programs.map((p) => withoutBlockedModules(p, req.user)) });
 });
 
-// GET /api/lms/programs/:id — full curriculum tree.
+// GET /api/lms/programs/:id — full curriculum tree, members only.
 router.get('/:id', requireAuth, async (req, res) => {
   const program = await Program.findById(req.params.id);
   if (!program) return res.status(404).json({ error: 'Program not found.' });
+  if (!(await canViewProgram(req.user, program))) return res.status(403).json({ error: 'Forbidden.' });
   res.json({ program: withoutBlockedModules(program, req.user) });
 });
 
