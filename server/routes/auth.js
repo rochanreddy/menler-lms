@@ -5,13 +5,25 @@ import bcrypt from 'bcryptjs';
 import { User, ROLES } from '../models/User.js';
 import { signAccessToken, signRefreshToken, verifyToken } from '../utils/token.js';
 import { isSmtpConfigured, sendMail } from '../utils/email.js';
+import { invalidateUser } from '../middleware/auth.js';
+import { hashPassword, needsRehash } from '../utils/password.js';
 
 const router = Router();
 
-// ── Tiny in-memory rate limiter (per IP+route) ──
+// ── Tiny in-memory rate limiter (per IP+route, or per user where noted) ──
 const hits = new Map();
+// Expired buckets are dropped on a sweep rather than never — the map is keyed
+// by caller, so without this it grows for the life of the process. Same
+// opportunistic pattern as the signed-in user cache in middleware/auth.js.
+let lastSweep = 0;
+const SWEEP_EVERY_MS = 60_000;
+
 function rateLimit(key, max, windowMs) {
   const now = Date.now();
+  if (now - lastSweep > SWEEP_EVERY_MS) {
+    for (const [k, v] of hits) if (now > v.reset) hits.delete(k);
+    lastSweep = now;
+  }
   const rec = hits.get(key);
   if (!rec || now > rec.reset) {
     hits.set(key, { count: 1, reset: now + windowMs });
@@ -27,6 +39,11 @@ const APP_URL = () => (process.env.LMS_APP_URL || 'http://localhost:5174').repla
 // POST /api/lms/auth/register — self-signup is forced to role=student.
 router.post('/register', async (req, res) => {
   try {
+    // Unauthenticated and it runs bcrypt at cost 12 on bcryptjs (pure JS, no
+    // native binding), so each call buys a few hundred ms of worker CPU —
+    // the cheapest way to saturate this service. Signing up is a once-ever
+    // action, so 5/min still clears a classroom behind one shared NAT.
+    if (!rateLimit(`register:${req.ip}`, 5, 60_000)) return res.status(429).json({ error: 'Too many attempts. Try again shortly.' });
     const { email, password, fullName, phone } = req.body || {};
     if (!email || !password) return res.status(400).json({ error: 'Email and password are required.' });
     if (String(password).length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters.' });
@@ -36,7 +53,7 @@ router.post('/register', async (req, res) => {
 
     const user = await User.create({
       email: clean,
-      passwordHash: await bcrypt.hash(String(password), 12),
+      passwordHash: await hashPassword(password),
       fullName: fullName || '',
       phone: phone || '',
       role: 'student',
@@ -68,6 +85,22 @@ router.post('/login', async (req, res) => {
         code: 'blocked',
       });
     }
+    // Opportunistic re-hash. An account created at the old cost keeps
+    // verifying at the old cost — this is the only moment we hold the
+    // plaintext and can cheapen it, so a user migrates on their next sign-in
+    // and pays the old price exactly once more. Deliberately NOT a
+    // tokenVersion bump: the password is unchanged, so signing them out of
+    // their other devices would be a gratuitous side effect of an internal
+    // storage detail. Best-effort — a failed write must never cost someone a
+    // successful login.
+    if (needsRehash(user.passwordHash)) {
+      try {
+        user.passwordHash = await hashPassword(password);
+        await user.save();
+      } catch (e) {
+        console.error('password rehash failed for', String(user._id), '-', e.message);
+      }
+    }
     return res.json({ user: user.toPublic(), accessToken: signAccessToken(user), refreshToken: signRefreshToken(user) });
   } catch (err) {
     console.error('login error:', err);
@@ -79,8 +112,19 @@ router.post('/login', async (req, res) => {
 router.post('/refresh', async (req, res) => {
   const payload = verifyToken(req.body?.refreshToken);
   if (!payload?.sub || payload.typ !== 'refresh') return res.status(401).json({ error: 'Invalid refresh token.' });
+  // Keyed by USER, not IP, and deliberately: a whole cohort on one campus NAT
+  // refreshes at the same time each morning, and a 429 here logs them out
+  // (see refreshAccessToken in client/src/api.js). Per user, one legitimate
+  // refresh every 8h means 20/min is only ever hit by a replay loop.
+  if (!rateLimit(`refresh:${payload.sub}`, 20, 60_000)) return res.status(429).json({ error: 'Too many attempts. Try again shortly.' });
   const user = await User.findById(payload.sub);
   if (!user) return res.status(401).json({ error: 'Invalid refresh token.' });
+  // A refresh token signed before a password reset must not be able to mint
+  // a fresh access token — that would silently undo the reset's whole point.
+  // Missing claim/field both read as 0 (see middleware/auth.js).
+  if ((payload.tokenVersion ?? 0) !== (user.tokenVersion ?? 0)) {
+    return res.status(401).json({ error: 'Invalid refresh token.' });
+  }
   if (!ROLES.includes(user.role)) {
     return res.status(403).json({ error: 'Your account role no longer has access to this portal.' });
   }
@@ -103,7 +147,7 @@ router.post('/forgot', async (req, res) => {
       await user.save();
       const link = `${APP_URL()}/reset?token=${raw}&email=${encodeURIComponent(email)}`;
       if (isSmtpConfigured()) await sendMail({ to: email, subject: 'Reset your Menler LMS password', text: `Reset your password:\n\n${link}\n\nExpires in 30 minutes.` });
-      else console.log('[forgot] SMTP off — reset link:', link);
+      else console.log('[forgot] SMTP off, reset link:', link);
     }
     return res.json({ ok: true });
   } catch (err) {
@@ -115,6 +159,9 @@ router.post('/forgot', async (req, res) => {
 // POST /api/lms/auth/reset
 router.post('/reset', async (req, res) => {
   try {
+    // Also unauthenticated, also hashes at cost 12 — same CPU vector as
+    // /register, and the same 5/min ceiling /forgot already uses.
+    if (!rateLimit(`reset:${req.ip}`, 5, 60_000)) return res.status(429).json({ error: 'Too many attempts. Try again shortly.' });
     const { email, token, password } = req.body || {};
     if (!password || String(password).length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters.' });
     const user = await User.findOne({
@@ -123,10 +170,14 @@ router.post('/reset', async (req, res) => {
       resetExpires: { $gt: new Date() },
     });
     if (!user) return res.status(400).json({ error: 'This reset link is invalid or has expired.' });
-    user.passwordHash = await bcrypt.hash(String(password), 12);
+    user.passwordHash = await hashPassword(password);
     user.resetTokenHash = '';
     user.resetExpires = null;
+    // The whole point of a reset is to lock out anyone holding an
+    // already-issued token — bump the version so theirs stop verifying.
+    user.tokenVersion = (user.tokenVersion || 0) + 1;
     await user.save();
+    invalidateUser(user._id);
     return res.json({ ok: true });
   } catch (err) {
     console.error('reset error:', err);
