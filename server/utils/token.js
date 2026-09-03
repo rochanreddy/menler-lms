@@ -15,17 +15,27 @@ const SECRET = process.env.JWT_SECRET || (() => {
 const ACCESS_TTL = '8h';
 const REFRESH_TTL = '30d';
 
-export function signAccessToken(user) {
+// Both token types carry the id of the session that minted them (`sid`, see
+// models/DeviceSession.js). That claim is what makes a stateless token
+// revocable: requireAuth refuses a token whose session row has been closed, so
+// signing in on a second device signs the first one out on its very next
+// request instead of whenever its 8h access token happens to expire.
+//
+// The claim is optional on purpose. Tokens issued before sessions existed
+// carry none, and are treated as an un-tracked session rather than rejected —
+// a deploy must not log the whole cohort out. They pick up a session on their
+// next refresh (see routes/auth.js), so the migration completes within 8h.
+export function signAccessToken(user, sid) {
   return jwt.sign(
-    { sub: user._id.toString(), role: user.role, typ: 'access', tokenVersion: user.tokenVersion ?? 0 },
+    { sub: user._id.toString(), role: user.role, typ: 'access', tokenVersion: user.tokenVersion ?? 0, ...(sid ? { sid } : {}) },
     SECRET,
     { expiresIn: ACCESS_TTL },
   );
 }
 
-export function signRefreshToken(user) {
+export function signRefreshToken(user, sid) {
   return jwt.sign(
-    { sub: user._id.toString(), typ: 'refresh', tokenVersion: user.tokenVersion ?? 0 },
+    { sub: user._id.toString(), typ: 'refresh', tokenVersion: user.tokenVersion ?? 0, ...(sid ? { sid } : {}) },
     SECRET,
     { expiresIn: REFRESH_TTL },
   );

@@ -1,5 +1,6 @@
 import { User, ROLES } from '../models/User.js';
 import { verifyToken } from '../utils/token.js';
+import { loadSession, revokedMessage, touchSession } from '../utils/sessions.js';
 
 // ── Signed-in user cache ────────────────────────────────────────────────────
 //
@@ -50,6 +51,9 @@ async function getUser(req) {
   if (!token) return null;
   const payload = verifyToken(token);
   if (!payload?.sub || payload.typ !== 'access') return null;
+  // requireAuth needs the sid claim to check the session is still open; this
+  // is the only place the token is parsed, so it is handed on from here.
+  req.token = payload;
 
   const id = String(payload.sub);
   const now = Date.now();
@@ -109,6 +113,29 @@ export async function requireAuth(req, res, next) {
       code: 'blocked',
     });
   }
+  // ── Single active session ────────────────────────────────────────────────
+  // Signing in on a second device closes this account's other sessions, and
+  // this is where that lands: the token still verifies, but the row that
+  // minted it has been revoked, so it is no longer a way in. Checked after the
+  // block/role gates so an account that is both blocked and superseded is told
+  // about the block, which is the more important of the two.
+  //
+  // A token with no sid predates sessions (see utils/token.js) — it is allowed
+  // through and adopted into a session on its next refresh, rather than being
+  // turned into a mass logout on the deploy that shipped this.
+  if (req.token?.sid) {
+    const session = await loadSession(req.token.sid);
+    if (!session || session.revokedAt) {
+      return res.status(401).json({
+        error: revokedMessage(session),
+        code: 'session_revoked',
+        reason: session?.revokedReason || 'revoked',
+      });
+    }
+    req.deviceSession = session;
+    touchSession(session);
+  }
+
   req.user = user;
 
   // Fire-and-forget last-seen tracking: never blocks or fails the request.
