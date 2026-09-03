@@ -14,7 +14,7 @@ export default function Placeholder({ title, blurb, sections = [] }) {
           </div>
         ))}
       </div>
-      <p className="phase-note">⏳ Phase 2 — this screen's live data is wired next.</p>
+      <p className="phase-note">⏳ Phase 2: this screen's live data is wired next.</p>
     </div>
   );
 }
