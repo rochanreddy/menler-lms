@@ -75,9 +75,31 @@ function classifyFile(name, mimeType, { allowHtml = false } = {}) {
   return 'other';
 }
 
+// A submission can make four of these calls in sequence, and fetch has no
+// default timeout — so a Drive endpoint that accepts the connection and then
+// stalls holds the student's request open until the platform proxy kills it
+// with a 502, which reads as "the site is broken" rather than "the check
+// failed". 8s is well past Drive's normal response and well inside any proxy
+// timeout, so we fail on our own terms with a message they can act on.
+const DRIVE_TIMEOUT_MS = 8000;
+
+// …and a ceiling on the whole verification, because the per-call timeout does
+// not bound the total: step 3 below makes one call PER FILE, so a folder with
+// forty files could sit inside its per-call budget and still run for minutes.
+const DRIVE_BUDGET_MS = 25000;
+
+// A timed-out fetch reports "This operation was aborted", which tells a student
+// nothing. Everything else keeps its real message — it goes to them verbatim.
+const reachMsg = (err) =>
+  (err?.name === 'TimeoutError' || err?.name === 'AbortError'
+    ? 'Google Drive did not respond in time. This is usually temporary, try submitting again in a minute.'
+    : err?.message || 'unknown error');
+
 async function driveGet(path, apiKey) {
   const sep = path.includes('?') ? '&' : '?';
-  const res = await fetch(`${DRIVE_API}${path}${sep}key=${apiKey}`);
+  const res = await fetch(`${DRIVE_API}${path}${sep}key=${apiKey}`, {
+    signal: AbortSignal.timeout(DRIVE_TIMEOUT_MS),
+  });
   return res;
 }
 
@@ -94,6 +116,8 @@ export async function verifyDriveFolder(driveLink, { requiredTypes = ['video', '
   if (!folderId) {
     return { status: 'NEEDS_FIXES', errorDetail: 'That does not look like a valid Google Drive folder link.', files: [] };
   }
+
+  const deadline = Date.now() + DRIVE_BUDGET_MS;
 
   const apiKey = process.env.GOOGLE_DRIVE_API_KEY;
   if (!apiKey) {
@@ -113,7 +137,7 @@ export async function verifyDriveFolder(driveLink, { requiredTypes = ['video', '
     }
     folderMeta = await res.json();
   } catch (err) {
-    return { status: 'CHECK_FAILED', errorDetail: `Could not reach Google Drive to verify the folder: ${err.message}`, files: [] };
+    return { status: 'CHECK_FAILED', errorDetail: `Could not reach Google Drive to verify the folder: ${reachMsg(err)}`, files: [] };
   }
 
   if (folderMeta.mimeType !== 'application/vnd.google-apps.folder') {
@@ -130,7 +154,7 @@ export async function verifyDriveFolder(driveLink, { requiredTypes = ['video', '
     }
     items = (await res.json()).files || [];
   } catch (err) {
-    return { status: 'CHECK_FAILED', errorDetail: `Could not reach Google Drive to list folder contents: ${err.message}`, files: [] };
+    return { status: 'CHECK_FAILED', errorDetail: `Could not reach Google Drive to list folder contents: ${reachMsg(err)}`, files: [] };
   }
 
   if (items.length === 0) {
@@ -148,6 +172,15 @@ export async function verifyDriveFolder(driveLink, { requiredTypes = ['video', '
     const type = classifyFile(item.name, item.mimeType || '', { allowHtml });
     if (type === 'dangerous') { dangerousNames.push(item.name); continue; }
 
+    // One call per file, so this is where a big folder runs away.
+    if (Date.now() > deadline) {
+      return {
+        status: 'CHECK_FAILED',
+        errorDetail: `Checking this folder took too long (it has ${items.length} items). Remove anything that isn't part of the submission and try again.`,
+        files: [],
+      };
+    }
+
     let fileMeta;
     try {
       const res = await driveGet(`/files/${item.id}?fields=id,webViewLink`, apiKey);
@@ -157,7 +190,7 @@ export async function verifyDriveFolder(driveLink, { requiredTypes = ['video', '
       }
       fileMeta = await res.json();
     } catch (err) {
-      return { status: 'CHECK_FAILED', errorDetail: `Could not reach Google Drive to check file "${item.name}": ${err.message}`, files: [] };
+      return { status: 'CHECK_FAILED', errorDetail: `Could not reach Google Drive to check file "${item.name}": ${reachMsg(err)}`, files: [] };
     }
 
     files.push({
