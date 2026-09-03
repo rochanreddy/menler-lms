@@ -97,15 +97,25 @@ router.get('/', requireAuth, requireRole('mentor', 'admin'), async (req, res) =>
   if (assignmentId) q.assignmentId = assignmentId;
   if (status) q.checkStatus = status;
 
-  let submissions = await Submission.find(q)
+  // Scope to the mentor's own batches in the query itself, rather than
+  // loading every submission on the platform and filtering afterward.
+  if (req.user.role === 'mentor') {
+    const batchIds = await myBatchIds(req.user);
+    const myAssignments = await Assignment.find({ batchId: { $in: batchIds } }).select('_id');
+    if (assignmentId) {
+      // Same refusal the old post-filter produced for a foreign assignmentId
+      // — decided before the query now instead of after.
+      if (!myAssignments.some((a) => String(a._id) === String(assignmentId))) return res.json({ submissions: [] });
+    } else {
+      q.assignmentId = { $in: myAssignments.map((a) => a._id) };
+    }
+  }
+
+  const submissions = await Submission.find(q)
     .populate('assignmentId', 'title type batchId dueDate')
     .populate('studentId', 'fullName email')
-    .sort({ createdAt: -1 });
-
-  if (req.user.role === 'mentor') {
-    const allowed = new Set((await myBatchIds(req.user)).map(String));
-    submissions = submissions.filter((s) => allowed.has(String(s.assignmentId?.batchId)));
-  }
+    .sort({ createdAt: -1 })
+    .limit(500);
   res.json({ submissions });
 });
 
