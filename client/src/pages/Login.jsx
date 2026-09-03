@@ -114,7 +114,7 @@ export default function Login({ onLogin }) {
 
             {SHOW_DEMOS && (
               <div className="demo-box">
-                <div className="eyebrow">Demo accounts — select one to fill the form</div>
+                <div className="eyebrow">Demo accounts, select one to fill the form</div>
                 {DEMOS.map((d) => (
                   <button
                     type="button"
