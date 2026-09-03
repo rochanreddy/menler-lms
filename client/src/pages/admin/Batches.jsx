@@ -31,7 +31,7 @@ export default function AdminBatches() {
   if (open) return (
     <div>
       <button className="btn ghost sm" onClick={() => { setOpen(null); load(); }}>← All batches</button>
-      <div style={{ height: 12 }} />
+      <div style={{ height: 'var(--space-3)' }} />
       <BatchWorkspace batchId={open} mode="admin" />
     </div>
   );
@@ -42,7 +42,7 @@ export default function AdminBatches() {
         <div>
           <div className="eyebrow">Admin board</div>
           <h1>Batches</h1>
-          <p>Create cohorts, then manage each one — roster, sessions, assignments, grades.</p>
+          <p>Create cohorts, then manage each one: roster, sessions, assignments, grades.</p>
         </div>
       </div>
 
@@ -53,7 +53,7 @@ export default function AdminBatches() {
             <option value="">Program…</option>
             {programs.map((p) => <option key={p._id} value={p._id}>{p.title}</option>)}
           </select>
-          <input placeholder="Batch name (e.g. Kickstarter — July 2026)" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} required />
+          <input placeholder="Batch name (e.g. Kickstarter · July 2026)" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} required />
           <select value={form.status} onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}>
             <option value="upcoming">Upcoming</option><option value="ongoing">Ongoing</option><option value="past">Past</option>
           </select>
