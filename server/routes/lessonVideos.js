@@ -4,6 +4,8 @@ import { Batch } from '../models/Batch.js';
 import { BatchLessonVideo } from '../models/BatchLessonVideo.js';
 import { canAccessBatch, isMentorOfBatch, myBatchIds } from '../utils/access.js';
 import { listVideos, getOtp } from '../utils/vdocipher.js';
+import { claimLease } from '../utils/playback.js';
+import { busyBody } from './playback.js';
 
 // Attaching VdoCipher videos to lessons, per batch. See models/BatchLessonVideo.js
 // for why the mapping is keyed on (batchId, topicId) rather than living on the
@@ -93,6 +95,20 @@ router.get('/:batchId/:topicId/otp', requireAuth, async (req, res) => {
   if (!(await canAccessBatch(req.user, batchId))) return res.status(403).json({ error: 'Forbidden.' });
   const mapping = await BatchLessonVideo.findOne({ batchId, topicId });
   if (!mapping) return res.status(404).json({ error: 'No video posted for this lesson yet.' });
+
+  // One watcher per account. The lock is taken HERE rather than only in the
+  // player, because the OTP is the thing that actually unlocks the video: a
+  // client-side check would be advisory, and this is a paid-content rule.
+  // ?takeover=1 is the student answering "watch here instead".
+  const { ok, lease } = await claimLease(req.user._id, {
+    sid: req.deviceSession?.sid || `legacy:${req.user._id}`,
+    deviceLabel: req.deviceSession?.deviceLabel || 'another device',
+    videoKey: `${batchId}:${topicId}`,
+    title: mapping.title || '',
+    takeover: req.query.takeover === '1',
+  });
+  if (!ok) return res.status(409).json(busyBody(lease));
+
   try {
     const { otp, playbackInfo } = await getOtp(mapping.videoId);
     res.json({ otp, playbackInfo });
