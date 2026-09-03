@@ -107,5 +107,37 @@ across all three roles.
   Atlas cluster is shared with the marketing site; never read or write `leads`,
   `orders`, or the marketing `users`.
 
+### One account, one device
+
+A seat is one person's, and that is enforced in two independent places.
+
+**Sessions.** Every sign-in writes a row to `lms_device_sessions` and both
+tokens carry its `sid`; `requireAuth` refuses a token whose row has been
+revoked, which is what makes a stateless JWT revocable at all. Signing in on a
+new device closes the others, so the old one stops on its *next request* rather
+than when its 8h token expires. `LMS_SINGLE_SESSION` picks the manner —
+`warn` (default: 409 + "used on another device", the client offers the
+takeover), `strict` (newest wins silently) or `off` (rows kept, nothing
+revoked). The client sends `X-Device-Id`, a random per-browser id, so re-signing
+in on the *same* browser renews its own row instead of prompting you about
+yourself. A refresh whose session was revoked is refused too, or the takeover
+would quietly undo itself within eight hours. Tokens minted before this existed
+carry no `sid`: they are honoured and adopted into a session on their next
+refresh, so shipping it was not a mass logout.
+
+**The watch lock.** `lms_playback_leases` holds one row per user with the user
+id AS the `_id`, so "only one watcher" rests on primary-key uniqueness rather
+than a read-then-decide race. It is claimed where the VdoCipher OTP is minted —
+the OTP is what actually unlocks the video, so a client-side check would be
+advisory — and held by a 20s heartbeat against a 70s lease, so a closed lid
+frees it without a student losing their place to one bad connection. Separate
+from sessions on purpose: two tabs share one session, and relaxing the takeover
+rule must not unlock the video.
+
+Anything that invalidates an account (password reset or change, an admin block)
+closes its sessions and drops its lease. `npm run test:flows` covers the
+takeover, the revoked refresh, and the lease; it signs in with `force: true`
+because an automated client taking the account over should say so.
+
 ---
 
