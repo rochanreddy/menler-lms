@@ -115,7 +115,7 @@ export function Meter({ pct, color = SEQ.main, track = SEQ.light }) {
       <div className="meter-track" style={{ background: track }}>
         <div className="meter-fill" style={{ width: `${v}%`, background: color }} />
       </div>
-      <span className="meter-val">{pct == null ? '—' : `${v}%`}</span>
+      <span className="meter-val">{pct == null ? '-' : `${v}%`}</span>
     </div>
   );
 }
