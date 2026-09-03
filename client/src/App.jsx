@@ -1,24 +1,32 @@
 import { useEffect, useState } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { api, getToken, setToken } from './api.js';
+import { api, getToken, setToken, logoutSession } from './api.js';
 import { navFor, extraRoutesFor } from './nav.jsx';
 import AppShell from './components/AppShell.jsx';
 import Login from './pages/Login.jsx';
 import Register from './pages/Register.jsx';
 import ForcePasswordChange from './pages/ForcePasswordChange.jsx';
 import Blocked from './pages/Blocked.jsx';
+import SignedOutElsewhere from './pages/SignedOutElsewhere.jsx';
 
 export default function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [blocked, setBlocked] = useState(null); // message when the admin blocked this account
+  // Set when this session was closed from elsewhere: another device signed in,
+  // an admin revoked it, or the password changed. { message, reason }
+  const [revoked, setRevoked] = useState(null);
 
   // On load, resolve the current user from a stored token (picks the dashboard).
   useEffect(() => {
     if (!getToken()) { setLoading(false); return; }
     api('/me')
       .then((d) => setUser(d.user))
-      .catch((e) => { if (e.code === 'blocked') setBlocked(e.message); else setToken(''); })
+      .catch((e) => {
+        if (e.code === 'blocked') setBlocked(e.message);
+        else if (e.code === 'session_revoked') setRevoked({ message: e.message, reason: e.data?.reason });
+        else setToken('');
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -29,19 +37,39 @@ export default function App() {
     // The refresh token finally expired (or was revoked). api() has already
     // cleared storage; dropping the in-memory user is what shows the login page.
     const onSignedOut = () => setUser(null);
+    // Someone signed in on another device (or this device was revoked). api()
+    // has already cleared the tokens; this is what explains it rather than
+    // dumping the user on a login form.
+    const onRevoked = (e) => setRevoked({ message: e.detail?.message || '', reason: e.detail?.reason || '' });
     window.addEventListener('lms:blocked', onBlocked);
     window.addEventListener('lms:signed-out', onSignedOut);
+    window.addEventListener('lms:session-revoked', onRevoked);
     return () => {
       window.removeEventListener('lms:blocked', onBlocked);
       window.removeEventListener('lms:signed-out', onSignedOut);
+      window.removeEventListener('lms:session-revoked', onRevoked);
     };
   }, []);
 
-  const logout = () => { setToken(''); setUser(null); setBlocked(null); };
+  const logout = () => {
+    // Tell the server first, while the token is still valid: a session left
+    // open would go on counting as "in use on another device" for 20 minutes
+    // and make the next sign-in ask about a browser that has already gone.
+    // Fire-and-forget — a failed call must never trap someone in the app.
+    if (getToken()) logoutSession();
+    setToken('');
+    setUser(null);
+    setBlocked(null);
+    setRevoked(null);
+  };
 
   if (loading) return <div className="center">Loading…</div>;
 
   if (blocked !== null) return <Blocked message={blocked} onLogout={logout} />;
+
+  if (revoked !== null) {
+    return <SignedOutElsewhere message={revoked.message} reason={revoked.reason} onLogout={logout} />;
+  }
 
   // Admin-provisioned / reset accounts must set their own password first.
   if (user && user.must_change_password) {
