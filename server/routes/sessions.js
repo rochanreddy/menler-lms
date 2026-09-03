@@ -35,6 +35,40 @@ router.get('/', requireAuth, async (req, res) => {
   res.json({ sessions });
 });
 
+// GET /api/lms/sessions/live?dayStart=&dayEnd= — the one session the Home
+// "Join Live Class" CTA cares about: today's class if there is one, else the
+// most recent past one. dayStart/dayEnd are ISO instants for the CALLER's
+// local midnight-to-midnight window — "today" has to mean the student's own
+// calendar day, not the server's, so the client computes and sends it rather
+// than the server guessing a timezone. Falls back to the server's own UTC day
+// only if they're missing/invalid (defensive — every real caller sends them).
+router.get('/live', requireAuth, async (req, res) => {
+  const batchIds = await myBatchIds(req.user);
+  const reqStart = new Date(req.query.dayStart);
+  const reqEnd = new Date(req.query.dayEnd);
+  const validRange = !Number.isNaN(+reqStart) && !Number.isNaN(+reqEnd) && reqEnd > reqStart;
+  const dayStart = validRange ? reqStart : new Date(new Date().toISOString().slice(0, 10));
+  const dayEnd = validRange ? reqEnd : new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
+
+  const today = await Session.findOne({ batchId: { $in: batchIds }, startsAt: { $gte: dayStart, $lt: dayEnd } })
+    .populate('batchId', 'name')
+    .sort({ startsAt: 1 });
+  const session = today || await Session.findOne({ batchId: { $in: batchIds }, startsAt: { $lt: dayStart } })
+    .populate('batchId', 'name')
+    .sort({ startsAt: -1 });
+
+  if (!session) return res.json({ session: null, today: false, url: '' });
+
+  const isToday = !!today;
+  res.json({
+    session: { _id: session._id, title: session.title, startsAt: session.startsAt, batchId: session.batchId },
+    today: isToday,
+    // A finished class may only have a recording — better than a dead button.
+    url: session.joinUrl || (!isToday && session.recordingUrl) || '',
+    updatedAt: session.updatedAt,
+  });
+});
+
 // POST /api/lms/sessions — admin schedules a class (only admins create Zoom sessions).
 router.post('/', requireAuth, requireRole('admin'), async (req, res) => {
   const { batchId, title, startsAt, endsAt, joinUrl, zoomMeetingId } = req.body || {};
