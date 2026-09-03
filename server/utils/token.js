@@ -9,18 +9,26 @@ const SECRET = process.env.JWT_SECRET || (() => {
   if (process.env.NODE_ENV === 'production') {
     throw new Error('JWT_SECRET is not set. Refusing to start with a known signing key.');
   }
-  console.warn('[auth] JWT_SECRET unset — using the insecure dev key. Never run this in production.');
+  console.warn('[auth] JWT_SECRET unset, using the insecure dev key. Never run this in production.');
   return 'dev-insecure-lms-secret-change-me';
 })();
 const ACCESS_TTL = '8h';
 const REFRESH_TTL = '30d';
 
 export function signAccessToken(user) {
-  return jwt.sign({ sub: user._id.toString(), role: user.role, typ: 'access' }, SECRET, { expiresIn: ACCESS_TTL });
+  return jwt.sign(
+    { sub: user._id.toString(), role: user.role, typ: 'access', tokenVersion: user.tokenVersion ?? 0 },
+    SECRET,
+    { expiresIn: ACCESS_TTL },
+  );
 }
 
 export function signRefreshToken(user) {
-  return jwt.sign({ sub: user._id.toString(), typ: 'refresh' }, SECRET, { expiresIn: REFRESH_TTL });
+  return jwt.sign(
+    { sub: user._id.toString(), typ: 'refresh', tokenVersion: user.tokenVersion ?? 0 },
+    SECRET,
+    { expiresIn: REFRESH_TTL },
+  );
 }
 
 export function verifyToken(token) {
