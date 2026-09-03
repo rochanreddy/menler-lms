@@ -30,10 +30,20 @@ function ok(name, cond, detail = '') {
 }
 const section = (t) => console.log(`\n\x1b[1m${t}\x1b[0m`);
 
-async function call(path, { token, method = 'GET', body } = {}) {
+// The single-session rule keys off X-Device-Id, and the whole script is one
+// device unless a check deliberately says otherwise. Without this every run
+// would look like a NEW device to the server and the second run inside twenty
+// minutes would be told the account is in use — by the previous run.
+const DEVICE = 'flowtest-primary';
+
+async function call(path, { token, method = 'GET', body, device = DEVICE } = {}) {
   const res = await fetch(`${BASE}${path}`, {
     method,
-    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Device-Id': device,
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
     ...(body ? { body: JSON.stringify(body) } : {}),
   });
   let json = null;
@@ -42,14 +52,18 @@ async function call(path, { token, method = 'GET', body } = {}) {
 }
 
 async function login(email, password = PASSWORD) {
-  const r = await call('/auth/login', { method: 'POST', body: { email, password } });
-  // The API rate-limits login to 10 attempts per IP per minute, and this script
-  // spends nine of them. Running it twice inside a minute trips the limiter,
+  // force:true is the script answering the "this account is in use on another
+  // device" prompt for itself. A real person is asked; an automated client that
+  // is deliberately taking the account over says so up front, and without it a
+  // run would be blocked by whatever the LAST run left signed in.
+  const r = await call('/auth/login', { method: 'POST', body: { email, password, force: true } });
+  // The API rate-limits login to 15 attempts per IP per minute, and this script
+  // spends eleven of them. Running it twice inside a minute trips the limiter,
   // which is the limiter working — say so rather than reporting a phantom bug.
-  if (r.status === 429) throw new Error(`rate-limited on login (${email}). The API allows 10 logins/minute/IP and this run uses 9, wait ~60s and re-run.`);
+  if (r.status === 429) throw new Error(`rate-limited on login (${email}). The API allows 15 logins/minute/IP and this run uses 11, wait ~60s and re-run.`);
   const tok = r.json?.accessToken || r.json?.token;
   if (r.status !== 200 || !tok) throw new Error(`login failed for ${email}: ${r.status} ${JSON.stringify(r.json).slice(0, 200)}`);
-  return { token: tok, user: r.json.user };
+  return { token: tok, refreshToken: r.json.refreshToken, user: r.json.user };
 }
 
 async function run() {
@@ -321,6 +335,48 @@ async function run() {
 
   const adminOnMentor = await call(`/users/${(mentorsList.json.users || [])[0].id}/blocks`, { token: mentorAll.token, method: 'PATCH', body: { lms: true } });
   ok('a mentor cannot block anyone', adminOnMentor.status === 403, `got ${adminOnMentor.status}`);
+
+  // ────────────────────────────────── Single active session + watch lock
+  section('SINGLE ACTIVE SESSION');
+
+  const mySessions = await call('/auth/sessions', { token: sK.token });
+  ok('a student can see where they are signed in', mySessions.status === 200 && Array.isArray(mySessions.json?.sessions),
+    `got ${mySessions.status}`);
+  ok('…and this device is marked as theirs', (mySessions.json?.sessions || []).some((x) => x.current),
+    JSON.stringify(mySessions.json?.sessions || []).slice(0, 160));
+
+  // The watch lock, without needing a real VdoCipher video: the lease is the
+  // mechanism the OTP route goes through, so exercising it directly tests the
+  // same guarantee.
+  const claim = await call('/playback/claim', { token: sK.token, method: 'POST', body: { videoKey: `${FLOW}-video`, title: `${FLOW} lesson` } });
+  ok('a student can take the watch lock', claim.status === 200, `got ${claim.status}`);
+  const beat = await call('/playback/heartbeat', { token: sK.token, method: 'POST' });
+  ok('…and hold it by heartbeating', beat.status === 200, `got ${beat.status}`);
+  const otherWatcher = await call('/playback/claim', { token: sBoth.token, method: 'POST', body: { videoKey: 'x' } });
+  ok('a DIFFERENT student is unaffected by it', otherWatcher.status === 200, `got ${otherWatcher.status}`);
+  await call('/playback/release', { token: sK.token, method: 'POST' });
+  await call('/playback/release', { token: sBoth.token, method: 'POST' });
+
+  // Signing in from a second device takes the account over. sDone is used
+  // because nothing after this point needs its token — which is the point:
+  // after a takeover, it does not have one.
+  const second = await call('/auth/login', {
+    method: 'POST',
+    device: 'flowtest-second',
+    body: { email: 'yash.chauhan@student.menler.in', password: PASSWORD, force: true },
+  });
+  ok('a second device can sign in and take over', second.status === 200, `got ${second.status}`);
+  const kicked = await call('/me', { token: sDone.token });
+  ok('…the first device is signed out on its next request', kicked.status === 401, `got ${kicked.status}`);
+  ok('…and told why, not just refused', kicked.json?.code === 'session_revoked', JSON.stringify(kicked.json).slice(0, 160));
+  const stillIn = await call('/me', { token: second.json.accessToken, device: 'flowtest-second' });
+  ok('…while the new device works', stillIn.status === 200, `got ${stillIn.status}`);
+  const deadRefresh = await call('/auth/refresh', { method: 'POST', body: { refreshToken: sDone.refreshToken } });
+  ok('…and the old refresh token cannot mint a new one', deadRefresh.status === 401, `got ${deadRefresh.status}`);
+
+  // Put the account back the way the fixture expects: one live session on the
+  // primary device, so a re-run is not greeted by this run's second device.
+  await call('/auth/logout', { token: second.json.accessToken, method: 'POST', device: 'flowtest-second' });
 
   // ────────────────────────────────── Clean up after ourselves
   // Proving the write paths work means creating an assignment, a doubt and a
