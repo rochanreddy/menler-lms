@@ -33,13 +33,20 @@ router.post('/join/:sessionId', requireAuth, async (req, res) => {
 router.get('/overview', requireAuth, async (req, res) => {
   const ids = await myBatchIds(req.user);
   const batches = await Batch.find({ _id: { $in: ids } }).select('name');
-  const overview = [];
-  for (const b of batches) {
-    const rows = await Attendance.find({ batchId: b._id });
-    const total = rows.length;
-    const present = rows.filter((r) => r.status === 'present').length;
-    overview.push({ batchId: b._id, name: b.name, pct: total ? Math.round((present / total) * 100) : 0, total });
+  // One query for every batch's attendance, not one query per batch (N+1).
+  const rows = await Attendance.find({ batchId: { $in: ids } }).select('batchId status');
+  const byBatch = new Map();
+  for (const r of rows) {
+    const k = String(r.batchId);
+    const v = byBatch.get(k) || { total: 0, present: 0 };
+    v.total += 1;
+    if (r.status === 'present') v.present += 1;
+    byBatch.set(k, v);
   }
+  const overview = batches.map((b) => {
+    const v = byBatch.get(String(b._id)) || { total: 0, present: 0 };
+    return { batchId: b._id, name: b.name, pct: v.total ? Math.round((v.present / v.total) * 100) : 0, total: v.total };
+  });
   res.json({ overview });
 });
 
