@@ -22,6 +22,31 @@ cd server && npm run seed:full # the whole LMS, mid-cohort (see below)
 cd server && npm run test:flows # drives all three roles against a RUNNING server
 ```
 
+### Curriculum
+
+[server/scripts/curricula.js](server/scripts/curricula.js) is the **single source
+of truth for lesson copy**, transcribed from the two official PDFs — AI
+Kickstarter (4 sessions · 19 topics · 4 portfolio projects) and the AI Generalist
+fellowship (6 weeks · 12 sessions · 4 milestone projects). `npm run seed:content`
+authors both into the Learning tree; `seed:full` builds its cohort on top of the
+same trees and adds the per-lesson PDFs and class links. Neither seed carries
+lesson text of its own — if a PDF changes, it changes in `curricula.js` and both
+seeds follow. `seed:full` will not overwrite a curriculum that already has
+lessons; pass `FORCE_CURRICULUM=1` to reset a programme back to the PDF.
+
+**Lesson ids are load-bearing.** Modules/chapters/topics are embedded
+sub-documents, so a naive `p.modules = …` re-mints every `_id` and orphans the
+three things keyed on them: `Progress.completedTopics`, `BatchLessonVideo`
+(`batchId`+`topicId`) and `User.blocked.moduleIds`. That fails silently rather
+than loudly — [progress.js](server/routes/progress.js) counts
+`completedTopics.length` capped at the lesson total, so a student keeps a
+plausible percentage (which gates the certificate) while no lesson renders as
+ticked. `seed:content` therefore carries ids over for any lesson whose module +
+chapter + title are unchanged, and prunes whatever is left dangling. Editing a
+lesson **body** costs nothing; renaming a lesson, its chapter or its module
+retires that lesson and its progress, which is the honest outcome. Any other
+code path that rewrites `Program.modules` owes the same two steps.
+
 ### Test fixtures
 
 `npm run seed:full` builds a complete mid-cohort world and is the fixture every
@@ -29,8 +54,9 @@ role flow is tested against. It **never deletes a User** — accounts are upsert
 by email so logins survive reruns — and its randomness is seeded, so two runs
 produce the same data.
 
-- **Programmes** Kickstarter (24 lessons) · Generalist (24 lessons), every
-  lesson carrying a reading PDF, teacher-notes PDF and a class link.
+- **Programmes** Kickstarter (53 lessons) · Generalist (115 lessons) — the real
+  curricula, not placeholders (see below) — every lesson carrying a reading PDF,
+  teacher-notes PDF and a class link.
 - **Batches** one per programme, started 8 weeks ago, ending in 6 — so progress,
   overdue work and upcoming sessions all exist at once.
 - **Mentors** 4. Three teach both programmes, one is Generalist-only, which is
