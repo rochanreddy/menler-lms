@@ -1,10 +1,10 @@
 import { Router } from 'express';
 import crypto from 'crypto';
-import bcrypt from 'bcryptjs';
 import { requireAuth, requireRole, invalidateUser } from '../middleware/auth.js';
 import { Batch } from '../models/Batch.js';
 import { User } from '../models/User.js';
 import { canAccessBatch, myBatchIds } from '../utils/access.js';
+import { hashPassword } from '../utils/password.js';
 
 const router = Router();
 
@@ -89,7 +89,7 @@ router.post('/:id/students', requireAuth, requireRole('admin'), async (req, res)
   let tempPassword;
   if (!user) {
     tempPassword = crypto.randomBytes(6).toString('hex');
-    user = await User.create({ email, fullName: fullName || '', role: 'student', passwordHash: await bcrypt.hash(tempPassword, 12), mustChangePassword: true });
+    user = await User.create({ email, fullName: fullName || '', role: 'student', passwordHash: await hashPassword(tempPassword), mustChangePassword: true });
   } else if (user.role !== 'student') {
     return res.status(400).json({ error: 'That email belongs to a non-student account.' });
   }
