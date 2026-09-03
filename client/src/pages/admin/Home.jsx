@@ -12,10 +12,10 @@ export default function AdminHome() {
 
   const s = data?.stats || {};
   const cards = [
-    { label: 'Students', value: s.students ?? '—' },
-    { label: 'Mentors', value: s.mentors ?? '—' },
-    { label: 'Batches', value: s.batches ?? '—' },
-    { label: 'Quizzes', value: s.quizzes ?? '—' },
+    { label: 'Students', value: s.students ?? '-' },
+    { label: 'Mentors', value: s.mentors ?? '-' },
+    { label: 'Batches', value: s.batches ?? '-' },
+    { label: 'Quizzes', value: s.quizzes ?? '-' },
   ];
   const chart = (data?.perBatch || []).filter((b) => b.count > 0);
   const max = Math.max(1, ...chart.map((b) => b.count));
@@ -73,13 +73,13 @@ export default function AdminHome() {
               centerLabel={
                 data.attendance[0].count + data.attendance[1].count
                   ? `${Math.round((data.attendance[0].count / (data.attendance[0].count + data.attendance[1].count)) * 100)}%`
-                  : '—'
+                  : '-'
               }
               centerSub="present"
             />
           </div>
           <div className="panel chart-card">
-            <div className="eyebrow">Student signups — last 8 weeks</div>
+            <div className="eyebrow">Student signups, last 8 weeks</div>
             <MiniLine points={data.signups} />
             <div className="muted" style={{ fontSize: 'var(--text-sm)', marginTop: 'var(--space-2)' }}>
               {data.assignmentTypes[0].count} assignments · {data.assignmentTypes[1].count} projects across all batches
