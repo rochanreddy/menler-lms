@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link, useOutletContext } from 'react-router-dom';
 import { api, downloadFile } from '../../api.js';
-import { Donut, Meter, SEQ, SEQ_AQUA } from '../../components/Charts.jsx';
+import { Donut, Meter, SEQ, SEQ_AQUA, EMPTY_SLICE } from '../../components/Charts.jsx';
 import { CheckBadge, SubmissionCheckPanel } from '../../components/SubmissionCheck.jsx';
 import AiReview from '../../components/AiReview.jsx';
 import Empty from '../../components/Empty.jsx';
@@ -138,7 +138,7 @@ export default function StudentDetail() {
             data={[
               { label: 'Graded', value: graded.length, color: SEQ.main },
               { label: 'Submitted', value: subs.length - graded.length, color: SEQ.light },
-              { label: 'Not submitted', value: data.assignments.length - subs.length, color: '#eeedf4' },
+              { label: 'Not submitted', value: data.assignments.length - subs.length, color: EMPTY_SLICE },
             ]}
             centerLabel={`${subs.length}/${data.assignments.length}`}
             centerSub="submitted"
