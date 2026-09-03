@@ -65,7 +65,7 @@ async function run() {
   L.push('> not real credentials. Do not reuse this password anywhere real, and do not');
   L.push('> point this file at a production cluster.');
   L.push('');
-  L.push(`_Generated ${new Date().toISOString().slice(0, 16).replace('T', ' ')} by \`node scripts/dumpAccounts.mjs\` — regenerate after any seed change._`);
+  L.push(`_Generated ${new Date().toISOString().slice(0, 16).replace('T', ' ')} by \`node scripts/dumpAccounts.mjs\`, regenerate after any seed change._`);
   L.push('');
   L.push('## The password');
   L.push('');
@@ -98,7 +98,7 @@ async function run() {
   L.push('');
   L.push('| Email | Password | Name |');
   L.push('|---|---|---|');
-  for (const a of admins) L.push(`| \`${a.email}\` | \`${a.email === ADMIN_EMAIL ? ADMIN_PASSWORD : PASSWORD}\` | ${a.fullName || '—'} |`);
+  for (const a of admins) L.push(`| \`${a.email}\` | \`${a.email === ADMIN_EMAIL ? ADMIN_PASSWORD : PASSWORD}\` | ${a.fullName || '-'} |`);
   L.push('');
 
   // ── Batches ──
@@ -108,8 +108,8 @@ async function run() {
   L.push('|---|---|---|---|---|---|');
   for (const b of batches) {
     const p = progById.get(String(b.programId));
-    const fmt = (d) => (d ? new Date(d).toISOString().slice(0, 10) : '—');
-    L.push(`| ${b.name} | ${p?.title || '—'} | ${lessonsIn(p)} | ${b.mentorIds.length} | ${b.studentIds.length} | ${fmt(b.startDate)} → ${fmt(b.endDate)} |`);
+    const fmt = (d) => (d ? new Date(d).toISOString().slice(0, 10) : '-');
+    L.push(`| ${b.name} | ${p?.title || '-'} | ${lessonsIn(p)} | ${b.mentorIds.length} | ${b.studentIds.length} | ${fmt(b.startDate)} → ${fmt(b.endDate)} |`);
   }
   L.push('');
 
@@ -123,7 +123,7 @@ async function run() {
   L.push('|---|---|---|---|');
   for (const m of mentors) {
     const names = (m.batchIds || []).map((id) => batchById.get(String(id))?.name).filter(Boolean);
-    L.push(`| \`${m.email}\` | \`${PASSWORD}\` | ${m.fullName} | ${names.length ? names.join(' · ') : '—'} |`);
+    L.push(`| \`${m.email}\` | \`${PASSWORD}\` | ${m.fullName} | ${names.length ? names.join(' · ') : '-'} |`);
   }
   L.push('');
 
@@ -151,13 +151,13 @@ async function run() {
       return `${p?.title?.slice(0, 4)} ${pct(pr.completedTopics.length, lessonsIn(p))}%`;
     }).join(' · ');
 
-    L.push(`| \`${s.email}\` | \`${PASSWORD}\` | ${s.fullName} | ${batchNames.join(' + ') || '—'} | ${progStr || '—'} | ${subs.length} (${graded}) | ${quizzes} | ${present}/${attRows.length} |`);
+    L.push(`| \`${s.email}\` | \`${PASSWORD}\` | ${s.fullName} | ${batchNames.join(' + ') || '-'} | ${progStr || '-'} | ${subs.length} (${graded}) | ${quizzes} | ${present}/${attRows.length} |`);
 
     const maxPct = Math.max(0, ...progs.map((pr) => pct(pr.completedTopics.length, lessonsIn(progById.get(String(pr.programId))))));
     const attPct = pct(present, attRows.length);
-    if (maxPct === 100) notable.push([s.email, 'at 100% — the certificate path']);
-    else if (maxPct <= 20) notable.push([s.email, `only ${maxPct}% done, ${attPct}% attendance — the at-risk panel`]);
-    if ((s.batchIds || []).length === 2) notable.push([s.email, 'enrolled in BOTH batches — merged lists, per-programme progress']);
+    if (maxPct === 100) notable.push([s.email, 'at 100%, the certificate path']);
+    else if (maxPct <= 20) notable.push([s.email, `only ${maxPct}% done, ${attPct}% attendance, the at-risk panel`]);
+    if ((s.batchIds || []).length === 2) notable.push([s.email, 'enrolled in BOTH batches, merged lists, per-programme progress']);
   }
   L.push('');
 
@@ -175,15 +175,15 @@ async function run() {
   }
   const soloMentor = mentors.find((m) => (m.batchIds || []).length === 1);
   const dualMentor = mentors.find((m) => (m.batchIds || []).length === 2);
-  if (dualMentor) L.push(`| \`${dualMentor.email}\` | teaches both programmes — batch switching, full grading queue |`);
-  if (soloMentor) L.push(`| \`${soloMentor.email}\` | teaches ONE programme — use to check the other batch is genuinely refused |`);
+  if (dualMentor) L.push(`| \`${dualMentor.email}\` | teaches both programmes, batch switching, full grading queue |`);
+  if (soloMentor) L.push(`| \`${soloMentor.email}\` | teaches ONE programme, use to check the other batch is genuinely refused |`);
   L.push('');
   if (strays.length || otherBatches.length) {
     L.push('## Other accounts in this database');
     L.push('');
-    L.push('Not created by `seed:full` and **not covered by the password above** — left in');
+    L.push('Not created by `seed:full` and **not covered by the password above**, left in');
     L.push('place because deleting accounts is not the job of this script. Ignore them');
-    L.push('when cross-checking — they are older `seed:demo` fixtures and real local signups.');
+    L.push('when cross-checking, they are older `seed:demo` fixtures and real local signups.');
     L.push('');
     if (otherBatches.length) {
       L.push(`Stale batches: ${otherBatches.map((b) => `\`${b.name}\``).join(', ')}`);
@@ -193,7 +193,7 @@ async function run() {
     L.push('|---|---|---|');
     for (const u of strays) {
       const demo = /@demo\.menler\.in$/.test(u.email) || u.email === 'mentor@menler.in';
-      L.push(`| \`${u.email}\` | ${u.role} | ${demo ? 'old `seed:demo` fixture' : 'real local account — left alone'} |`);
+      L.push(`| \`${u.email}\` | ${u.role} | ${demo ? 'old `seed:demo` fixture' : 'real local account, left alone'} |`);
     }
     L.push('');
   }
@@ -204,7 +204,7 @@ async function run() {
   L.push('');
   L.push('- An assignment that has **not opened yet**, and one that is **overdue and never submitted**.');
   L.push('- Submissions sitting in **`NEEDS_FIXES`** and **`PENDING_CHECK`**, not just `READY`.');
-  L.push('- **Graded and locked** submissions — the student cannot edit until a mentor unlocks.');
+  L.push('- **Graded and locked** submissions, the student cannot edit until a mentor unlocks.');
   L.push('- One student per batch who **never sat the exam**.');
   L.push('- Past sessions with **recordings**, one class **today**, and future ones with **no link yet**.');
   L.push('');
