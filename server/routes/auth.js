@@ -5,8 +5,19 @@ import bcrypt from 'bcryptjs';
 import { User, ROLES } from '../models/User.js';
 import { signAccessToken, signRefreshToken, verifyToken } from '../utils/token.js';
 import { isSmtpConfigured, sendMail } from '../utils/email.js';
-import { invalidateUser } from '../middleware/auth.js';
+import { invalidateUser, requireAuth } from '../middleware/auth.js';
 import { hashPassword, needsRehash } from '../utils/password.js';
+import {
+  SESSION_MODE,
+  liveSessions,
+  loadSession,
+  openSession,
+  readDeviceId,
+  revokeOtherSessions,
+  revokeSession,
+  revokedMessage,
+} from '../utils/sessions.js';
+import { releaseLease } from '../utils/playback.js';
 
 const router = Router();
 
@@ -58,7 +69,14 @@ router.post('/register', async (req, res) => {
       phone: phone || '',
       role: 'student',
     });
-    return res.status(201).json({ user: user.toPublic(), accessToken: signAccessToken(user), refreshToken: signRefreshToken(user) });
+    // A brand-new account has nothing to take over, so this opens a session
+    // without any of login's warn/revoke dance.
+    const session = await openSession(user, req);
+    return res.status(201).json({
+      user: user.toPublic(),
+      accessToken: signAccessToken(user, session.sid),
+      refreshToken: signRefreshToken(user, session.sid),
+    });
   } catch (err) {
     console.error('register error:', err);
     return res.status(500).json({ error: 'Could not register.' });
@@ -101,7 +119,41 @@ router.post('/login', async (req, res) => {
         console.error('password rehash failed for', String(user._id), '-', e.message);
       }
     }
-    return res.json({ user: user.toPublic(), accessToken: signAccessToken(user), refreshToken: signRefreshToken(user) });
+    // ── Single active session ──────────────────────────────────────────────
+    // An LMS seat is one person's. Before minting tokens, look at whether this
+    // account is already being used somewhere else and either say so (default)
+    // or take the other device over — see utils/sessions.js for the modes.
+    // The caller's own device never counts as "somewhere else", so signing in
+    // again in the same browser is always silent.
+    if (SESSION_MODE !== 'off' && !req.body?.force) {
+      const others = await liveSessions(user._id, { excludeDeviceId: readDeviceId(req) });
+      if (others.length && SESSION_MODE === 'warn') {
+        return res.status(409).json({
+          error: 'This account is currently being used on another device.',
+          code: 'session_active',
+          device: others[0].deviceLabel,
+          last_seen_at: others[0].lastSeenAt,
+          // The client re-posts the same credentials with force:true when the
+          // user confirms they want to take over.
+          hint: 'Sign in here to sign that device out.',
+        });
+      }
+    }
+
+    const session = await openSession(user, req);
+    if (SESSION_MODE !== 'off') {
+      // Everything else this account had open closes now. Its next request —
+      // and its next video heartbeat — gets a 401 explaining why.
+      await revokeOtherSessions(user._id, session.sid, { reason: 'superseded', by: session.deviceLabel });
+      await releaseLease(user._id); // never leave the old device holding the watch lock
+    }
+
+    return res.json({
+      user: user.toPublic(),
+      accessToken: signAccessToken(user, session.sid),
+      refreshToken: signRefreshToken(user, session.sid),
+      session: { device: session.deviceLabel },
+    });
   } catch (err) {
     console.error('login error:', err);
     return res.status(500).json({ error: 'Could not log in.' });
@@ -131,7 +183,38 @@ router.post('/refresh', async (req, res) => {
   if (user.role !== 'admin' && user.blocked?.lms) {
     return res.status(403).json({ error: 'Your account has been blocked by the administrator.', code: 'blocked' });
   }
-  return res.json({ accessToken: signAccessToken(user), user: user.toPublic() });
+
+  // A refresh must not be a way around the single-session rule: if the session
+  // this token was minted by has been taken over, the refresh dies with it.
+  let sid = payload.sid;
+  if (sid) {
+    const session = await loadSession(sid);
+    if (!session || session.revokedAt) {
+      return res.status(401).json({
+        error: revokedMessage(session),
+        code: 'session_revoked',
+        reason: session?.revokedReason || 'revoked',
+      });
+    }
+  } else {
+    // A refresh token from before sessions existed. Adopt it into one now
+    // rather than leaving it permanently exempt from the rule — this is what
+    // completes the migration, one device at a time, with no mass logout.
+    const session = await openSession(user, req);
+    sid = session.sid;
+    if (SESSION_MODE === 'strict') {
+      await revokeOtherSessions(user._id, sid, { reason: 'superseded', by: session.deviceLabel });
+    }
+  }
+
+  // The refresh token is not rotated (see client/src/api.js) — it keeps the
+  // sid it already carried. The one exception is the legacy token adopted
+  // above: it has to be replaced, or every refresh would mint another session.
+  return res.json({
+    accessToken: signAccessToken(user, sid),
+    ...(payload.sid ? {} : { refreshToken: signRefreshToken(user, sid) }),
+    user: user.toPublic(),
+  });
 });
 
 // POST /api/lms/auth/forgot — always returns success (no account enumeration).
@@ -178,11 +261,60 @@ router.post('/reset', async (req, res) => {
     user.tokenVersion = (user.tokenVersion || 0) + 1;
     await user.save();
     invalidateUser(user._id);
+    // The version bump alone already stops every issued token verifying; this
+    // closes the session rows too, so the device list matches reality and the
+    // signed-out device is told a password change is why.
+    await revokeOtherSessions(user._id, null, { reason: 'password_reset' });
+    await releaseLease(user._id);
     return res.json({ ok: true });
   } catch (err) {
     console.error('reset error:', err);
     return res.status(500).json({ error: 'Could not reset password.' });
   }
+});
+
+// ── Signed-in devices ───────────────────────────────────────────────────────
+// A user can see where their account is signed in and close any of it. With
+// single-session enforcement on there is normally exactly one row here, which
+// is itself the useful thing to be able to check.
+
+// GET /api/lms/auth/sessions — this account's sessions, live one first.
+router.get('/sessions', requireAuth, async (req, res) => {
+  const sessions = await liveSessions(req.user._id);
+  res.json({
+    mode: SESSION_MODE,
+    // Which row is the caller — the UI marks it "This device" rather than
+    // offering to sign you out of the browser you are reading it in.
+    current: req.deviceSession?.sid || null,
+    sessions: sessions.map((s) => ({ ...s.toPublic(), current: s.sid === req.deviceSession?.sid })),
+  });
+});
+
+// POST /api/lms/auth/logout — close this session (or all of them).
+router.post('/logout', requireAuth, async (req, res) => {
+  if (req.body?.all) {
+    await revokeOtherSessions(req.user._id, null, { reason: 'logout' });
+  } else if (req.deviceSession?.sid) {
+    await revokeSession(req.deviceSession.sid, 'logout');
+  }
+  // Whoever was watching is being signed out, so the lock has to come with it —
+  // otherwise the account is locked out of video until the lease goes stale.
+  await releaseLease(req.user._id);
+  res.json({ ok: true });
+});
+
+// POST /api/lms/auth/sessions/revoke { sid } — sign one other device out.
+router.post('/sessions/revoke', requireAuth, async (req, res) => {
+  const sid = String(req.body?.sid || '');
+  const target = sid ? await loadSession(sid) : null;
+  // Scoped to your own sessions: a sid is unguessable, but "unguessable" is
+  // not an access rule.
+  if (!target || String(target.userId) !== String(req.user._id)) {
+    return res.status(404).json({ error: 'That device is not signed in to this account.' });
+  }
+  await revokeSession(sid, 'revoked', req.deviceSession?.deviceLabel || '');
+  await releaseLease(req.user._id, sid);
+  res.json({ ok: true });
 });
 
 export default router;
