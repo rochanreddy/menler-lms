@@ -1,9 +1,9 @@
 // Seed a first LMS admin + sample programs.  Run:  npm run seed
 import 'dotenv/config';
-import bcrypt from 'bcryptjs';
 import { connectDb } from '../db.js';
 import { User } from '../models/User.js';
 import { Program } from '../models/Program.js';
+import { hashPassword } from '../utils/password.js';
 
 const ADMIN_EMAIL = process.env.LMS_SEED_EMAIL || 'admin@menler.in';
 const ADMIN_PASSWORD = process.env.LMS_SEED_PASSWORD || 'ChangeMe123!';
@@ -15,7 +15,7 @@ async function run() {
   if (!admin) {
     admin = await User.create({
       email: ADMIN_EMAIL,
-      passwordHash: await bcrypt.hash(ADMIN_PASSWORD, 12),
+      passwordHash: await hashPassword(ADMIN_PASSWORD),
       fullName: 'Menler Admin',
       role: 'admin',
       emailVerified: true,
