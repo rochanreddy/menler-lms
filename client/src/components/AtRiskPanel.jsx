@@ -36,7 +36,7 @@ export default function AtRiskPanel({ batchId }) {
         <p className="muted" style={{ marginTop: 12 }}>
           {data.scanned === 0
             ? 'No students enrolled yet.'
-            : `Everyone's on track — all ${data.scanned} student${data.scanned === 1 ? '' : 's'} look healthy.`}
+            : `Everyone's on track. All ${data.scanned} student${data.scanned === 1 ? '' : 's'} look healthy.`}
         </p>
       )}
 
