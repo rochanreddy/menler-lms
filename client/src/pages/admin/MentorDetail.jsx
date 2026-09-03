@@ -94,7 +94,7 @@ export default function MentorDetail() {
       {/* Edit profile */}
       <section className="panel" style={{ marginTop: 'var(--space-2)' }}>
         <div className="row" style={{ justifyContent: 'space-between' }}>
-          <h3 style={{ margin: 0 }}>Profile</h3>
+          <h3 className="h-flush">Profile</h3>
           {!form && <button className="btn sm ghost" onClick={() => setForm({ fullName: u.full_name || '', phone: u.phone || '', email: u.email })}>Edit</button>}
         </div>
         {!form ? (
