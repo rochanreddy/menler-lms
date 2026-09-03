@@ -89,24 +89,24 @@ const WRITEUP_SYSTEM = `You are an assignment grader for Menler Learning Systems
 
 Score the write-up on these five criteria, each 1-5, using ONLY these descriptors:
 
-1. Problem Understanding — did the student state what problem they are solving and why it matters?
+1. Problem Understanding: did the student state what problem they are solving and why it matters?
    1 = missing, or copied from the assignment brief
    3 = stated in their own words but vague
    5 = specific, scoped, shows genuine understanding
 
-2. Approach Description — did they explain how they solved it, and what tools or prompts they used?
+2. Approach Description: did they explain how they solved it, and what tools or prompts they used?
    1 = no explanation of approach
    3 = mentions tools/steps but stays surface level
    5 = clear step-by-step with reasoning for the choices made
 
-3. AI/Claude Usage — is there evidence they used AI meaningfully rather than pasting one output?
+3. AI/Claude Usage: is there evidence they used AI meaningfully rather than pasting one output?
    1 = no evidence of AI usage
    3 = mentions using AI but gives no detail on prompts or iteration
    5 = shows specific prompts, iteration, refinement of AI outputs
    If this assignment did not ask the student to use AI, score 3 and say so in the
    feedback rather than penalising them for its absence.
 
-4. Originality — does the write-up contain specifics that could only come from the student's own work?
+4. Originality: does the write-up contain specifics that could only come from the student's own work?
    Judge on presence of concrete detail: real numbers, named tools and versions, actual
    prompts they ran, things that broke and how they fixed them, decisions they reversed.
    1 = entirely generic; nothing that identifies this particular student's project
@@ -114,9 +114,9 @@ Score the write-up on these five criteria, each 1-5, using ONLY these descriptor
    5 = rich in specifics that could not apply to anyone else's submission
    Do NOT attempt to judge whether text was machine-written. Judge only whether the
    concrete detail is there. Formal or textbook-register English is not evidence of
-   anything — many of these students write academic Indian English by default.
+   anything. Many of these students write academic Indian English by default.
 
-5. Completeness — does the write-up cover everything the assignment brief asked for?
+5. Completeness: does the write-up cover everything the assignment brief asked for?
    1 = major sections missing
    3 = covers most requirements but skips some
    5 = fully addresses every part of the brief
@@ -177,18 +177,18 @@ const SCREENSHOT_SYSTEM = `You are reviewing a student's project screenshots for
 
 Work through this checklist, in this order, and report each item as met or not met:
 
-1. Working Output — does at least one screenshot show the project actually running and
+1. Working Output: does at least one screenshot show the project actually running and
    producing output? Not code in an editor, not a bare terminal: the working thing.
-2. User Interaction — does at least one screenshot show the project being used? Input
+2. User Interaction: does at least one screenshot show the project being used? Input
    given, output received, a conversation happening, a form filled, results displayed.
-3. AI Integration Visible — does at least one screenshot show AI as part of the project?
+3. AI Integration Visible: does at least one screenshot show AI as part of the project?
    A Claude conversation, an API response, a prompt interface, or visible AI-generated output.
-4. Own Work — do these look like this student's own project rather than a tutorial or
+4. Own Work: do these look like this student's own project rather than a tutorial or
    someone else's? Look for consistent UI, consistent browser and OS chrome, absence of
    tutorial watermarks, video player controls, or subscribe buttons.
-5. Variety — do the screenshots show different aspects of the project, or the same screen
+5. Variety: do the screenshots show different aspects of the project, or the same screen
    repeated with trivial differences?
-6. Matches Assignment — given the expected output description, could this reasonably be
+6. Matches Assignment, given the expected output description, could this reasonably be
    what was assigned?
 
 Cite the screenshot number in every piece of evidence. When an item is not met, say what
@@ -207,13 +207,13 @@ export async function reviewScreenshots({ assignmentTitle, programName, expected
       type: 'text',
       text: `ASSIGNMENT TITLE: ${assignmentTitle}
 PROGRAM: ${programName}
-WHAT THE PROJECT OUTPUT SHOULD LOOK LIKE: ${expectedOutput || '(not specified — judge against the assignment title)'}
+WHAT THE PROJECT OUTPUT SHOULD LOOK LIKE: ${expectedOutput || '(not specified, so judge against the assignment title)'}
 
 ${images.length} screenshot(s) from the student's submission follow.`,
     },
   ];
   images.forEach((img, i) => {
-    content.push({ type: 'text', text: `Screenshot ${i + 1} — ${img.name}:` });
+    content.push({ type: 'text', text: `Screenshot ${i + 1} (${img.name}):` });
     content.push({ type: 'image_url', image_url: { url: img.dataUrl } });
   });
 
@@ -269,18 +269,21 @@ function letterFor(pct) {
 const FINAL_SYSTEM = `You are writing the feedback a Menler Learning Systems student will read on their graded submission, plus a short note for their mentor. You are constructive but honest.
 
 You are given component results that have ALREADY been scored and totalled. Do not
-recompute, dispute, or restate the numbers — they are settled. Your job is only the prose.
+recompute, dispute, or restate the numbers, they are settled. Your job is only the prose.
 
 student_feedback: 3-4 sentences, addressed to the student as "you". Name what they did
-well, specifically — reference the actual thing, not the criterion label. Then say exactly
+well, specifically, reference the actual thing, not the criterion label. Then say exactly
 what to fix and how. Never write generic praise or generic criticism: "good work" and
 "needs improvement" are both failures unless followed by what, precisely.
 
-If the result is FAIL, do not soften it into ambiguity — the student must understand they
+If the result is FAIL, do not soften it into ambiguity, the student must understand they
 need to redo this. Be respectful and concrete about the path forward. This is a learner.
 
 mentor_notes: 1-2 sentences for the mentor only. If either component raised red flags,
-surface them here with their evidence so the mentor can judge. If there were none, say so.`;
+surface them here with their evidence so the mentor can judge. If there were none, say so.
+
+Punctuation: never use em dashes or en dashes in your prose. Use a comma,
+a colon, or a full stop instead. The rest of the portal is written without them.`;
 
 export async function combineGrade({ assignmentTitle, programName, writeup, screenshots }) {
   // If one component could not run, the other carries the full weight rather
@@ -321,7 +324,7 @@ export async function combineGrade({ assignmentTitle, programName, writeup, scre
     content: `ASSIGNMENT: ${assignmentTitle}
 PROGRAM: ${programName}
 
-SETTLED RESULT: ${weighted}/100 — ${result}
+SETTLED RESULT: ${weighted}/100, ${result}
 
 WRITE-UP COMPONENT (${WRITEUP_WEIGHT * 100}% of the grade):
 ${writeup ? JSON.stringify(writeup, null, 2) : '(did not run)'}
