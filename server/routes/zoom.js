@@ -16,9 +16,17 @@ function verify(req) {
   const ts = req.headers['x-zm-request-timestamp'];
   const sig = req.headers['x-zm-signature'];
   if (!ts || !sig || !SECRET() || !req.rawBody) return false;
+
+  // Reject stale requests — otherwise a captured signature stays valid
+  // forever and can be replayed to re-mark attendance. The header is Unix
+  // seconds; 5 minutes is Zoom's own documented tolerance window.
+  const tsMs = Number(ts) * 1000;
+  if (!Number.isFinite(tsMs) || Math.abs(Date.now() - tsMs) > 5 * 60 * 1000) return false;
+
   const message = `v0:${ts}:${req.rawBody.toString('utf8')}`;
-  const hash = crypto.createHmac('sha256', SECRET()).update(message).digest('hex');
-  return sig === `v0=${hash}`;
+  const expected = Buffer.from(`v0=${crypto.createHmac('sha256', SECRET()).update(message).digest('hex')}`);
+  const actual = Buffer.from(String(sig));
+  return expected.length === actual.length && crypto.timingSafeEqual(expected, actual);
 }
 
 // POST /api/lms/zoom/webhook  (public — Zoom calls this; secured by signature)
