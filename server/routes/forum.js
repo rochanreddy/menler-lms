@@ -16,8 +16,10 @@ const author = (u) => (u ? { id: u._id, name: u.fullName || u.email, role: u.rol
 router.get('/chat', requireAuth, async (req, res) => {
   const { batchId } = req.query;
   if (!batchId || !(await canAccessBatch(req.user, batchId))) return res.status(403).json({ error: 'Forbidden.' });
-  const rows = await Message.find({ batchId }).populate('authorId', 'fullName email role').sort({ createdAt: 1 }).limit(200);
-  res.json({ messages: rows.map((m) => ({ id: m._id, text: m.text, at: m.createdAt, author: author(m.authorId) })) });
+  // Newest 200, not oldest — sort descending to take the right slice, then
+  // reverse back to chronological order for display.
+  const rows = await Message.find({ batchId }).populate('authorId', 'fullName email role').sort({ createdAt: -1 }).limit(200);
+  res.json({ messages: rows.reverse().map((m) => ({ id: m._id, text: m.text, at: m.createdAt, author: author(m.authorId) })) });
 });
 
 // POST /api/lms/forum/chat { batchId, text }
