@@ -33,7 +33,7 @@ export default function MentorBatches() {
   if (open) return (
     <div>
       <button className="btn ghost sm" onClick={() => { setOpen(null); load(); }}>← My batches</button>
-      <div style={{ height: 12 }} />
+      <div style={{ height: 'var(--space-3)' }} />
       <BatchWorkspace batchId={open} mode="mentor" />
     </div>
   );
@@ -44,7 +44,7 @@ export default function MentorBatches() {
         <div>
           <div className="eyebrow">Mentor board</div>
           <h1>Programs</h1>
-          <p>Your batches — open one to teach, mark attendance, and grade.</p>
+          <p>Your batches. Open one to teach, mark attendance, and grade.</p>
         </div>
       </div>
       <div className="list">
@@ -64,8 +64,8 @@ export default function MentorBatches() {
 
       {myPrograms.length > 0 && (
         <>
-          <h2 style={{ marginTop: 28 }}>My curriculum</h2>
-          <p className="muted">Programs you teach — edit their modules, chapters, and lessons.</p>
+          <h2 style={{ marginTop: 'var(--space-7)' }}>My curriculum</h2>
+          <p className="muted">Programs you teach. Edit their modules, chapters, and lessons.</p>
           <div className="list">
             {myPrograms.map((p) => (
               <div className="panel list-row" key={p._id}>
