@@ -1,12 +1,15 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api, downloadFile } from '../api.js';
 import LineIcon from './LineIcon.jsx';
 import Markdown from './Markdown.jsx';
-import { SubmissionCheckPanel } from './SubmissionCheck.jsx';
-import AiReview from './AiReview.jsx';
-import Empty, { Loading } from './Empty.jsx';
-import DateTimePicker from './DateTimePicker.jsx';
+import Empty from './Empty.jsx';
+import { AnnouncementForm, SessionForm, QuizBuilder, AssignmentForm, DRIVE_TYPES } from './BatchForms.jsx';
+import { QuizResults, Attendance, Submissions } from './BatchGrading.jsx';
+
+// Re-exported from its new home in BatchForms.jsx so this module's public
+// shape is unchanged for anything that imported it from here.
+export { DRIVE_TYPES };
 
 const dueLabel = (d) => new Date(d).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 
@@ -200,7 +203,7 @@ export default function BatchWorkspace({ batchId, mode }) {
 
             {newStudent && (
               <div className="tempbox">
-                <div className="tempbox-line"><span className="tempbox-ic"><LineIcon name="check" size={16} /></span><span>New student account created for <strong>{newStudent.email}</strong> — temp password: <code>{newStudent.password}</code></span></div>
+                <div className="tempbox-line"><span className="tempbox-ic"><LineIcon name="check" size={16} /></span><span>New student account created for <strong>{newStudent.email}</strong>, temp password: <code>{newStudent.password}</code></span></div>
                 <div className="muted">Share these; they'll set their own password on first login.</div>
               </div>
             )}
@@ -212,7 +215,7 @@ export default function BatchWorkspace({ batchId, mode }) {
       <section className="panel">
         <h3 className="h3-ic"><LineIcon name="megaphone" size={17} /> Announcements</h3>
         {canManage && (
-          <AnnouncementForm onPost={(body) => act(() => api('/announcements', { method: 'POST', body: { batchId, ...body } }).then(loadAnnouncements), 'Announcement posted — students notified')} />
+          <AnnouncementForm onPost={(body) => act(() => api('/announcements', { method: 'POST', body: { batchId, ...body } }).then(loadAnnouncements), 'Announcement posted, students notified')} />
         )}
         {announcements.map((a) => (
           <div key={a._id} className="assignment">
@@ -223,7 +226,7 @@ export default function BatchWorkspace({ batchId, mode }) {
         {announcements.length === 0 && <Empty inline icon="forum" title="No announcements yet." hint="Anything you post here reaches every student in the batch." />}
       </section>
 
-      {/* Sessions — with Zoom link */}
+      {/* Sessions, with Zoom link */}
       <section className="panel">
         <h3>Sessions & Zoom links</h3>
         {mode === 'admin' && (
@@ -256,7 +259,7 @@ export default function BatchWorkspace({ batchId, mode }) {
               inline
               icon="webinar"
               title="No sessions yet."
-              hint={mode === 'admin' ? 'Schedule one above — students and mentors see it and join from there.' : 'The admin schedules Zoom classes for this batch — they will appear here to join.'}
+              hint={mode === 'admin' ? 'Schedule one above. Students and mentors see it and join from there.' : 'The admin schedules Zoom classes for this batch. They will appear here to join.'}
             />
           )}
         </div>
@@ -306,7 +309,7 @@ export default function BatchWorkspace({ batchId, mode }) {
         {quizzes.length === 0 && <Empty inline icon="learning" title="No quizzes yet." hint="Build one above to test the batch on what you have covered." />}
       </section>
 
-      {/* Gradebook — students × assessments matrix */}
+      {/* Gradebook, students × assessments matrix */}
       <section className="panel">
         <h3>Gradebook</h3>
         {!gradebook || gradebook.rows.length === 0 ? (
@@ -330,11 +333,11 @@ export default function BatchWorkspace({ batchId, mode }) {
                     {r.cells.map((cv, i) => (
                       <td key={gradebook.columns[i].id} className={`gb-cell gb-${cv.status}`}>
                         {cv.score == null
-                          ? (cv.status === 'submitted' ? '•' : '—')
+                          ? (cv.status === 'submitted' ? '•' : '-')
                           : (gradebook.columns[i].max ? `${cv.score}/${gradebook.columns[i].max}` : cv.score)}
                       </td>
                     ))}
-                    <td><strong>{r.avgPct != null ? `${r.avgPct}%` : '—'}</strong></td>
+                    <td><strong>{r.avgPct != null ? `${r.avgPct}%` : '-'}</strong></td>
                   </tr>
                 ))}
               </tbody>
@@ -365,422 +368,6 @@ function MemberRow({ user, kind, href, blocked, onToggleBlock, onRemove }) {
           {blocked ? 'Unblock course' : 'Block course'}
         </button>
         <button type="button" className="btn sm quiet" title="Remove from batch" onClick={onRemove}>Remove</button>
-      </div>
-    </div>
-  );
-}
-
-function AnnouncementForm({ onPost }) {
-  const [title, setTitle] = useState('');
-  const [body, setBody] = useState('');
-  return (
-    <form onSubmit={(e) => { e.preventDefault(); if (title.trim()) { onPost({ title, body }); setTitle(''); setBody(''); } }} style={{ marginBottom: 8 }}>
-      <div className="inline-form">
-        <input placeholder="Announcement title" value={title} onChange={(e) => setTitle(e.target.value)} style={{ flex: 1, minWidth: 260 }} />
-        <button className="btn sm">Post &amp; notify</button>
-      </div>
-      <input placeholder="Details (optional)" value={body} onChange={(e) => setBody(e.target.value)} style={{ width: '100%', marginTop: 8 }} className="ann-body" />
-    </form>
-  );
-}
-
-function SessionForm({ onAdd }) {
-  const [title, setTitle] = useState('');
-  const [startsAt, setStartsAt] = useState('');
-  const [joinUrl, setJoinUrl] = useState('');
-  const [zoomMeetingId, setZoomMeetingId] = useState('');
-  return (
-    <>
-      <form className="inline-form" onSubmit={(e) => { e.preventDefault(); if (title && startsAt) { onAdd({ title, startsAt: new Date(startsAt).toISOString(), joinUrl, zoomMeetingId }); setTitle(''); setStartsAt(''); setJoinUrl(''); setZoomMeetingId(''); } }}>
-        <input placeholder="Session title" value={title} onChange={(e) => setTitle(e.target.value)} />
-        <DateTimePicker value={startsAt} onChange={setStartsAt} placeholder="Starts at" />
-        <input placeholder="Zoom link (https://…)" value={joinUrl} onChange={(e) => setJoinUrl(e.target.value)} />
-        <input placeholder="Zoom meeting ID (optional)" value={zoomMeetingId} onChange={(e) => setZoomMeetingId(e.target.value)} />
-        <button className="btn sm">Add session</button>
-      </form>
-      <p className="muted" style={{ fontSize: 12, marginTop: 4 }}>Meeting ID auto-fills from a zoom.us/j/… link. For a registration link, paste the numeric Meeting ID so Zoom-join attendance can be matched.</p>
-    </>
-  );
-}
-
-// Mentor quiz author: title/type + a growing list of questions, each with
-// options and a "correct" radio.
-function QuizBuilder({ onCreate }) {
-  const [open, setOpen] = useState(false);
-  const [title, setTitle] = useState('');
-  const [type, setType] = useState('quiz');
-  const blank = () => ({ text: '', options: ['', ''], correctIndex: 0, explanation: '' });
-  const [questions, setQuestions] = useState([blank()]);
-
-  const setQ = (i, patch) => setQuestions((qs) => qs.map((q, idx) => (idx === i ? { ...q, ...patch } : q)));
-  const setOpt = (qi, oi, val) => setQ(qi, { options: questions[qi].options.map((o, idx) => (idx === oi ? val : o)) });
-  const addOption = (qi) => setQ(qi, { options: [...questions[qi].options, ''] });
-  const addQuestion = () => setQuestions((qs) => [...qs, blank()]);
-
-  function submit(e) {
-    e.preventDefault();
-    const clean = questions
-      .map((q) => ({ ...q, options: q.options.map((o) => o.trim()).filter(Boolean) }))
-      .filter((q) => q.text.trim() && q.options.length >= 2);
-    if (!title.trim() || clean.length === 0) return;
-    onCreate({ title, type, questions: clean });
-    setTitle(''); setType('quiz'); setQuestions([blank()]); setOpen(false);
-  }
-
-  if (!open) return <button className="btn sm" onClick={() => setOpen(true)}>+ New quiz / exam</button>;
-  return (
-    <form className="quiz-builder" onSubmit={submit}>
-      <div className="inline-form">
-        <input placeholder="Quiz title" value={title} onChange={(e) => setTitle(e.target.value)} />
-        <select value={type} onChange={(e) => setType(e.target.value)}><option value="quiz">Quiz</option><option value="exam">Exam</option></select>
-      </div>
-      {questions.map((q, qi) => (
-        <div key={qi} className="quiz-q">
-          <input placeholder={`Question ${qi + 1}`} value={q.text} onChange={(e) => setQ(qi, { text: e.target.value })} />
-          {q.options.map((o, oi) => (
-            <label key={oi} className="quiz-opt">
-              <input type="radio" name={`correct-${qi}`} checked={q.correctIndex === oi} onChange={() => setQ(qi, { correctIndex: oi })} />
-              <input placeholder={`Option ${oi + 1}`} value={o} onChange={(e) => setOpt(qi, oi, e.target.value)} />
-            </label>
-          ))}
-          <button type="button" className="btn sm ghost" onClick={() => addOption(qi)}>+ option</button>
-          <textarea
-            className="quiz-why-input"
-            rows={2}
-            placeholder="Explanation (optional) — shown to students after they answer"
-            value={q.explanation}
-            onChange={(e) => setQ(qi, { explanation: e.target.value })}
-          />
-        </div>
-      ))}
-      <div className="row">
-        <button type="button" className="btn sm ghost" onClick={addQuestion}>+ question</button>
-        <button className="btn sm" type="submit">Post quiz</button>
-        <button type="button" className="btn sm ghost" onClick={() => setOpen(false)}>Cancel</button>
-      </div>
-      <p className="muted" style={{ fontSize: 12 }}>Tick the radio next to the correct option. Explanations appear in the student's answer review.</p>
-    </form>
-  );
-}
-
-function QuizResults({ quizId }) {
-  const [data, setData] = useState(null);
-  const [open, setOpen] = useState(false);
-  const load = () => api(`/quizzes/${quizId}/results`).then(setData).catch(() => setData({ attempts: [] }));
-
-  // Fetch on first open only — reopening reuses what we already have.
-  function toggle() {
-    if (open) return setOpen(false);
-    setOpen(true);
-    if (!data) load();
-  }
-
-  const attempts = data?.attempts;
-  return (
-    <div className="subs">
-      <button className="btn sm ghost" onClick={toggle}>
-        {open ? 'Hide results' : 'View results'}
-      </button>
-      {open && (
-        !data ? <Loading rows={2} inline /> :
-          attempts.length === 0 ? <Empty inline icon="learning" title="Nobody has attempted this quiz yet." /> :
-            attempts.map((a) => (
-              <div key={a._id} className="grade-row">
-                <strong>{a.studentId?.fullName || a.studentId?.email}</strong>
-                <span className="badge badge-student">{a.score}/{a.total ?? data.quiz?.total}</span>
-              </div>
-            ))
-      )}
-    </div>
-  );
-}
-
-// What a mentor can demand inside the student's Drive folder. Ticking 'html'
-// also lifts the default block on HTML files for this assignment only.
-export const DRIVE_TYPES = [
-  { key: 'video', label: 'Video', hint: 'screen recording, demo' },
-  { key: 'image', label: 'Photo / screenshot', hint: 'jpg, png' },
-  { key: 'doc', label: 'Document', hint: 'PDF, Word, text file' },
-  { key: 'slides', label: 'Slide deck', hint: 'PPT, Google Slides' },
-  { key: 'html', label: 'HTML file', hint: 'blocked unless ticked' },
-];
-
-function AssignmentForm({ onAdd }) {
-  const [open, setOpen] = useState(false);
-  const [title, setTitle] = useState('');
-  const [type, setType] = useState('assignment');
-  const [description, setDescription] = useState('');
-  const [startDate, setStartDate] = useState('');
-  const [dueDate, setDueDate] = useState('');
-  const [required, setRequired] = useState(['video', 'image', 'doc']);
-  const [err, setErr] = useState('');
-
-  function reset() {
-    setTitle(''); setType('assignment'); setDescription('');
-    setStartDate(''); setDueDate(''); setRequired(['video', 'image', 'doc']);
-    setErr(''); setOpen(false);
-  }
-
-  function toggleType(key) {
-    setRequired((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
-  }
-
-  function submit(e) {
-    e.preventDefault();
-    if (!title.trim()) return;
-    if (startDate && dueDate && new Date(startDate) > new Date(dueDate)) {
-      return setErr('The start date must be before the last date for submission.');
-    }
-    onAdd({
-      title: title.trim(),
-      type,
-      description: description.trim(),
-      startDate: startDate ? new Date(startDate).toISOString() : null,
-      dueDate: dueDate ? new Date(dueDate).toISOString() : null,
-      requiredDriveTypes: required,
-    });
-    reset();
-  }
-
-  if (!open) return <button className="btn sm" onClick={() => setOpen(true)}>+ New assignment</button>;
-
-  return (
-    <form className="af" onSubmit={submit}>
-      <div className="af-top">
-        <input className="af-title" placeholder={type === 'project' ? 'Project title' : 'Assignment title'} value={title} onChange={(e) => setTitle(e.target.value)} autoFocus />
-        <div className="af-seg">
-          <button type="button" className={type === 'assignment' ? 'on' : ''} onClick={() => setType('assignment')}>Assignment</button>
-          <button type="button" className={type === 'project' ? 'on' : ''} onClick={() => setType('project')}>Project</button>
-        </div>
-      </div>
-
-      <label className="af-label">Description &amp; instructions</label>
-      <textarea
-        className="af-desc"
-        rows={6}
-        placeholder={"Explain the task clearly:\n• What students need to do\n• Deliverables to submit (link, repo, doc…)\n• How it will be graded\n\nMarkdown supported — **bold**, - lists, `code`."}
-        value={description}
-        onChange={(e) => setDescription(e.target.value)}
-      />
-
-      <label className="af-label">Required in the Drive folder</label>
-      <p className="af-hint">
-        The automated check rejects a submission whose folder is missing any ticked item.
-        Untick everything to accept any files.
-      </p>
-      <div className="af-reqs">
-        {DRIVE_TYPES.map((t) => (
-          <label key={t.key} className={`af-req ${required.includes(t.key) ? 'on' : ''}`}>
-            <input type="checkbox" checked={required.includes(t.key)} onChange={() => toggleType(t.key)} />
-            <span>
-              <strong>{t.label}</strong>
-              <span className="muted"> · {t.hint}</span>
-            </span>
-          </label>
-        ))}
-      </div>
-
-      {err && <p className="sub-check-error">{err}</p>}
-
-      <div className="af-foot">
-        <label className="af-due">
-          <span>Start date <span className="muted">(optional)</span></span>
-          <DateTimePicker value={startDate} onChange={setStartDate} placeholder="Open immediately" />
-        </label>
-        <label className="af-due">
-          <span>Last date to submit <span className="muted">(optional)</span></span>
-          <DateTimePicker value={dueDate} onChange={setDueDate} placeholder="No deadline" />
-        </label>
-        <div className="af-actions">
-          <button type="button" className="btn ghost sm" onClick={reset}>Cancel</button>
-          <button className="btn sm" disabled={!title.trim()}>Post {type}</button>
-        </div>
-      </div>
-    </form>
-  );
-}
-
-function Attendance({ session, students, onDone }) {
-  const [open, setOpen] = useState(false);
-  const [marks, setMarks] = useState({});
-  const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const modalRef = useRef(null);
-
-  // Lock the page behind the modal so scrolling stays inside it, move focus in,
-  // hand it back on close, and let Escape dismiss (unless a save is in flight).
-  useEffect(() => {
-    if (!open) return undefined;
-    const prev = document.body.style.overflow;
-    const opener = document.activeElement;
-    document.body.style.overflow = 'hidden';
-    modalRef.current?.focus();
-    const onKey = (e) => { if (e.key === 'Escape' && !saving) setOpen(false); };
-    window.addEventListener('keydown', onKey);
-    return () => {
-      document.body.style.overflow = prev;
-      window.removeEventListener('keydown', onKey);
-      if (opener instanceof HTMLElement) opener.focus();
-    };
-  }, [open, saving]);
-
-  async function openModal() {
-    setOpen(true); setLoading(true);
-    try {
-      const { records } = await api(`/attendance/session/${session._id}`);
-      const m = {};
-      (records || []).forEach((r) => { m[r.studentId] = r.status === 'present'; });
-      setMarks(m);
-    } catch { setMarks({}); }
-    finally { setLoading(false); }
-  }
-  const present = students.filter((s) => marks[s._id]).length;
-  const set = (id, val) => setMarks((m) => ({ ...m, [id]: val }));
-  const allPresent = () => setMarks(Object.fromEntries(students.map((s) => [s._id, true])));
-  const clearAll = () => setMarks({});
-
-  async function save() {
-    setSaving(true);
-    try {
-      const records = students.map((s) => ({ studentId: s._id, status: marks[s._id] ? 'present' : 'absent' }));
-      await api(`/attendance/session/${session._id}`, { method: 'POST', body: { records } });
-      setOpen(false); onDone();
-    } finally { setSaving(false); }
-  }
-
-  return (
-    <>
-      <button className="btn sm ghost" onClick={openModal}>Mark attendance</button>
-      {open && (
-        <div className="att-overlay" onClick={() => !saving && setOpen(false)}>
-          <div className="att-modal" ref={modalRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label={`Attendance — ${session.title}`} onClick={(e) => e.stopPropagation()}>
-            <div className="att-head">
-              <div>
-                <div className="att-kicker">Attendance</div>
-                <div className="att-title">{session.title}</div>
-                <div className="muted att-when">{new Date(session.startsAt).toLocaleString([], { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</div>
-              </div>
-              <button className="att-close" onClick={() => setOpen(false)} aria-label="Close">✕</button>
-            </div>
-
-            <div className="att-toolbar">
-              <div className="att-count"><strong>{present}</strong> <span className="muted">/ {students.length} present</span></div>
-              <div className="att-quick">
-                <button className="att-link" onClick={allPresent}>Mark all present</button>
-                <button className="att-link" onClick={clearAll}>Clear</button>
-              </div>
-            </div>
-
-            <div className="att-list">
-              {loading ? <div className="att-empty"><Loading rows={4} inline /></div>
-                : students.length === 0 ? <Empty inline icon="students" title="No students enrolled in this batch." hint="Add them from the roster before marking attendance." />
-                : students.map((s) => {
-                  const p = !!marks[s._id];
-                  return (
-                    <div key={s._id} className={`att-item ${p ? 'is-present' : ''}`}>
-                      <span className="att-av">{(s.fullName || s.email)[0].toUpperCase()}</span>
-                      <span className="att-name">{s.fullName || s.email}</span>
-                      <div className="att-seg">
-                        <button className={`att-segbtn ${p ? 'on-p' : ''}`} onClick={() => set(s._id, true)}>Present</button>
-                        <button className={`att-segbtn ${!p ? 'on-a' : ''}`} onClick={() => set(s._id, false)}>Absent</button>
-                      </div>
-                    </div>
-                  );
-                })}
-            </div>
-
-            <div className="att-foot">
-              <button className="btn ghost" onClick={() => setOpen(false)} disabled={saving}>Cancel</button>
-              <button className={`btn ${saving ? 'is-busy' : ''}`} onClick={save} disabled={saving || loading || students.length === 0}>{saving ? 'Saving…' : 'Save attendance'}</button>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
-  );
-}
-
-function Submissions({ assignmentId }) {
-  const [subs, setSubs] = useState(null);
-  const [open, setOpen] = useState(false);
-  const load = () => api(`/submissions/assignment/${assignmentId}`).then((d) => setSubs(d.submissions || [])).catch(() => setSubs([]));
-  async function grade(id, score, feedback) { await api(`/submissions/${id}/grade`, { method: 'PATCH', body: { score, feedback } }); load(); }
-  async function recheck(id) { await api(`/submissions/${id}/recheck`, { method: 'POST' }); load(); }
-  async function unlock(id) { await api(`/submissions/${id}/unlock`, { method: 'POST' }); load(); }
-
-  // Fetch on first open only — reopening reuses what we already have.
-  function toggle() {
-    if (open) return setOpen(false);
-    setOpen(true);
-    if (subs === null) load();
-  }
-
-  return (
-    <div className="subs">
-      <button className="btn sm ghost" onClick={toggle}>
-        {open ? 'Hide submissions' : 'View submissions'}
-      </button>
-      {open && (
-        subs === null ? <Loading rows={2} inline /> :
-          subs.length === 0 ? <Empty inline icon="grades" title="No submissions yet." hint="They appear here as students hand in their Drive folders." /> :
-            subs.map((s) => <GradeRow key={s._id} sub={s} onGrade={grade} onRecheck={recheck} onUnlock={unlock} onReload={load} />)
-      )}
-    </div>
-  );
-}
-
-function GradeRow({ sub, onGrade, onRecheck, onUnlock, onReload }) {
-  const [score, setScore] = useState(sub.score ?? '');
-  const [feedback, setFeedback] = useState(sub.feedback || '');
-  const [busy, setBusy] = useState(false);
-  const [grading, setGrading] = useState(false);
-
-  async function recheck() {
-    setBusy(true);
-    try { await onRecheck(sub._id); } finally { setBusy(false); }
-  }
-
-  // The AI review can only populate these two fields; saving stays manual.
-  function applySuggestion({ score: s, feedback: f }) {
-    setScore(String(s));
-    if (f) setFeedback(f);
-  }
-
-  // Grading writes a score — guard against a double-click posting it twice.
-  async function grade() {
-    if (grading) return;
-    setGrading(true);
-    try { await onGrade(sub._id, score, feedback); } finally { setGrading(false); }
-  }
-
-  return (
-    <div className="grade-row-stack">
-      <div className="grade-row-top">
-        <strong>{sub.studentId?.fullName || sub.studentId?.email}</strong>
-        <span className={`badge ${sub.status === 'graded' ? 'badge-student' : sub.status === 'submitted' ? 'badge-submitted' : ''}`}>{sub.status}</span>
-      </div>
-
-      {/* Drive verification — its own block, independent of the grade below. */}
-      <SubmissionCheckPanel
-        submission={{ ...sub, driveLink: sub.driveLink || sub.url }}
-        onRecheck={recheck}
-        busy={busy}
-      />
-
-      {/* Automated review. Advisory: the only thing it can do to the form
-          below is fill it in — the mentor still presses Grade. */}
-      <AiReview submission={sub} onDone={onReload} onApply={applySuggestion} />
-
-      <div className="inline-form">
-        {sub.locked && <button type="button" className="btn sm ghost" onClick={() => onUnlock(sub._id)}>Unlock</button>}
-        <label className="sr-only" htmlFor={`score-${sub._id}`}>Score</label>
-        <select id={`score-${sub._id}`} className="grade-score" value={score} onChange={(e) => setScore(e.target.value)}>
-          <option value="">Score…</option>
-          {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => <option key={n} value={n}>{n} / 10</option>)}
-        </select>
-        <label className="sr-only" htmlFor={`fb-${sub._id}`}>Feedback</label>
-        <input id={`fb-${sub._id}`} placeholder="Feedback" value={feedback} onChange={(e) => setFeedback(e.target.value)} />
-        <button className={`btn sm ${grading ? 'is-busy' : ''}`} onClick={grade} disabled={grading}>{grading ? 'Saving…' : 'Grade'}</button>
       </div>
     </div>
   );
