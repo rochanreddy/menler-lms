@@ -42,7 +42,7 @@ function FileViewer({ label, subtitle, url, onClose, allowNewTab = false }) {
   // the dock paint over the reader no matter how high its z-index went.
   return createPortal(
     <div className="fv-overlay" onClick={onClose}>
-      <div className="fv" ref={panelRef} tabIndex={-1} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={`${label} — ${subtitle}`}>
+      <div className="fv" ref={panelRef} tabIndex={-1} onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={`${label}, ${subtitle}`}>
         <div className="fv-head">
           <div className="fv-head-copy">
             <div className="fv-kicker">{label}</div>
@@ -55,10 +55,10 @@ function FileViewer({ label, subtitle, url, onClose, allowNewTab = false }) {
         </div>
         {isPdf
           ? <PdfReader url={url} />
-          : <iframe className="fv-frame" src={src} title={`${label} — ${subtitle}`} />}
+          : <iframe className="fv-frame" src={src} title={`${label}, ${subtitle}`} />}
         {isOffice && isLocal && (
           <div className="fv-note">
-            This deck is on a local address, which Microsoft's viewer can't reach — put it on a
+            This deck is on a local address, which Microsoft's viewer can't reach. Put it on a
             public URL to preview it here, or use “Open in new tab”.
           </div>
         )}
