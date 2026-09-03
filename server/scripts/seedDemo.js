@@ -3,7 +3,6 @@
 // attempts. Idempotent — it clears its own demo data first, then recreates.
 //   npm run seed:demo
 import 'dotenv/config';
-import bcrypt from 'bcryptjs';
 import { connectDb } from '../db.js';
 import { User } from '../models/User.js';
 import { Program } from '../models/Program.js';
@@ -14,6 +13,7 @@ import { Quiz } from '../models/Quiz.js';
 import { QuizAttempt } from '../models/QuizAttempt.js';
 import { Message } from '../models/Message.js';
 import { Doubt } from '../models/Doubt.js';
+import { hashPassword } from '../utils/password.js';
 
 const DEMO_DOMAIN = '@demo.menler.in';
 const STUDENTS = [
@@ -28,7 +28,7 @@ async function run() {
   // ── Clear previous demo data ──
   const oldStudents = await User.find({ email: { $regex: `${DEMO_DOMAIN}$` } }).select('_id');
   const oldStudentIds = oldStudents.map((s) => s._id);
-  const oldBatches = await Batch.find({ name: /Demo —/ }).select('_id');
+  const oldBatches = await Batch.find({ name: /^Demo[^A-Za-z0-9]+/ }).select('_id');
   const oldBatchIds = oldBatches.map((b) => b._id);
   const oldSessions = await Session.find({ batchId: { $in: oldBatchIds } }).select('_id');
   const oldQuizzes = await Quiz.find({ batchId: { $in: oldBatchIds } }).select('_id');
@@ -46,9 +46,9 @@ async function run() {
   const mentorPass = 'mentor123';
   let mentor = await User.findOne({ email: 'mentor@menler.in' });
   if (!mentor) {
-    mentor = await User.create({ email: 'mentor@menler.in', fullName: 'Rahul Verma', role: 'mentor', emailVerified: true, passwordHash: await bcrypt.hash(mentorPass, 12) });
+    mentor = await User.create({ email: 'mentor@menler.in', fullName: 'Rahul Verma', role: 'mentor', emailVerified: true, passwordHash: await hashPassword(mentorPass) });
   } else {
-    mentor.passwordHash = await bcrypt.hash(mentorPass, 12); mentor.batchIds = []; await mentor.save();
+    mentor.passwordHash = await hashPassword(mentorPass); mentor.batchIds = []; await mentor.save();
   }
   console.log(`✓ mentor: mentor@menler.in / ${mentorPass}`);
 
@@ -57,15 +57,15 @@ async function run() {
   if (!program) program = await Program.create({ title: 'Kickstarter', type: 'cohort', published: true });
 
   // ── Batches: Jul + Jun cohorts ──
-  const julBatch = await Batch.create({ programId: program._id, name: 'Demo — Kickstarter · Jul 2026', status: 'ongoing', mentorIds: [mentor._id] });
-  const junBatch = await Batch.create({ programId: program._id, name: 'Demo — Kickstarter · Jun 2026', status: 'past', mentorIds: [mentor._id] });
+  const julBatch = await Batch.create({ programId: program._id, name: 'Demo: Kickstarter · Jul 2026', status: 'ongoing', mentorIds: [mentor._id] });
+  const junBatch = await Batch.create({ programId: program._id, name: 'Demo: Kickstarter · Jun 2026', status: 'past', mentorIds: [mentor._id] });
   mentor.batchIds = [julBatch._id, junBatch._id];
   await mentor.save();
   console.log('✓ batches: Jul 2026 (ongoing), Jun 2026 (past)');
 
   // ── Students, split across the two batches ──
   const studPass = 'student123';
-  const hash = await bcrypt.hash(studPass, 12);
+  const hash = await hashPassword(studPass);
   const students = [];
   for (let i = 0; i < STUDENTS.length; i += 1) {
     const [name, handle] = STUDENTS[i];
@@ -74,7 +74,7 @@ async function run() {
     await Batch.findByIdAndUpdate(batch._id, { $addToSet: { studentIds: u._id } });
     students.push({ u, batch });
   }
-  console.log(`✓ ${students.length} students (password: ${studPass}) — e.g. aarav${DEMO_DOMAIN}`);
+  console.log(`✓ ${students.length} students (password: ${studPass}), e.g. aarav${DEMO_DOMAIN}`);
 
   // ── Sessions with Zoom links (Jul batch) ──
   const zoom = 'https://us02web.zoom.us/j/8451234567?pwd=demo';
@@ -123,7 +123,7 @@ async function run() {
     batchId: julBatch._id, authorId: a._id,
     text: 'How is a prompt different from fine-tuning?',
     likes: [b._id, c._id],
-    comments: [{ authorId: mentor._id, text: 'Great question — a prompt is input at run-time; fine-tuning changes the model weights.' }],
+    comments: [{ authorId: mentor._id, text: 'Great question, a prompt is input at run-time; fine-tuning changes the model weights.' }],
   });
   console.log('✓ forum: chat messages + a doubt with a comment');
 
