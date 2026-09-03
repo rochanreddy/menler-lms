@@ -55,11 +55,17 @@ async function getUser(req) {
   const now = Date.now();
   const readOnly = req.method === 'GET';
 
+  // A token's tokenVersion claim is fixed at sign time; the user's current
+  // value moves the moment their password is reset. Missing claim/field both
+  // read as 0, so tokens already out there when this shipped keep working
+  // until an actual reset happens — not a forced mass-logout on deploy.
+  const sameVersion = (user) => (user && (payload.tokenVersion ?? 0) === (user.tokenVersion ?? 0) ? user : null);
+
   if (readOnly) {
     const hit = cache.get(id);
-    if (hit && hit.expires > now) return hit.user;
+    if (hit && hit.expires > now) return sameVersion(hit.user);
     const inFlight = pending.get(id);
-    if (inFlight) return inFlight; // a sibling request is already fetching this user
+    if (inFlight) return inFlight.then(sameVersion); // a sibling request is already fetching this user
   }
 
   const query = User.findById(id)
@@ -74,7 +80,7 @@ async function getUser(req) {
 
   // Writes never share a document: each gets its own instance to mutate.
   if (readOnly) pending.set(id, query);
-  return query;
+  return query.then(sameVersion);
 }
 
 // Only re-stamp lastActiveAt this often — otherwise every request is a write.
@@ -123,7 +129,7 @@ export async function requireAuth(req, res, next) {
 export function requireRole(...roles) {
   return (req, res, next) => {
     if (!req.user || !roles.includes(req.user.role)) {
-      return res.status(403).json({ error: 'Forbidden — insufficient role.' });
+      return res.status(403).json({ error: 'Forbidden: insufficient role.' });
     }
     next();
   };
