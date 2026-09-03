@@ -39,7 +39,7 @@ export default function Library() {
         <div>
           <div className="eyebrow">Library</div>
           <h1>Resources</h1>
-          <p>Slides, eBooks and notes — everything to go deeper.</p>
+          <p>Slides, eBooks and notes. Everything to go deeper.</p>
         </div>
       </div>
 
@@ -58,7 +58,7 @@ export default function Library() {
         </form>
       )}
 
-      <div className="tabs" style={{ marginTop: 18 }}>
+      <div className="tabs" style={{ marginTop: 'var(--space-5)' }}>
         {['All', ...CATEGORIES].map((c) => (
           <button key={c} className={`tab ${filter === c ? 'active' : ''}`} onClick={() => setFilter(c)}>{c}</button>
         ))}
