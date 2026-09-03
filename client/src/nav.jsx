@@ -6,10 +6,18 @@ import Placeholder from './components/Placeholder.jsx';
 // on navigation rather than at first paint. AppShell wraps the Outlet in a
 // Suspense boundary that shows a fallback while a chunk arrives.
 const Profile = lazy(() => import('./pages/Profile.jsx'));
-const Learning = lazy(() => import('./pages/Learning.jsx'));
+// Named separately from the lazy() wrapper so it can also be called directly
+// as a prefetch, on hover/focus of the nav item or ahead of a submission —
+// the module registry dedupes, so the later real navigation just resolves
+// from cache.
+export const loadLearning = () => import('./pages/Learning.jsx');
+const Learning = lazy(loadLearning);
 const ProgramsManage = lazy(() => import('./pages/ProgramsManage.jsx'));
 const StudentHome = lazy(() => import('./pages/StudentHome.jsx'));
-const StudentGrades = lazy(() => import('./pages/StudentGrades.jsx'));
+// Same trick for Grades: checking your score is what a student does straight
+// after submitting, so Learning kicks this off while the Drive check runs.
+export const loadStudentGrades = () => import('./pages/StudentGrades.jsx');
+const StudentGrades = lazy(loadStudentGrades);
 const AdminBatches = lazy(() => import('./pages/admin/Batches.jsx'));
 const AdminMentors = lazy(() => import('./pages/admin/Mentors.jsx'));
 const MentorBatches = lazy(() => import('./pages/mentor/Batches.jsx'));
