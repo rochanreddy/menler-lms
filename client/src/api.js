@@ -83,9 +83,13 @@ function refreshAccessToken() {
 async function send(path, method, body) {
   let lastErr;
   // Retry transient NETWORK failures (connection reset before the request lands —
-  // common on localhost). HTTP error responses are NOT retried. All our writes
-  // are idempotent, so a retry is safe.
-  for (let attempt = 0; attempt < 3; attempt += 1) {
+  // common on localhost). HTTP error responses are NOT retried. Only GET is
+  // retried: a write can fail on the network AFTER the server has already
+  // processed it, and several of ours aren't safe to repeat blind (a doubts
+  // post, a like toggle, a one-shot quiz attempt) — a failing write surfaces
+  // to the caller instead, which already handles that.
+  const attempts = method === 'GET' ? 3 : 1;
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
     try {
       const res = await fetch(`${API}${path}`, {
         method,
@@ -172,6 +176,28 @@ export async function openStoredFile(path) {
   setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
+
+// ── VdoCipher lesson videos, per batch ──────────────────────────────────────
+// Videos are uploaded in VdoCipher's own dashboard; here they are only listed,
+// attached to a lesson for one batch, and played back through a short-lived OTP.
+
+/** The VdoCipher library (staff only) — for the "pick a video" dialog. */
+export const listVdoCipherVideos = (q = '', page = 1) =>
+  api(`/lesson-videos/library?q=${encodeURIComponent(q)}&page=${page}`);
+
+/** Lesson→video mappings for one batch, or across the viewer's own batches. */
+export const getLessonVideos = (batchId) =>
+  api(`/lesson-videos${batchId ? `?batchId=${batchId}` : ''}`);
+
+export const setLessonVideo = (batchId, topicId, videoId, title) =>
+  api(`/lesson-videos/${batchId}/${topicId}`, { method: 'PUT', body: { videoId, title } });
+
+export const clearLessonVideo = (batchId, topicId) =>
+  api(`/lesson-videos/${batchId}/${topicId}`, { method: 'DELETE' });
+
+/** Short-lived OTP + playbackInfo for the DRM player iframe. */
+export const getLessonVideoOtp = (batchId, topicId) =>
+  api(`/lesson-videos/${batchId}/${topicId}/otp`);
 
 // Download an authenticated file (CSV reports) and trigger a browser save.
 export async function downloadFile(path, fallbackName = 'report.csv') {
