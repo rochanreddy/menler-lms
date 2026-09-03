@@ -27,7 +27,7 @@ export default function Profile() {
     setResumeFileName(file.name);
     setUploading(true);
     setMsg('');
-    try { const { url } = await uploadFile(file); set('resumeUrl', url); setMsg('Uploaded ✓ — click Save changes'); }
+    try { const { url } = await uploadFile(file); set('resumeUrl', url); setMsg('Uploaded ✓, click Save changes'); }
     catch (e2) { setMsg(e2.message); }
     finally { setUploading(false); }
   }
@@ -73,7 +73,7 @@ export default function Profile() {
         <div>
           <div className="eyebrow">Account</div>
           <h1>Profile</h1>
-          <p>Keep your details current — mentors and certificates use them.</p>
+          <p>Keep your details current. Mentors and certificates use them.</p>
         </div>
       </div>
 
@@ -210,7 +210,7 @@ function ChangePassword() {
         <label>Current password<input type="password" value={cur} onChange={(e) => setCur(e.target.value)} required /></label>
         <label>New password (min 8 characters)<input type="password" value={next} onChange={(e) => setNext(e.target.value)} minLength={8} required /></label>
       </div>
-      <div className="row" style={{ marginTop: 18 }}>
+      <div className="row" style={{ marginTop: 'var(--space-5)' }}>
         <button className={`btn ${busy ? 'is-busy' : ''}`} disabled={busy}>{busy ? 'Updating…' : 'Update password'}</button>
         {msg && <span className="muted">{msg}</span>}
       </div>

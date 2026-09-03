@@ -14,7 +14,7 @@ export default function StudentGrades() {
   }, []);
 
   const scoreCell = (r) => {
-    if (r.status !== 'graded' || r.score == null) return <span className="muted">{r.status === 'submitted' ? 'Awaiting grade' : '—'}</span>;
+    if (r.status !== 'graded' || r.score == null) return <span className="muted">{r.status === 'submitted' ? 'Awaiting grade' : '-'}</span>;
     if (r.max) return <strong>{r.score}/{r.max} · {Math.round((r.score / r.max) * 100)}%</strong>;
     return <strong>{r.score}</strong>;
   };
@@ -30,7 +30,7 @@ export default function StudentGrades() {
       </div>
 
       <div className="tiles" style={{ marginBottom: 22 }}>
-        <div className="tile"><div className="tile-value">{summary.avgPct != null ? `${summary.avgPct}%` : '—'}</div><div className="tile-label">Average score</div></div>
+        <div className="tile"><div className="tile-value">{summary.avgPct != null ? `${summary.avgPct}%` : '-'}</div><div className="tile-label">Average score</div></div>
         <div className="tile"><div className="tile-value">{summary.graded}/{summary.total}</div><div className="tile-label">Graded</div></div>
       </div>
 
@@ -48,7 +48,7 @@ export default function StudentGrades() {
                     <td><span className={`gt-kind gt-${r.kind.toLowerCase()}`}>{r.kind}</span></td>
                     <td><span className={`gt-status gt-${r.status}`}>{r.status}</span></td>
                     <td>{scoreCell(r)}</td>
-                    <td className="muted">{r.feedback || '—'}</td>
+                    <td className="muted">{r.feedback || '-'}</td>
                   </tr>
                 ))}
               </tbody>
