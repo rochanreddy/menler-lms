@@ -25,7 +25,7 @@ router.get('/overview', requireAuth, requireRole('admin'), async (_req, res) => 
     Quiz.countDocuments(),
   ]);
   const batchDocs = await Batch.find().select('name studentIds').sort({ createdAt: -1 });
-  const perBatch = batchDocs.map((b) => ({ name: b.name.replace(/^Demo — /, ''), count: b.studentIds.length }));
+  const perBatch = batchDocs.map((b) => ({ name: b.name.replace(/^Demo[^A-Za-z0-9]+/, ''), count: b.studentIds.length }));
   res.json({ stats: { students, mentors, batches, programs, quizzes }, perBatch });
 });
 
@@ -78,7 +78,7 @@ router.get('/admin-dashboard', requireAuth, requireRole('admin'), async (_req, r
     // the "Demo — " prefix collapses "Demo — Kickstarter · Jul 2026" and
     // "Kickstarter · Jul 2026" onto the same string, and the chart that keyed on
     // it was quietly rendering one bar instead of two.
-    perBatch: batchDocs.map((b) => ({ id: String(b._id), name: b.name.replace(/^Demo — /, ''), count: b.studentIds.length })),
+    perBatch: batchDocs.map((b) => ({ id: String(b._id), name: b.name.replace(/^Demo[^A-Za-z0-9]+/, ''), count: b.studentIds.length })),
     signups,
   });
 });
@@ -233,7 +233,7 @@ router.get('/at-risk', requireAuth, requireRole('mentor', 'admin'), async (req, 
         id: sid,
         name: u.fullName || u.email,
         email: u.email,
-        batch: { id: bid, name: b.name.replace(/^Demo — /, '') },
+        batch: { id: bid, name: b.name.replace(/^Demo[^A-Za-z0-9]+/, '') },
         level,
         score,
         reasons,
