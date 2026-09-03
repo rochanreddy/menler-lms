@@ -46,9 +46,20 @@ router.post('/heartbeat', requireAuth, async (req, res) => {
   return res.status(409).json(busyBody(await currentLease(req.user._id)));
 });
 
+/**
+ * A closing tab releases the lock with navigator.sendBeacon, which cannot set
+ * an Authorization header — so on this route only, a token in the body counts
+ * as one. It is the same Bearer token requireAuth would have read from the
+ * header and is verified identically; nothing here trusts the body itself.
+ */
+function beaconAuth(req, _res, next) {
+  if (!req.headers.authorization && req.body?.token) req.headers.authorization = `Bearer ${req.body.token}`;
+  next();
+}
+
 // POST /api/lms/playback/release — scoped to this session's own lease, so a
 // device that has already lost the lock cannot release the winner's.
-router.post('/release', requireAuth, async (req, res) => {
+router.post('/release', beaconAuth, requireAuth, async (req, res) => {
   await releaseLease(req.user._id, holderSid(req));
   res.json({ ok: true });
 });
