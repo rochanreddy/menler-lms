@@ -1,11 +1,17 @@
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
-import { navFor } from '../nav.jsx';
+import { navFor, loadLearning, loadStudentGrades } from '../nav.jsx';
 import Icon from './Icon.jsx';
 import NotificationBell from './NotificationBell.jsx';
 import MenlerWordmark from './MenlerWordmark.jsx';
 import CommandPalette from './CommandPalette.jsx';
 import UserMenu from './UserMenu.jsx';
+import ErrorBoundary from './ErrorBoundary.jsx';
+
+// Dock items whose chunk is worth fetching on hover/focus rather than on click.
+// Only the two a student lands on constantly — prefetching every tab would just
+// re-download the whole app on the first mouse sweep across the dock.
+const PREFETCH = { learning: loadLearning, grades: loadStudentGrades };
 
 // Show the right modifier in the shortcut hint rather than always "⌘".
 const isMac = typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.platform || navigator.userAgent || '');
@@ -47,6 +53,11 @@ export default function AppShell({ user, setUser, logout }) {
     return () => { document.body.style.overflow = ''; };
   }, [cmdOpen]);
 
+  // Otherwise a new object every render (command palette toggles, the scroll
+  // "stuck" flag) re-renders every one of the ten useOutletContext() readers
+  // below, even though only user/logout ever actually change.
+  const outletContext = useMemo(() => ({ user, setUser, logout }), [user, logout]);
+
   return (
     <div className="app">
       <header className={`topbar ${stuck ? 'stuck' : ''}`}>
@@ -72,9 +83,11 @@ export default function AppShell({ user, setUser, logout }) {
       {/* keyed on the route so each page fades in — movement between sections
           reads as a change of place rather than a flicker. */}
       <main className="main page-enter" key={location.pathname}>
-        <Suspense fallback={<div className="route-loading"><div className="skeleton-stack"><div className="skeleton-row tall" /><div className="skeleton-row" /><div className="skeleton-row" /></div></div>}>
-          <Outlet context={{ user, setUser, logout }} />
-        </Suspense>
+        <ErrorBoundary>
+          <Suspense fallback={<div className="route-loading"><div className="skeleton-stack"><div className="skeleton-row tall" /><div className="skeleton-row" /><div className="skeleton-row" /></div></div>}>
+            <Outlet context={outletContext} />
+          </Suspense>
+        </ErrorBoundary>
       </main>
 
       {/* The dock. Icons always; only the active item expands to show its
@@ -89,6 +102,9 @@ export default function AppShell({ user, setUser, logout }) {
             className={({ isActive }) => `dock-item ${isActive ? 'on' : ''}`}
             title={t.label}
             aria-label={t.label}
+            // Start fetching the chunk on hover/focus so the click resolves
+            // from cache instead of waiting on the network.
+            {...(PREFETCH[t.path] ? { onMouseEnter: PREFETCH[t.path], onFocus: PREFETCH[t.path] } : {})}
           >
             <Icon name={t.label} />
             <span className="dock-label">{t.label}</span>
