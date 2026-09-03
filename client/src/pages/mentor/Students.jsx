@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { api } from '../../api.js';
 import Empty from '../../components/Empty.jsx';
 
-const fmtDate = (d) => (d ? new Date(d).toLocaleDateString([], { day: 'numeric', month: 'short' }) : '—');
+const fmtDate = (d) => (d ? new Date(d).toLocaleDateString([], { day: 'numeric', month: 'short' }) : '-');
 
 // Mentor: every student across the batches they run — read-only monitoring.
 // Open one to see their full progress, submissions, quizzes, and download the
@@ -52,7 +52,7 @@ export default function MentorStudents() {
         {shown.map((s) => (
           <div className="panel list-row row-click" key={s.id} onClick={() => navigate(`/app/students/${s.id}`)}>
             <div>
-              <strong>{s.full_name || '—'}</strong>
+              <strong>{s.full_name || '-'}</strong>
               <div className="muted">{s.email} · {s.batches.join(', ') || 'no batch'} · last active {fmtDate(s.last_active_at)}</div>
             </div>
             <Link className="btn sm" to={`/app/students/${s.id}`}>Open</Link>
