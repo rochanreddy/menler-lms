@@ -16,7 +16,6 @@
 //   2. Randomness is seeded, so two runs produce the same world. A bug you see
 //      is a bug you can reproduce.
 import 'dotenv/config';
-import bcrypt from 'bcryptjs';
 import mongoose from 'mongoose';
 import { connectDb } from '../db.js';
 import { User } from '../models/User.js';
@@ -33,6 +32,13 @@ import { Announcement } from '../models/Announcement.js';
 import { Doubt } from '../models/Doubt.js';
 import { LibraryItem } from '../models/LibraryItem.js';
 import { Notification } from '../models/Notification.js';
+import { hashPassword } from '../utils/password.js';
+import {
+  kickstarterModules,
+  generalistModules,
+  KICKSTARTER_DESCRIPTION,
+  GENERALIST_DESCRIPTION,
+} from './curricula.js';
 
 // ── Knobs ────────────────────────────────────────────────────────────────────
 const PASSWORD = process.env.LMS_SEED_TEST_PASSWORD || 'Test@1234';
@@ -43,6 +49,8 @@ const ADMIN_PASSWORD = process.env.LMS_SEED_PASSWORD || 'ChangeMe123!';
 // itself and cannot reach localhost, so a local path would render as a dead
 // frame in exactly the flow we are trying to test.
 const PDF = 'https://menler.in/pdfs/Menler_AI_Kickstarter_Curriculum.pdf';
+const RECORDING = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ';
+const LIVE_ROOM = 'https://zoom.us/j/98765432101';
 const DRIVE = (n) => `https://drive.google.com/drive/folders/1mEnLeRtEsT${String(n).padStart(4, '0')}`;
 
 const DAY = 86400000;
@@ -97,90 +105,61 @@ const STUDENTS = [
 const emailFor = (name) => `${name.toLowerCase().replace(/[^a-z]+/g, '.')}@student.menler.in`;
 
 // ── Curriculum ───────────────────────────────────────────────────────────────
-// Two genuinely different trees, so a mentor teaching both can tell them apart
-// and so "the wrong programme's lessons leaked in" is a visible bug.
-const KICKSTARTER = [
-  ['S01 · AI Foundations & Claude OS', [
-    ['The AI landscape', ['What an LLM actually is', 'Tokens, context windows and cost', 'Hallucinations: cause, detection, mitigation']],
-    ['Claude OS', ['Chat, Cowork and Code — picking the interface', 'Projects and persistent context', 'Artifacts as deliverables']],
-  ]],
-  ['S02 · Prompting That Holds Up', [
-    ['The CLEAR framework', ['Context, Length, Examples, Audience, Result', 'Role prompting — when it helps and when it lies', 'Constraints as quality levers']],
-    ['Chaining', ['Decomposing a task into steps', 'Passing state between prompts', 'Knowing when to stop iterating']],
-  ]],
-  ['S03 · Building With Automation', [
-    ['Workflow design', ['Mapping a manual process before automating it', 'Trigger, transform, deliver', 'Failure modes and human checkpoints']],
-    ['Tooling', ['Connecting Claude to a spreadsheet', 'Scheduling and recurrence', 'Logging so you can debug tomorrow']],
-  ]],
-  ['S04 · Shipping a Portfolio', [
-    ['The portfolio piece', ['Choosing a problem worth showing', 'Writing the case study', 'Recording a two-minute walkthrough']],
-    ['Going public', ['Packaging for a non-technical reader', 'Handling questions about AI use', 'What to build next']],
-  ]],
-];
-const GENERALIST = [
-  ['G01 · Thinking In Systems', [
-    ['Problem framing', ['Symptom versus cause', 'Drawing the loop', 'Where leverage actually sits']],
-    ['Evidence', ['Reading a study without being fooled', 'Base rates', 'Steelmanning the other side']],
-  ]],
-  ['G02 · Communicating For Decisions', [
-    ['Writing', ['The one-page memo', 'Leading with the recommendation', 'Cutting by half without losing meaning']],
-    ['Speaking', ['Structuring five minutes', 'Handling the hostile question', 'Reading the room']],
-  ]],
-  ['G03 · Working With Data', [
-    ['Getting to a number', ['Fermi estimation', 'Sanity checks that catch real errors', 'When precision is theatre']],
-    ['Showing a number', ['Choosing the chart', 'Honest axes', 'The caption does the work']],
-  ]],
-  ['G04 · Operating', [
-    ['Projects', ['Scoping so it can ship', 'Status without noise', 'Closing properly']],
-    ['People', ['Feedback that changes behaviour', 'Running a meeting worth attending', 'Saying no']],
-  ]],
-];
-
-function buildModules(spec, tag) {
-  return spec.map(([title, chapters], mi) => ({
-    title,
-    order: mi,
-    chapters: chapters.map(([cTitle, topics], ci) => ({
-      title: cTitle,
-      order: ci,
-      topics: topics.map((tTitle, ti) => ({
-        title: tTitle,
-        contentType: 'text',
-        body: `## ${tTitle}\n\nThis lesson belongs to **${title}** in the ${tag} programme.\n\n- Read the handout before class.\n- Bring one example from your own work.\n- The teacher notes cover the questions that come up most often.\n\n> Seeded lesson body — real copy replaces this when the curriculum is authored.`,
+// The real Kickstarter and Generalist trees, read from curricula.js — the same
+// source seed:content authors from. This script must never carry lesson copy of
+// its own: a fixture that invents a curriculum is how the placeholder lessons
+// used to end up in front of students.
+//
+// What the fixture adds on top is the per-lesson media the lesson UI needs.
+function withLessonMedia(modules) {
+  const lastLive = Math.min(2, modules.length - 1);
+  return modules.map((m, mi) => ({
+    ...m,
+    chapters: m.chapters.map((ch) => ({
+      ...ch,
+      topics: ch.topics.map((t) => ({
+        ...t,
         // Every lesson carries both PDFs, so the reading/notes viewers are
         // always exercisable rather than falling through to the placeholder.
         readingUrl: PDF,
         notesUrl: PDF,
-        // Past lectures point at a recording, the current one at a live room,
-        // future ones at nothing — the three-state case the lesson UI handles.
-        classLink: mi < 2 ? 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' : (mi === 2 ? 'https://zoom.us/j/98765432101' : ''),
-        order: ti,
+        // Past lectures point at a recording, the current module at a live
+        // room, later ones at nothing — the three-state case the lesson UI
+        // handles.
+        classLink: mi < lastLive ? RECORDING : (mi === lastLive ? LIVE_ROOM : ''),
       })),
     })),
   }));
 }
 
+// Module titles are prefixed with their code ("S01 · …", "WEEK 3 · …"). Session
+// names want the human half, and the portfolio module has no prefix at all.
+const moduleLabel = (title) => {
+  const i = title.indexOf('·');
+  return (i === -1 ? title : title.slice(i + 1)).trim();
+};
+
 // ── Assignments / quizzes per batch ──────────────────────────────────────────
 // Dates are relative to today so the cohort is genuinely mid-flight: two closed,
 // one open and overdue, one project running, one just opened, one not yet started.
 const ASSIGNMENT_SPECS = [
-  { key: 'a1', type: 'assignment', title: 'AI Audit — where does it already touch your work?', start: -52, due: -45, required: ['image', 'doc'] },
+  { key: 'a1', type: 'assignment', title: 'AI Audit, where does it already touch your work?', start: -52, due: -45, required: ['image', 'doc'] },
   { key: 'a2', type: 'assignment', title: 'Prompt rewrite battle', start: -38, due: -31, required: ['doc'] },
   { key: 'a3', type: 'assignment', title: 'Automate one weekly chore', start: -24, due: -3, required: ['video', 'image', 'doc'] },
-  { key: 'p1', type: 'project', title: 'Portfolio project — the case study', start: -20, due: 9, required: ['video', 'image', 'doc'] },
-  { key: 'a4', type: 'assignment', title: 'Peer review — read two case studies', start: -2, due: 12, required: ['doc'] },
-  { key: 'p2', type: 'project', title: 'Capstone — ship it to a real user', start: 14, due: 34, required: ['video', 'doc', 'slides'] },
+  { key: 'p1', type: 'project', title: 'Portfolio project, the case study', start: -20, due: 9, required: ['video', 'image', 'doc'] },
+  { key: 'a4', type: 'assignment', title: 'Peer review, read two case studies', start: -2, due: 12, required: ['doc'] },
+  { key: 'p2', type: 'project', title: 'Capstone, ship it to a real user', start: 14, due: 34, required: ['video', 'doc', 'slides'] },
 ];
 
 const QUIZ_SPECS = [
-  { title: 'Checkpoint 1 — foundations', type: 'quiz', qs: [
-    ['A context window is…', ['How long the model has existed', 'How much text the model can consider at once', 'The model’s training cutoff', 'A rate limit'], 1, 'It is the working memory for a single request — everything the model can see at that moment.'],
+  { title: 'Checkpoint 1, foundations', type: 'quiz', qs: [
+    ['A context window is…', ['How long the model has existed', 'How much text the model can consider at once', 'The model’s training cutoff', 'A rate limit'], 1, 'It is the working memory for a single request, everything the model can see at that moment.'],
     ['Hallucinations are best described as…', ['Deliberate lies', 'Confident output unsupported by fact', 'Encoding errors', 'A rate-limit symptom'], 1, 'The model optimises for plausible continuation, not truth, so wrongness arrives fluent.'],
     ['Which of these does an LLM NOT have by default?', ['A tokeniser', 'Weights', 'Live access to today’s news', 'A context window'], 2, 'Without a tool or retrieval step it only knows what it was trained on.'],
     ['Chain prompting mainly helps because…', ['It is cheaper', 'It splits a task into checkable steps', 'It avoids rate limits', 'It removes the need for context'], 1, 'Each step can be inspected before the next one compounds the error.'],
   ] },
-  { title: 'Checkpoint 2 — prompting', type: 'quiz', qs: [
-    ['The C in CLEAR stands for…', ['Clarity', 'Context', 'Constraint', 'Correction'], 1, 'Context first — the model cannot infer what you never said.'],
+  { title: 'Checkpoint 2, prompting', type: 'quiz', qs: [
+    ['The C in CLEAR stands for…', ['Clarity', 'Context', 'Constraint', 'Correction'], 1, 'Context first, the model cannot infer what you never said.'],
     ['Role prompting is least useful when…', ['The task needs a voice', 'The task is factual retrieval', 'You want a specific tone', 'You need a persona'], 1, 'A persona does not make a fact true; it makes a wrong fact sound authoritative.'],
     ['A good constraint is…', ['"Be creative"', '"Under 120 words, three bullets"', '"Do your best"', '"Make it pop"'], 1, 'Countable constraints are the ones the model can satisfy and you can check.'],
   ] },
@@ -194,9 +173,9 @@ const QUIZ_SPECS = [
 ];
 
 const FEEDBACK = {
-  high: ['Genuinely strong — the walkthrough is clear and the reasoning holds.', 'Excellent. You showed the failure case as well as the happy path, which most people skip.', 'Very good work. The write-up would stand up in front of a client.'],
+  high: ['Genuinely strong, the walkthrough is clear and the reasoning holds.', 'Excellent. You showed the failure case as well as the happy path, which most people skip.', 'Very good work. The write-up would stand up in front of a client.'],
   mid: ['Solid submission. The idea is right; tighten the write-up and it lands.', 'Good, though the screenshots do not quite show the claim you are making.', 'Decent. Next time state the before-and-after explicitly.'],
-  low: ['Incomplete — the deliverable is here but the reasoning is not shown.', 'This needs another pass. Read the brief again, particularly the deliverables list.', 'Thin. You have the tool working but have not explained what it changed.'],
+  low: ['Incomplete, the deliverable is here but the reasoning is not shown.', 'This needs another pass. Read the brief again, particularly the deliverables list.', 'Thin. You have the tool working but have not explained what it changed.'],
 };
 const pickFeedback = (score) => pick(score >= 8 ? FEEDBACK.high : score >= 6 ? FEEDBACK.mid : FEEDBACK.low);
 
@@ -209,7 +188,7 @@ const FILES = {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 async function upsertUser({ email, fullName, role }) {
-  const passwordHash = await bcrypt.hash(PASSWORD, 12);
+  const passwordHash = await hashPassword(PASSWORD);
   const existing = await User.findOne({ email });
   if (existing) {
     // Reset only what the fixture owns. Never touch the document's identity and
@@ -231,7 +210,7 @@ async function upsertUser({ email, fullName, role }) {
   });
 }
 
-async function upsertProgram(title, spec, description) {
+async function upsertProgram(title, buildModules, description) {
   let p = await Program.findOne({ title });
   if (!p) p = new Program({ title });
   p.type = 'cohort';
@@ -239,13 +218,13 @@ async function upsertProgram(title, spec, description) {
   p.published = true;
 
   // NEVER clobber an authored curriculum. This used to assign p.modules
-  // unconditionally, which silently replaced the real 53-lesson Kickstarter tree
-  // (seeded by seed:content) with placeholder lessons. A fixture may fill an
-  // empty programme; it may not overwrite real content. Pass FORCE_CURRICULUM=1
-  // to deliberately reset a programme back to the placeholder tree.
+  // unconditionally, which silently replaced the real Kickstarter tree (seeded
+  // by seed:content) with placeholder lessons. A fixture may fill an empty
+  // programme; it may not overwrite content someone has edited since. Pass
+  // FORCE_CURRICULUM=1 to reset a programme back to the PDF curriculum.
   const existing = (p.modules || []).reduce((n, m) => n + (m.chapters || []).reduce((c, ch) => c + (ch.topics || []).length, 0), 0);
   if (existing === 0 || process.env.FORCE_CURRICULUM === '1') {
-    p.modules = buildModules(spec, title);
+    p.modules = withLessonMedia(buildModules());
     p.description = description;
     await p.save();
     return { doc: p, authored: false };
@@ -266,7 +245,7 @@ async function run() {
   if (!admin) {
     admin = await User.create({
       email: ADMIN_EMAIL, fullName: 'Menler Admin', role: 'admin', emailVerified: true,
-      passwordHash: await bcrypt.hash(ADMIN_PASSWORD, 12),
+      passwordHash: await hashPassword(ADMIN_PASSWORD),
     });
     console.log(`✓ admin created   ${ADMIN_EMAIL} / ${ADMIN_PASSWORD}`);
   } else {
@@ -274,12 +253,12 @@ async function run() {
   }
 
   // ── Programmes ──
-  const kickR = await upsertProgram('Kickstarter', KICKSTARTER, 'Menler AI Kickstarter — four sessions, hands-on, portfolio-first.');
-  const genR = await upsertProgram('Generalist', GENERALIST, 'Menler Generalist — systems thinking, communication, data and operating.');
+  const kickR = await upsertProgram('Kickstarter', kickstarterModules, KICKSTARTER_DESCRIPTION);
+  const genR = await upsertProgram('Generalist', generalistModules, GENERALIST_DESCRIPTION);
   const kick = kickR.doc;
   const gen = genR.doc;
   const progByTag = { K: kick, G: gen };
-  const note = (r) => (r.authored ? 'authored, left untouched' : 'placeholder');
+  const note = (r) => (r.authored ? 'authored, left untouched' : 'from the PDF curriculum');
   console.log(`✓ programmes      Kickstarter ${topicIdsOf(kick).length} lessons (${note(kickR)}) · Generalist ${topicIdsOf(gen).length} lessons (${note(genR)})`);
 
   // ── Mentors ──
@@ -342,7 +321,7 @@ async function run() {
       studentIds: enrolled.map((s) => s.doc._id),
     });
     batches[tag] = { doc: b, tag, students: enrolled, mentors: mentorsOf(tag), program: progByTag[tag] };
-    console.log(`✓ batch           ${label} — ${mentorsOf(tag).length} mentors · ${enrolled.length} students`);
+    console.log(`✓ batch           ${label}, ${mentorsOf(tag).length} mentors · ${enrolled.length} students`);
   }
 
   // Mirror enrolment onto the user documents (both sides get read in places).
@@ -370,7 +349,9 @@ async function run() {
       const isPast = offset < 0;
       const s = await Session.create({
         batchId: batch._id,
-        title: `Week ${i + 1} — ${program.modules[Math.min(Math.floor(i / 3.25), 3)].title.split('·')[1].trim()}`,
+        // 13 weekly sessions spread evenly over the programme's modules, so
+        // this holds for a 5-module Kickstarter and a 6-week Generalist alike.
+        title: `Week ${i + 1}: ${moduleLabel(program.modules[Math.min(Math.floor((i * program.modules.length) / 13), program.modules.length - 1)].title)}`,
         startsAt: at(offset, 19),
         endsAt: at(offset, 20, 30),
         joinUrl: 'https://zoom.us/j/98765432101?pwd=seeded',
@@ -443,7 +424,7 @@ async function run() {
         let outFiles = files;
         if (!closed && chance(0.18)) {
           checkStatus = 'NEEDS_FIXES';
-          errorDetail = `The folder is missing ${pick(spec.required)}. Add it and re-submit — the check runs again automatically.`;
+          errorDetail = `The folder is missing ${pick(spec.required)}. Add it and re-submit, the check runs again automatically.`;
           outFiles = files.slice(0, 1);
         } else if (!closed && chance(0.12)) {
           checkStatus = 'PENDING_CHECK';
@@ -501,20 +482,20 @@ async function run() {
     // ── Announcements ──
     await Announcement.create([
       { batchId: batch._id, authorId: lead._id, title: 'Week 9 reading is up', body: 'The handout and my teacher notes are attached to every lesson in this module. Read before Thursday.' },
-      { batchId: batch._id, authorId: staff[Math.min(1, staff.length - 1)].doc._id, title: 'Portfolio project — office hours', body: 'I am holding an extra hour on Saturday for anyone stuck on scoping. Bring the problem, not the solution.' },
+      { batchId: batch._id, authorId: staff[Math.min(1, staff.length - 1)].doc._id, title: 'Portfolio project, office hours', body: 'I am holding an extra hour on Saturday for anyone stuck on scoping. Bring the problem, not the solution.' },
       { batchId: batch._id, authorId: lead._id, title: 'Grades released for the automation task', body: 'Feedback is on your submission. If you want it unlocked to revise, ask me directly.' },
     ]);
 
     // ── Doubts, with likes and mentor answers ──
     const questions = [
-      'My Drive check keeps saying the folder is missing a doc — but the PDF is right there. What am I doing wrong?',
+      'My Drive check keeps saying the folder is missing a doc, but the PDF is right there. What am I doing wrong?',
       'For the capstone, does a real user have to be someone outside the cohort?',
       'How long should the walkthrough video be? The brief says two minutes but mine is four.',
       'Is it fine to use a different model for the write-up as long as I say so?',
-      'I missed week 6 — is the recording enough or should I catch up differently?',
+      'I missed week 6, is the recording enough or should I catch up differently?',
     ];
     const answers = [
-      'Nine times out of ten this is the sharing setting, not the file. Open the link in a private window — if you cannot see it, neither can we.',
+      'Nine times out of ten this is the sharing setting, not the file. Open the link in a private window, if you cannot see it, neither can we.',
       'Yes, outside the cohort. The point is that someone with no context can use it.',
       'Two minutes is the target, not a rule. Four is fine if none of it is filler.',
       'Completely fine, as long as you say which model did what.',
@@ -532,7 +513,7 @@ async function run() {
         comments: [
           { authorId: answerer._id, text: answers[i] },
           ...(chance(0.5)
-            ? [{ authorId: cohort[(i + 1) % cohort.length].doc._id, text: pick(['Had the same problem — it was the sharing setting for me too.', 'Thanks, that clears it up.', 'Following, I was about to ask this.']) }]
+            ? [{ authorId: cohort[(i + 1) % cohort.length].doc._id, text: pick(['Had the same problem, it was the sharing setting for me too.', 'Thanks, that clears it up.', 'Following, I was about to ask this.']) }]
             : []),
         ],
       });
@@ -569,10 +550,10 @@ async function run() {
   // ── Library (global) ──
   await LibraryItem.deleteMany({ title: /^\[seed\]/ });
   await LibraryItem.create([
-    { title: '[seed] AI Kickstarter — full curriculum', category: 'Note', url: PDF, description: 'The complete lesson plan, all four sessions.' },
+    { title: '[seed] AI Kickstarter, full curriculum', category: 'Note', url: PDF, description: 'The complete lesson plan, all four sessions.' },
     { title: '[seed] Prompt cheat sheet', category: 'Note', url: PDF, description: 'CLEAR framework with worked examples.' },
     { title: '[seed] Session one deck', category: 'PPT', url: PDF, description: 'Slides as taught in week one.' },
-    { title: '[seed] Systems thinking primer', category: 'eBook', url: PDF, description: 'Background reading for the Generalist programme.' },
+    { title: '[seed] AI Generalist, fellowship curriculum', category: 'eBook', url: PDF, description: 'The six-week Claude-First fellowship, week by week.' },
     { title: '[seed] Case study template', category: 'Library', url: PDF, description: 'The structure we expect for the portfolio project.' },
   ]);
 
