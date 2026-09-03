@@ -30,14 +30,14 @@ export default function Forum() {
           <div className="learn-select">
             <label htmlFor="forum-batch">Batch</label>
             <select id="forum-batch" value={batchId} onChange={(e) => setBatchId(e.target.value)}>
-              {batches.map((b) => <option key={b.id} value={b.id}>{b.name.replace(/^Demo — /, '')}</option>)}
+              {batches.map((b) => <option key={b.id} value={b.id}>{b.name.replace(/^Demo[^A-Za-z0-9]+/, '')}</option>)}
             </select>
           </div>
         )}
       </div>
 
       {batches.length === 0 ? (
-        <p className="muted">You're not in any batch yet — the forum opens once you're enrolled.</p>
+        <p className="muted">You're not in any batch yet. The forum opens once you're enrolled.</p>
       ) : (
         batchId && <Doubts batchId={batchId} me={user} />
       )}
@@ -53,10 +53,12 @@ function Doubts({ batchId, me }) {
   const isStudent = me.role === 'student';
 
   const load = () => api(`/forum/doubts?batchId=${batchId}`).then((d) => setDoubts(d.doubts || [])).catch(() => {});
-  // Live: refresh every 5s so mentors see new doubts and everyone sees new answers.
+  // Live: refresh so mentors see new doubts and everyone sees new answers.
+  // 12s, not 5s — this runs per student with the tab open, so a batch of 18
+  // was 3.6 requests a second against the database forever, just to poll.
   useEffect(() => {
     load();
-    const t = setInterval(load, 5000);
+    const t = setInterval(load, 12000);
     return () => clearInterval(t);
   }, [batchId]);
 
@@ -93,7 +95,7 @@ function Doubts({ batchId, me }) {
 
       <div className="doubt-list">
         {doubts.length === 0
-          ? <Empty icon="forum" title="No doubts yet." hint={isStudent ? 'Be the first to ask — your mentor and your batch both see it.' : 'Students post here, and you will see them arrive live.'} />
+          ? <Empty icon="forum" title="No doubts yet." hint={isStudent ? 'Be the first to ask. Your mentor and your batch both see it.' : 'Students post here, and you will see them arrive live.'} />
           : doubts.map((d) => <DoubtCard key={d.id} doubt={d} me={me} onChange={load} />)}
       </div>
     </div>
@@ -105,7 +107,7 @@ function DoubtCard({ doubt, me, onChange }) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  async function like() { try { await api(`/forum/doubts/${doubt.id}/like`, { method: 'POST' }); onChange(); } catch { /* transient — next poll reconciles */ } }
+  async function like() { try { await api(`/forum/doubts/${doubt.id}/like`, { method: 'POST' }); onChange(); } catch { /* transient, next poll reconciles */ } }
   async function addComment(e) {
     e.preventDefault();
     if (!comment.trim() || busy) return;
