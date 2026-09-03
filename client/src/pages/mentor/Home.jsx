@@ -70,7 +70,7 @@ export default function MentorHome() {
               {new Date(liveClass.session.startsAt).toLocaleString([], {
                 weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
               })}
-              {liveClass.session.batchId?.name ? ` · ${liveClass.session.batchId.name.replace(/^Demo — /, '')}` : ''}
+              {liveClass.session.batchId?.name ? ` · ${liveClass.session.batchId.name.replace(/^Demo[^A-Za-z0-9]+/, '')}` : ''}
             </div>
           </div>
           {liveClass.url ? (
@@ -95,13 +95,13 @@ export default function MentorHome() {
 
       <AtRiskPanel />
 
-      <div className="panel" style={{ marginTop: 22 }}>
+      <div className="panel" style={{ marginTop: 'var(--space-6)' }}>
         <div className="eyebrow">Attendance</div>
         <h2>How your cohorts are showing up</h2>
         {chart.length === 0 ? (
           <Empty inline icon="students" title="No attendance recorded yet." hint="Mark attendance on any session and the trend shows up here." />
         ) : (
-          <div className="chart" style={{ marginTop: 22 }}>
+          <div className="chart" style={{ marginTop: 'var(--space-6)' }}>
             <div className="chart-grid">
               {[100, 75, 50, 25].map((g) => (
                 <span key={g} style={{ bottom: `${g}%` }}>{g}%</span>
@@ -111,7 +111,7 @@ export default function MentorHome() {
               <div className="bar-col" key={b.batchId}>
                 <div className="bar-val">{b.pct}%</div>
                 <div className="bar" style={{ height: `${b.pct}%` }} />
-                <div className="bar-name">{b.name.replace(/^Demo — /, '')}</div>
+                <div className="bar-name">{b.name.replace(/^Demo[^A-Za-z0-9]+/, '')}</div>
               </div>
             ))}
           </div>
