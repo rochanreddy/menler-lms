@@ -17,6 +17,15 @@ const DEMOS = [
 // with VITE_SHOW_DEMOS=true; stripped from an ordinary production build.
 const SHOW_DEMOS = import.meta.env.DEV || import.meta.env.VITE_SHOW_DEMOS === 'true';
 
+/** "2 minutes ago" — how recently the other device was actually used. */
+function timeAgo(iso) {
+  const mins = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins} minute${mins === 1 ? '' : 's'} ago`;
+  const hours = Math.round(mins / 60);
+  return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+}
+
 const EyeIcon = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
     <path d="M3 12s3.5-7 9-7 9 7 9 7-3.5 7-9 7-9-7-9-7z" /><circle cx="12" cy="12" r="2.6" />
@@ -37,23 +46,31 @@ export default function Login({ onLogin }) {
   const [show, setShow] = useState(false);
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
+  // Set when the account is already signed in somewhere: { device, at }. The
+  // sign-in is not refused outright — it is held until the user says whether
+  // to sign that other device out, because sometimes the honest answer is
+  // "that's my flatmate on my account" and sometimes it's "that's my old phone".
+  const [takeover, setTakeover] = useState(null);
   const nav = useNavigate();
 
-  async function submit(e) {
-    e.preventDefault();
+  async function signIn(force) {
     setErr('');
     setBusy(true);
     try {
-      const { accessToken, refreshToken, user } = await api('/auth/login', { method: 'POST', body: { email, password } });
+      const { accessToken, refreshToken, user } = await api('/auth/login', { method: 'POST', body: { email, password, force } });
       setToken(accessToken, refreshToken);
+      setTakeover(null);
       onLogin(user);
       nav('/app');
     } catch (e2) {
-      setErr(e2.message);
+      if (e2.code === 'session_active') setTakeover({ device: e2.data?.device || 'another device', at: e2.data?.last_seen_at });
+      else setErr(e2.message);
     } finally {
       setBusy(false);
     }
   }
+
+  const submit = (e) => { e.preventDefault(); signIn(false); };
 
   return (
     <div className="auth">
@@ -109,6 +126,30 @@ export default function Login({ onLogin }) {
             </Stack>
 
             {err && <Alert tone="error">{err}</Alert>}
+
+            {/* One device at a time. Say where the account is in use, then let
+                them take it over — the alternative, silently kicking whoever is
+                mid-lesson on the other device, is the same action with the
+                explanation removed. */}
+            {takeover && (
+              <Alert tone="warning">
+                <Stack gap="3">
+                  <span>
+                    This account is currently being used on <strong>{takeover.device}</strong>
+                    {takeover.at ? ` (active ${timeAgo(takeover.at)})` : ''}. Only one device can
+                    be signed in at a time.
+                  </span>
+                  <div className="row" style={{ gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+                    <Button type="button" size="sm" loading={busy} onClick={() => signIn(true)}>
+                      Sign in here and sign that device out
+                    </Button>
+                    <Button type="button" size="sm" variant="ghost" onClick={() => setTakeover(null)}>
+                      Cancel
+                    </Button>
+                  </div>
+                </Stack>
+              </Alert>
+            )}
 
             <Button type="submit" size="lg" loading={busy}>Sign in</Button>
 
