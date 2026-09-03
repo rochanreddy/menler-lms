@@ -59,20 +59,20 @@ export default function AdminStudents() {
         <div className="inline-form">
           <input placeholder="Full name" value={form.fullName} onChange={(e) => setForm((f) => ({ ...f, fullName: e.target.value }))} />
           <input type="email" placeholder="Email (the one they enrolled with)" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} required />
-          <input placeholder="Password (optional — auto if blank)" value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} />
+          <input placeholder="Password (optional, auto if blank)" value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} />
           <button className={`btn sm ${busy ? 'is-busy' : ''}`} disabled={busy}>{busy ? 'Adding…' : 'Add student'}</button>
         </div>
-        <p className="muted" style={{ fontSize: 12, marginTop: 6 }}>They must change the password on first login. To also put them in a cohort, use Batches → Enrol student.</p>
+        <p className="muted" style={{ fontSize: 'var(--text-sm)', marginTop: 'var(--space-2)' }}>They must change the password on first login. To also put them in a cohort, use Batches → Enrol student.</p>
         {err && <span className="error" role="alert">{err}</span>}
         {temp && (
           <div className="tempbox">
-            <LineIcon name="check" size={15} className="tempbox-ic" /> Created <strong>{temp.email}</strong> — {temp.custom ? 'password' : 'temp password'}: <code>{temp.password}</code>
+            <LineIcon name="check" size={15} className="tempbox-ic" /> Created <strong>{temp.email}</strong>, {temp.custom ? 'password' : 'temp password'}: <code>{temp.password}</code>
             <div className="muted">Share it; they'll set their own password on first login.</div>
           </div>
         )}
       </form>
 
-      <form className="inline-form" style={{ marginTop: 18 }} onSubmit={(e) => { e.preventDefault(); load(search); }}>
+      <form className="inline-form" style={{ marginTop: 'var(--space-5)' }} onSubmit={(e) => { e.preventDefault(); load(search); }}>
         <input placeholder="Search students by name or email" value={search} onChange={(e) => setSearch(e.target.value)} style={{ minWidth: 280 }} />
         <button className="btn sm ghost">Search</button>
         {batches.length > 0 && (
@@ -89,8 +89,8 @@ export default function AdminStudents() {
         {shown.map((s) => (
           <div className="panel list-row row-click" key={s.id} onClick={() => navigate(`/app/students/${s.id}`)}>
             <div>
-              <strong>{s.full_name || '—'}</strong>
-              {s.blocked?.lms && <span className="badge badge-blocked" style={{ marginLeft: 8 }}>blocked</span>}
+              <strong>{s.full_name || '-'}</strong>
+              {s.blocked?.lms && <span className="badge badge-blocked" style={{ marginLeft: 'var(--space-2)' }}>blocked</span>}
               <div className="muted">{s.email}</div>
             </div>
             <div className="row">
