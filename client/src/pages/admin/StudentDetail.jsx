@@ -6,7 +6,7 @@ import { CheckBadge, SubmissionCheckPanel } from '../../components/SubmissionChe
 import AiReview from '../../components/AiReview.jsx';
 import Empty from '../../components/Empty.jsx';
 
-const fmtDate = (d) => (d ? new Date(d).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' }) : '—');
+const fmtDate = (d) => (d ? new Date(d).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' }) : '-');
 
 // Drill-down into one student: profile, every batch with attendance, every
 // assignment/project with submission state, quiz attempts, lesson progress.
@@ -95,9 +95,9 @@ export default function StudentDetail() {
       <div className="page-head">
         <div>
           <Link to="/app/students" className="crumb">← All students</Link>
-          <h1 style={{ marginTop: 4 }}>
+          <h1 style={{ marginTop: 'var(--space-1)' }}>
             {u.full_name || u.email}
-            {isAdmin && lmsBlocked && <span className="badge badge-blocked" style={{ marginLeft: 10 }}>blocked</span>}
+            {isAdmin && lmsBlocked && <span className="badge badge-blocked" style={{ marginLeft: 'var(--space-3)' }}>blocked</span>}
           </h1>
           <p className="muted">{u.email}{u.phone ? ` · ${u.phone}` : ''} · joined {fmtDate(u.created_at)} · last active {fmtDate(u.last_active_at)}</p>
         </div>
@@ -115,7 +115,7 @@ export default function StudentDetail() {
       {err && <p className="error">{err}</p>}
       {isAdmin && lmsBlocked && (
         <div className="blockbox">
-          This student is blocked from the entire LMS{u.blocked.reason ? ` — “${u.blocked.reason}”` : ''}. They cannot log in or use any feature until unblocked.
+          This student is blocked from the entire LMS{u.blocked.reason ? `, “${u.blocked.reason}”` : ''}. They cannot log in or use any feature until unblocked.
         </div>
       )}
 
@@ -128,7 +128,7 @@ export default function StudentDetail() {
               { label: 'Present', value: attTotals.present, color: SEQ_AQUA.main },
               { label: 'Absent', value: attTotals.total - attTotals.present, color: SEQ_AQUA.light },
             ]}
-            centerLabel={attTotals.total ? `${Math.round((attTotals.present / attTotals.total) * 100)}%` : '—'}
+            centerLabel={attTotals.total ? `${Math.round((attTotals.present / attTotals.total) * 100)}%` : '-'}
             centerSub="present"
           />
         </div>
@@ -147,8 +147,8 @@ export default function StudentDetail() {
         <div className="panel chart-card">
           <div className="eyebrow">Performance</div>
           <div className="perf-stats">
-            <div><div className="stat-label">Avg assignment score</div><div className="perf-num">{avgScore ?? '—'}{avgScore != null && <span className="perf-sub">/10</span>}</div></div>
-            <div><div className="stat-label">Quiz average</div><div className="perf-num">{quizAvg == null ? '—' : `${quizAvg}%`}</div></div>
+            <div><div className="stat-label">Avg assignment score</div><div className="perf-num">{avgScore ?? '-'}{avgScore != null && <span className="perf-sub">/10</span>}</div></div>
+            <div><div className="stat-label">Quiz average</div><div className="perf-num">{quizAvg == null ? '-' : `${quizAvg}%`}</div></div>
             <div><div className="stat-label">Quizzes taken</div><div className="perf-num">{data.quizAttempts.length}</div></div>
           </div>
         </div>
@@ -156,27 +156,27 @@ export default function StudentDetail() {
 
       {/* Course progress */}
       {data.progress.length > 0 && (
-        <section className="panel" style={{ marginTop: 18 }}>
+        <section className="panel" style={{ marginTop: 'var(--space-5)' }}>
           <h3>Course progress</h3>
           {data.progress.map((p) => (
             <div key={p.programId} className="prog-row">
               <span className="prog-name">{p.title}</span>
               <Meter pct={p.pct} />
-              <span className="muted" style={{ fontSize: 13 }}>{p.done}{p.total ? `/${p.total}` : ''} lessons</span>
+              <span className="muted" style={{ fontSize: 'var(--text-sm)' }}>{p.done}{p.total ? `/${p.total}` : ''} lessons</span>
             </div>
           ))}
         </section>
       )}
 
       {/* Batches — with per-course block */}
-      <section className="panel" style={{ marginTop: 18 }}>
+      <section className="panel" style={{ marginTop: 'var(--space-5)' }}>
         <h3>Courses / batches</h3>
         {data.batches.length === 0 && <p className="muted">Not enrolled in any batch.</p>}
         {data.batches.map((b) => (
           <div key={b.id} className={`detail-row ${b.blocked ? 'is-blocked' : ''}`}>
             <div>
               <strong>{b.name}</strong> {b.blocked && <span className="badge badge-blocked">course blocked</span>}
-              <div className="muted">{b.program} · {b.status} · attendance {b.attendance.pct == null ? '—' : `${b.attendance.pct}%`} ({b.attendance.present}/{b.attendance.total})</div>
+              <div className="muted">{b.program} · {b.status} · attendance {b.attendance.pct == null ? '-' : `${b.attendance.pct}%`} ({b.attendance.present}/{b.attendance.total})</div>
             </div>
             {isAdmin && (
               <button className={`btn sm ${b.blocked ? 'ghost' : 'danger ghost-danger'}`} onClick={() => toggleBatch(b.id, b.blocked)}>
@@ -189,9 +189,9 @@ export default function StudentDetail() {
 
       {/* Curriculum modules — with per-module block (admin only) */}
       {isAdmin && (data.modules || []).length > 0 && (
-        <section className="panel" style={{ marginTop: 18 }}>
+        <section className="panel" style={{ marginTop: 'var(--space-5)' }}>
           <h3>Curriculum modules</h3>
-          <p className="muted" style={{ fontSize: 13, marginTop: 2 }}>Block a module to hide it from this student's Learning page.</p>
+          <p className="muted" style={{ fontSize: 'var(--text-sm)', marginTop: 'var(--space-1)' }}>Block a module to hide it from this student's Learning page.</p>
           {data.modules.map((m) => (
             <div key={m.id} className={`detail-row ${m.blocked ? 'is-blocked' : ''}`}>
               <div>
@@ -206,8 +206,8 @@ export default function StudentDetail() {
         </section>
       )}
 
-      {/* Assignments & projects — with per-item block */}
-      <section className="panel" style={{ marginTop: 18 }}>
+      {/* Assignments & projects, with per-item block */}
+      <section className="panel" style={{ marginTop: 'var(--space-5)' }}>
         <h3>Assignments &amp; projects</h3>
         {data.assignments.length === 0 && <Empty inline icon="grades" title="No assignments in their batches yet." />}
         {data.assignments.length > 0 && (
@@ -226,12 +226,12 @@ export default function StudentDetail() {
                       <td>{a.title} {a.blocked && isAdmin && <span className="badge badge-blocked">blocked</span>}</td>
                       <td><span className={`badge ${a.type === 'project' ? 'badge-mentor' : ''}`}>{a.type}</span></td>
                       <td>{a.batchName}</td>
-                      <td>{a.dueDate ? fmtDate(a.dueDate) : '—'}</td>
+                      <td>{a.dueDate ? fmtDate(a.dueDate) : '-'}</td>
                       <td>{s ? s.status : 'not submitted'}</td>
                       <td>
                         {s ? (
                           <div className="sub-cell">
-                            {/* Always clickable, whatever the check said — a mentor
+                            {/* Always clickable, whatever the check said, a mentor
                                 must be able to open the folder and judge for themselves. */}
                             {s.driveLink
                               ? <a href={s.driveLink} target="_blank" rel="noreferrer">Drive folder</a>
@@ -243,9 +243,9 @@ export default function StudentDetail() {
                               </button>
                             )}
                           </div>
-                        ) : '—'}
+                        ) : '-'}
                       </td>
-                      <td>{s?.score ?? '—'}</td>
+                      <td>{s?.score ?? '-'}</td>
                       {isAdmin && (
                         <td>
                           <button className="btn sm ghost" onClick={() => toggleAssignment(a.id, a.blocked)}>
@@ -278,7 +278,7 @@ export default function StudentDetail() {
       </section>
 
       {/* Quiz attempts */}
-      <section className="panel" style={{ marginTop: 18 }}>
+      <section className="panel" style={{ marginTop: 'var(--space-5)' }}>
         <h3>Quiz &amp; exam attempts</h3>
         {data.quizAttempts.length === 0 ? <Empty inline icon="learning" title="No quiz attempts yet." /> : (
           <div className="table-wrap">

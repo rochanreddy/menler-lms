@@ -6,6 +6,10 @@
 export const SERIES = ['#2a78d6', '#eb6834', '#1baf7a'];
 export const SEQ = { main: '#2a78d6', light: '#b7d3f6' }; // blue 450 + 150
 export const SEQ_AQUA = { main: '#1baf7a', light: '#b9e9d7' };
+// The "none of it happened yet" slice: a neutral, so an empty donut reads as
+// absence rather than as a third category. Lives here with the rest of the
+// chart palette, which is where raw colour values are allowed to be.
+export const EMPTY_SLICE = '#eeedf4';
 
 const polar = (cx, cy, r, angle) => [cx + r * Math.cos(angle), cy + r * Math.sin(angle)];
 
