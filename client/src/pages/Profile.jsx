@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLocation, useOutletContext } from 'react-router-dom';
-import { api, uploadFile, isStoredFile, openStoredFile } from '../api.js';
+import { api, uploadFile, isStoredFile, openStoredFile, listSessions, revokeSession } from '../api.js';
 
 // Fully wired against GET/PATCH /api/lms/me. Sections from the spec:
 // Personal · Educational · Professional · Resume.
@@ -166,7 +166,74 @@ export default function Profile() {
       </form>
 
       <ChangePassword />
+
+      <SignedInDevices />
     </div>
+  );
+}
+
+// Where this account is signed in.
+//
+// The rule is one device at a time, and this is the page that makes it visible
+// rather than only enforceable: normally there is exactly one row here, and
+// seeing that is how a student confirms nobody else is on their account. A
+// second row can only appear where the takeover rule has been relaxed
+// (LMS_SINGLE_SESSION=off), and it can be closed from here.
+function SignedInDevices() {
+  const [rows, setRows] = useState(null);
+  const [msg, setMsg] = useState('');
+  const [busySid, setBusySid] = useState('');
+
+  const load = () => listSessions()
+    .then((d) => setRows(d.sessions || []))
+    .catch((e) => { setRows([]); setMsg(e.message); });
+
+  useEffect(() => { load(); }, []);
+
+  async function signOut(sid) {
+    setBusySid(sid);
+    setMsg('');
+    try {
+      await revokeSession(sid);
+      await load();
+      setMsg('That device has been signed out ✓');
+    } catch (e) {
+      setMsg(e.message);
+    } finally {
+      setBusySid('');
+    }
+  }
+
+  return (
+    <section className="panel" id="devices">
+      <h3>Signed-in devices</h3>
+      <p className="muted">
+        Your Menler account is for one person — signing in somewhere new signs the
+        previous device out.
+      </p>
+      {rows === null && <p className="muted">Loading…</p>}
+      {rows?.length === 0 && <p className="muted">No other devices are signed in.</p>}
+      {rows?.map((s) => (
+        <div className="row device-row" key={s.id}>
+          <div>
+            <strong>{s.device_label}</strong>
+            {s.current && <span className="device-tag">This device</span>}
+            <div className="muted">Last used {new Date(s.last_seen_at).toLocaleString()}</div>
+          </div>
+          {!s.current && (
+            <button
+              type="button"
+              className={`btn quiet sm ${busySid === s.sid ? 'is-busy' : ''}`}
+              disabled={!!busySid}
+              onClick={() => signOut(s.sid)}
+            >
+              {busySid === s.sid ? 'Signing out…' : 'Sign out'}
+            </button>
+          )}
+        </div>
+      ))}
+      {msg && <p className="muted">{msg}</p>}
+    </section>
   );
 }
 

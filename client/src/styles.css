@@ -2303,3 +2303,12 @@ input:hover:not(:disabled):not(:focus), select:hover:not(:disabled):not(:focus),
 .vdo-picker-row:hover:not(:disabled) { border-color: var(--violet); background: var(--line-soft); }
 .vdo-picker-row:disabled { opacity: .55; cursor: not-allowed; }
 .vdo-picker-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Signed-in devices (Profile). One row per device the account is open on —
+   normally exactly one, because signing in somewhere new closes the rest. */
+.device-row { justify-content: space-between; align-items: center; gap: 12px;
+  padding: 11px 0; border-bottom: 1px solid var(--line-soft); }
+.device-row:last-of-type { border-bottom: 0; }
+.device-row .muted { font-size: 12.5px; margin-top: 2px; }
+.device-tag { margin-left: 8px; padding: 2px 8px; border-radius: var(--pill); border: 1px solid var(--line);
+  background: var(--line-soft); font-size: 11.5px; font-weight: 600; color: var(--muted); white-space: nowrap; }
