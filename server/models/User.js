@@ -34,6 +34,11 @@ const userSchema = new mongoose.Schema(
     // own password before they can use the app.
     mustChangePassword: { type: Boolean, default: false },
 
+    // Bumped on password reset so tokens signed before it (an already-stolen
+    // access or refresh token) stop verifying. See utils/token.js and
+    // middleware/auth.js.
+    tokenVersion: { type: Number, default: 0 },
+
     // Admin moderation controls. lms=true locks the account out of the whole
     // app (login + every API call); batchIds hides specific cohorts/courses;
     // moduleIds hides specific curriculum modules; assignmentIds hides specific
