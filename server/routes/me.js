@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import { requireAuth, invalidateUser } from '../middleware/auth.js';
+import { revokeOtherSessions } from '../utils/sessions.js';
 import { FileAsset } from '../models/FileAsset.js';
 import { hashPassword } from '../utils/password.js';
 
@@ -26,6 +27,12 @@ router.patch('/password', requireAuth, async (req, res) => {
   u.mustChangePassword = false;
   await u.save();
   invalidateUser(u._id);
+  // Changing your password signs your other devices out — the standard
+  // expectation, and the only way "someone else knows my password" has a fix
+  // the user can apply themselves. Deliberately NOT a tokenVersion bump: that
+  // would invalidate the caller's own token too and boot them to the login
+  // screen a second after they typed a new password.
+  await revokeOtherSessions(u._id, req.deviceSession?.sid || null, { reason: 'password_reset' });
   res.json({ ok: true, user: u.toPublic() });
 });
 

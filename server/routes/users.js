@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import crypto from 'crypto';
 import { requireAuth, requireRole, invalidateUser } from '../middleware/auth.js';
+import { revokeOtherSessions } from '../utils/sessions.js';
+import { releaseLease } from '../utils/playback.js';
 import { User, ROLES } from '../models/User.js';
 import { Batch } from '../models/Batch.js';
 import { Assignment } from '../models/Assignment.js';
@@ -280,6 +282,13 @@ router.patch('/:id/blocks', requireAuth, requireRole('admin'), async (req, res) 
   user.markModified('blocked');
   await user.save();
   invalidateUser(user._id);
+  // A full block already fails at the chokepoint on the next request; closing
+  // the session rows too means the device list stops claiming they are signed
+  // in, and stops a blocked account holding the video lock.
+  if (blocked.lms) {
+    await revokeOtherSessions(user._id, null, { reason: 'blocked' });
+    await releaseLease(user._id);
+  }
   res.json({ ok: true, user: user.toPublic() });
 });
 
