@@ -4,7 +4,7 @@ import { api } from '../../api.js';
 import LineIcon from '../../components/LineIcon.jsx';
 import Empty from '../../components/Empty.jsx';
 
-const shortName = (n) => (n || '').replace(/^Demo — /, '');
+const shortName = (n) => (n || '').replace(/^Demo[^A-Za-z0-9]+/, '');
 
 // Admin: provision mentor accounts, list them, and manage which BATCHES each
 // mentor runs. Batch assignment is what grants a mentor access to a batch
@@ -75,14 +75,14 @@ export default function AdminMentors() {
         <div className="inline-form">
           <input placeholder="Full name" value={form.fullName} onChange={(e) => setForm((f) => ({ ...f, fullName: e.target.value }))} />
           <input type="email" placeholder="Email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} required />
-          <input placeholder="Password (optional — auto if blank)" value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} />
+          <input placeholder="Password (optional, auto if blank)" value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} />
           <button className={`btn sm ${busy ? 'is-busy' : ''}`} disabled={busy}>{busy ? 'Creating…' : 'Create mentor'}</button>
         </div>
-        <p className="muted" style={{ fontSize: 12, marginTop: 6 }}>Leave password blank to auto-generate one. Either way, the mentor must change it on first login.</p>
+        <p className="muted" style={{ fontSize: 'var(--text-sm)', marginTop: 'var(--space-2)' }}>Leave password blank to auto-generate one. Either way, the mentor must change it on first login.</p>
         {err && <span className="error" role="alert">{err}</span>}
         {temp && (
           <div className="tempbox">
-            <div className="tempbox-line"><span className="tempbox-ic"><LineIcon name="check" size={16} /></span><span>Created <strong>{temp.email}</strong> — {temp.custom ? 'password' : 'temp password'}: <code>{temp.password}</code></span></div>
+            <div className="tempbox-line"><span className="tempbox-ic"><LineIcon name="check" size={16} /></span><span>Created <strong>{temp.email}</strong>, {temp.custom ? 'password' : 'temp password'}: <code>{temp.password}</code></span></div>
             <div className="muted">Share this with the mentor; they'll be asked to set their own password on first login.</div>
           </div>
         )}
@@ -96,7 +96,7 @@ export default function AdminMentors() {
       )}
 
       {batches.length > 0 && (
-        <div className="inline-form" style={{ marginTop: 18 }}>
+        <div className="inline-form" style={{ marginTop: 'var(--space-5)' }}>
           <label>Filter by batch{' '}
             <select value={filterBatchId} onChange={(e) => setFilterBatchId(e.target.value)}>
               <option value="">All batches</option>
@@ -114,8 +114,8 @@ export default function AdminMentors() {
             <div className="panel" key={m.id}>
               <div className="list-row">
                 <div>
-                  <Link to={`/app/mentors/${m.id}`} className="member-name" style={{ fontSize: 15 }}>{m.full_name || m.email}</Link>
-                  {m.blocked?.lms && <span className="badge badge-blocked" style={{ marginLeft: 8 }}>blocked</span>}
+                  <Link to={`/app/mentors/${m.id}`} className="member-name" style={{ fontSize: 'var(--text-base)' }}>{m.full_name || m.email}</Link>
+                  {m.blocked?.lms && <span className="badge badge-blocked" style={{ marginLeft: 'var(--space-2)' }}>blocked</span>}
                   <div className="muted">{m.email}</div>
                 </div>
                 <div className="row">
@@ -131,7 +131,7 @@ export default function AdminMentors() {
                   {mine.map((b) => (
                     <span key={b.id} className="chip">{shortName(b.name)}<button type="button" className="chip-x" title="Unassign" onClick={() => unassignBatch(b.id, m.id)}>×</button></span>
                   ))}
-                  {mine.length === 0 && <span className="muted" style={{ fontSize: 13 }}>Not assigned to any batch yet.</span>}
+                  {mine.length === 0 && <span className="muted" style={{ fontSize: 'var(--text-sm)' }}>Not assigned to any batch yet.</span>}
                 </div>
                 {available.length > 0 && (
                   <select className="mentor-assign" value="" onChange={(e) => e.target.value && assignBatch(e.target.value, m)}>
@@ -145,7 +145,7 @@ export default function AdminMentors() {
         })}
         {shownMentors.length === 0 && (
           mentors.length === 0
-            ? <Empty icon="mentors" title="No mentors yet." hint="Create one with the form above — they get a temporary password and set their own on first sign-in." />
+            ? <Empty icon="mentors" title="No mentors yet." hint="Create one with the form above. They get a temporary password and set their own on first sign-in." />
             : <Empty icon="mentors" title="No mentors run this batch." hint="Assign one from a mentor's card below, or clear the filter." />
         )}
       </div>
