@@ -171,7 +171,7 @@ router.get('/', requireAuth, async (req, res) => {
     }
   }
 
-  // Title matches first, then earlier-in-the-title matches, then alphabetical —
+  // Title matches first, then earlier-in-the-title matches, then alphabetical,
   // so typing the start of a lesson name reliably puts it at the top.
   const pos = (t) => { const i = t.toLowerCase().indexOf(q.toLowerCase()); return i < 0 ? 999 : i; };
   results.sort((a, b) => a.rank - b.rank || pos(a.title) - pos(b.title) || a.title.localeCompare(b.title));
