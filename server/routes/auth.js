@@ -86,7 +86,13 @@ router.post('/register', async (req, res) => {
 // POST /api/lms/auth/login
 router.post('/login', async (req, res) => {
   try {
-    if (!rateLimit(`login:${req.ip}`, 10, 60_000)) return res.status(429).json({ error: 'Too many attempts. Try again shortly.' });
+    // 15, not 10: a sign-in is now legitimately two attempts whenever the
+    // account is live elsewhere — one that comes back "used on another device"
+    // and one that confirms the takeover — so the old ceiling was sized for
+    // fewer than one sign-in per user. Fifteen bcrypt compares a minute from a
+    // single IP is still nothing, and the CPU-exhaustion case this guards
+    // against needs orders of magnitude more.
+    if (!rateLimit(`login:${req.ip}`, 15, 60_000)) return res.status(429).json({ error: 'Too many attempts. Try again shortly.' });
     const { email, password } = req.body || {};
     const user = await User.findOne({ email: String(email || '').toLowerCase().trim() });
     const ok = user && user.passwordHash && (await bcrypt.compare(String(password || ''), user.passwordHash));
