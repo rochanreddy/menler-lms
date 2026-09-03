@@ -1,8 +1,55 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import { api } from '../api.js';
 import Empty from '../components/Empty.jsx';
 import LineIcon from '../components/LineIcon.jsx';
+import { loadLearning } from '../nav.jsx';
+
+// This device's local calendar day as absolute UTC instants, sent to
+// GET /sessions/live. "Today's class" has to mean today on the STUDENT's
+// clock — the server can't infer that, and its own container clock is UTC,
+// so the boundary is computed here and passed along. Same getFullYear/
+// getMonth/getDate semantics the old client-side isToday() check used.
+function localDayBounds() {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+  return { dayStart: start.toISOString(), dayEnd: end.toISOString() };
+}
+
+// localStorage cache for the Join Live Class CTA only — lets it paint on the
+// very first frame of a repeat visit instead of waiting on a round trip.
+// Scoped per user so a shared device never shows one student's cached class
+// to another. Only ever a rendering optimisation: see openLiveClass below for
+// the rule that keeps a click from ever following a stale link.
+const liveCacheKey = (uid) => `lms_live_class_${uid}`;
+
+// undefined = no usable cache entry; null = cached "nothing on today", which
+// is a real answer and shouldn't leave the CTA sitting in a loading state.
+function readLiveCache(uid) {
+  try {
+    const raw = localStorage.getItem(liveCacheKey(uid));
+    if (!raw) return undefined;
+    const parsed = JSON.parse(raw);
+    // Only trust a cache written earlier TODAY. A session cached yesterday
+    // as "today's class" is simply wrong once the calendar date has rolled
+    // over — the fresh fetch (already in flight) corrects it moments later,
+    // but there's no reason to show a wrong label even that briefly.
+    if (new Date(parsed.cachedAt).toDateString() !== new Date().toDateString()) return undefined;
+    return parsed.liveClass;
+  } catch {
+    return undefined;
+  }
+}
+
+function writeLiveCache(uid, liveClass) {
+  try {
+    localStorage.setItem(liveCacheKey(uid), JSON.stringify({ liveClass, cachedAt: Date.now() }));
+  } catch {
+    // Storage full or unavailable (private browsing) — falls back to the
+    // network fetch on every visit, exactly like before this change.
+  }
+}
 
 // THE PATH — the student home.
 //
@@ -18,29 +65,87 @@ export default function StudentHome() {
   const navigate = useNavigate();
   const [program, setProgram] = useState(null);
   const [progress, setProgress] = useState({ completedTopics: [], total: 0, pct: 0 });
+  // Upcoming sessions only — powers "Coming up" and the imminent-session
+  // strip further down, both of which already wait on `loading` below. The
+  // Join Live Class CTA no longer reads this; it has its own endpoint.
   const [sessions, setSessions] = useState([]);
-  const [pastSessions, setPastSessions] = useState([]);
   const [assignments, setAssignments] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
   const [att, setAtt] = useState({ pct: 0, present: 0, total: 0 });
   const [loading, setLoading] = useState(true);
 
+  // The Join Live Class CTA, served whole by GET /sessions/live. Seeded from
+  // the cache so it can paint on the very first render, then always
+  // revalidated in the background.
+  const cachedLiveClass = readLiveCache(user.id);
+  const [liveClass, setLiveClass] = useState(cachedLiveClass ?? null);
+  // A cached "nothing on today" is a real answer, so only a MISSING cache
+  // entry leaves this in a loading state.
+  const [liveClassLoading, setLiveClassLoading] = useState(cachedLiveClass === undefined);
+  // Set only when the request genuinely fails (not just "nothing today") —
+  // lets the CTA offer a retry instead of quietly vanishing.
+  const [liveClassFailed, setLiveClassFailed] = useState(false);
+  // The in-flight (or most recently settled) fetch. A click on the CTA while
+  // this is still pending must resolve it first — a cached link is a
+  // rendering optimisation, never the value that is actually followed.
+  const liveClassPromiseRef = useRef(null);
+
+  // One request, already narrowed server-side to the single session the CTA
+  // cares about — shared by the initial load below and the retry button.
+  function fetchLiveClass() {
+    const { dayStart, dayEnd } = localDayBounds();
+    return api(`/sessions/live?dayStart=${encodeURIComponent(dayStart)}&dayEnd=${encodeURIComponent(dayEnd)}`)
+      .then((d) => ({ liveClass: d.session ? { session: d.session, today: d.today, url: d.url } : null, failed: false }))
+      .catch(() => ({ liveClass: null, failed: true }));
+  }
+
+  const retryLiveClass = () => {
+    setLiveClassLoading(true);
+    setLiveClassFailed(false);
+    const promise = fetchLiveClass();
+    liveClassPromiseRef.current = promise;
+    promise.then(({ liveClass: lc, failed }) => {
+      liveClassPromiseRef.current = null;
+      setLiveClass(lc);
+      setLiveClassLoading(false);
+      setLiveClassFailed(failed);
+      if (!failed) writeLiveCache(user.id, lc);
+    });
+  };
+
   useEffect(() => {
     let alive = true;
+
+    // The CTA gets its own single request so a slow
+    // assignments/announcements/attendance response downstream never holds
+    // the button back. Runs (and revalidates the cache) even on a cache hit,
+    // since the cache is only ever a first-paint optimisation, never the
+    // source of truth.
+    const liveClassPromise = fetchLiveClass();
+    liveClassPromiseRef.current = liveClassPromise;
+    liveClassPromise.then(({ liveClass: lc, failed }) => {
+      liveClassPromiseRef.current = null;
+      if (!alive) return;
+      setLiveClass(lc);
+      setLiveClassLoading(false);
+      setLiveClassFailed(failed);
+      if (!failed) writeLiveCache(user.id, lc);
+    });
+
     Promise.all([
       api('/batches').catch(() => ({ batches: [] })),
-      api('/programs').catch(() => ({ programs: [] })),
+      // Only the title is read from this list (see `p` below) — the detail
+      // request further down always fetches the full curriculum tree.
+      api('/programs?fields=summary').catch(() => ({ programs: [] })),
+      // Feeds "Coming up" and the imminent-session strip, both of which sit
+      // behind `loading` anyway — not on the CTA's critical path.
       api('/sessions?scope=upcoming').catch(() => ({ sessions: [] })),
-      // Past sessions too: the Join Live Class button falls back to the most
-      // recent one when nothing is scheduled today. Comes back newest-first.
-      api('/sessions?scope=past').catch(() => ({ sessions: [] })),
       api('/assignments?scope=mine').catch(() => ({ assignments: [] })),
       api('/announcements').catch(() => ({ announcements: [] })),
       api('/attendance/me').catch(() => ({ pct: 0, present: 0, total: 0 })),
-    ]).then(async ([bd, pd, sd, psd, ad, nd, at]) => {
+    ]).then(async ([bd, pd, sd, ad, nd, at]) => {
       if (!alive) return;
       setSessions(sd.sessions || []);
-      setPastSessions(psd.sessions || []);
       setAssignments(ad.assignments || []);
       setAnnouncements(nd.announcements || []);
       setAtt(at);
@@ -58,6 +163,7 @@ export default function StudentHome() {
       }
       setLoading(false);
     });
+
     return () => { alive = false; };
   }, []);
 
@@ -107,51 +213,35 @@ export default function StudentHome() {
   });
   const markJoin = (id) => api(`/attendance/join/${id}`, { method: 'POST' }).catch(() => {});
 
-  // The Join Live Class call-to-action. One rule, stated plainly:
-  //   a class on TODAY's date  → that Zoom link, "Join Today's Live Class"
-  //   nothing today            → the newest past class, "Watch Previous Live Class"
-  // The wording carries the difference so nobody clicks expecting a room that
-  // isn't open. A class earlier today still counts as today's — it has already
-  // slipped into the "past" list, which is why both lists are searched.
-  const liveClass = useMemo(() => {
-    const isToday = (d) => {
-      const a = new Date(d), b = new Date();
-      return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
-    };
-    // Upcoming is ascending and past is descending, so the first hit in either
-    // is the one nearest to now.
-    const today = sessions.find((s) => isToday(s.startsAt)) || pastSessions.find((s) => isToday(s.startsAt));
-    const session = today || pastSessions[0];
-    if (!session) return null;
-    return {
-      session,
-      today: Boolean(today),
-      // A finished class may only have a recording — better than a dead button.
-      url: session.joinUrl || (!today && session.recordingUrl) || '',
-    };
-  }, [sessions, pastSessions]);
+  // A cached liveClass can be shown before it's confirmed fresh. Resolve
+  // whatever fetch is in flight (or was last kicked off) before ever
+  // actually navigating, so a click can never follow a link the admin has
+  // since changed — the cache only ever decided what to paint, not where to go.
+  const openLiveClass = async (e) => {
+    e.preventDefault();
+    let target = liveClass;
+    const pending = liveClassPromiseRef.current;
+    if (pending) target = (await pending).liveClass;
+    if (!target?.url) return;
+    // Attendance is only meaningful for the class that's actually on today —
+    // watching a past one shouldn't mark you present.
+    if (target.today) markJoin(target.session._id);
+    window.open(target.url, '_blank', 'noopener');
+  };
 
   const openDue = assignments
     .filter((a) => !a.mySubmission && a.dueDate)
     .sort((x, y) => new Date(x.dueDate) - new Date(y.dueDate));
   const firstName = (user.full_name || user.email).split(' ')[0];
 
-  if (loading) {
-    return (
-      <div className="path-wrap">
-        <div className="path-where">Loading your path…</div>
-        <div className="skeleton sk-title" />
-        <div className="skeleton sk-path" />
-      </div>
-    );
-  }
-
   return (
     <div>
       <div className="path-wrap">
         {/* Above the hero, before anything else — the class is the thing a
-            student is most likely to have opened this page for. */}
-        {liveClass && (
+            student is most likely to have opened this page for. Gated on its
+            own one-request fetch, not the rest of the dashboard, so a slow
+            assignments/announcements/attendance response never holds it back. */}
+        {!liveClassLoading && liveClass && (
           <div className={`live-cta ${liveClass.today ? 'is-live' : 'is-replay'}`}>
             <span className="live-cta-mark">
               {liveClass.today ? <span className="path-live-pulse" /> : <LineIcon name="video" size={18} />}
@@ -163,19 +253,11 @@ export default function StudentHome() {
                 {new Date(liveClass.session.startsAt).toLocaleString([], {
                   weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
                 })}
-                {liveClass.session.batchId?.name ? ` · ${liveClass.session.batchId.name.replace(/^Demo — /, '')}` : ''}
+                {liveClass.session.batchId?.name ? ` · ${liveClass.session.batchId.name.replace(/^Demo[^A-Za-z0-9]+/, '')}` : ''}
               </div>
             </div>
             {liveClass.url ? (
-              <a
-                className="btn"
-                href={liveClass.url}
-                target="_blank"
-                rel="noreferrer"
-                // Attendance is only meaningful for the class that's actually
-                // on today — watching a past one shouldn't mark you present.
-                onClick={() => liveClass.today && markJoin(liveClass.session._id)}
-              >
+              <a className="btn" href={liveClass.url} target="_blank" rel="noreferrer" onClick={openLiveClass}>
                 <LineIcon name="video" size={17} />
                 {liveClass.today ? "Join Today's Live Class" : 'Watch Previous Live Class'}
               </a>
@@ -185,13 +267,30 @@ export default function StudentHome() {
           </div>
         )}
 
-        {stations.length === 0 ? (
+        {!liveClassLoading && !liveClass && liveClassFailed && (
+          <div className="live-cta is-replay">
+            <span className="live-cta-mark"><LineIcon name="video" size={18} /></span>
+            <div className="live-cta-copy">
+              <div className="live-cta-eyebrow">Couldn't load your live class</div>
+              <div className="live-cta-title">Check your connection and try again.</div>
+            </div>
+            <button type="button" className="btn" onClick={retryLiveClass}>Retry</button>
+          </div>
+        )}
+
+        {loading ? (
+          <>
+            <div className="path-where">Loading your path…</div>
+            <div className="skeleton sk-title" />
+            <div className="skeleton sk-path" />
+          </>
+        ) : stations.length === 0 ? (
           <>
             <p className="serif-lead">Welcome, {firstName}.</p>
-            <div className="panel empty-state" style={{ marginTop: 20 }}>
+            <div className="panel empty-state" style={{ marginTop: 'var(--space-5)' }}>
               <p className="muted">
                 {program
-                  ? 'Your curriculum is still being prepared — it will appear here as a path once your mentor publishes it.'
+                  ? 'Your curriculum is still being prepared. It will appear here as a path once your mentor publishes it.'
                   : "You're not enrolled in a programme yet. Once an admin adds you to a batch, your path shows up here."}
               </p>
             </div>
@@ -222,6 +321,8 @@ export default function StudentHome() {
                     role="listitem"
                     className={`path-station ${state}`}
                     onClick={() => navigate('/app/learning')}
+                    onMouseEnter={loadLearning}
+                    onFocus={loadLearning}
                     title={`${s.done} of ${s.total} lessons complete`}
                   >
                     <span className="path-dot" />
@@ -250,16 +351,16 @@ export default function StudentHome() {
                     <span>lesson {doneTopics + 1} of {totalTopics}</span>
                   </div>
                 </div>
-                <button className="btn" onClick={() => navigate('/app/learning')}>Continue →</button>
+                <button className="btn" onClick={() => navigate('/app/learning')} onMouseEnter={loadLearning} onFocus={loadLearning}>Continue →</button>
               </div>
             ) : (
               <div className="path-next">
                 <div>
                   <div className="path-next-eyebrow">Every lesson done</div>
                   <h2 className="path-next-title">You've finished {program?.title}.</h2>
-                  <p className="path-next-meta">Claim your certificate from the Learning page.</p>
+                  <p className="path-next-meta">Claim your certificate from the Classroom.</p>
                 </div>
-                <button className="btn" onClick={() => navigate('/app/learning')}>View certificate</button>
+                <button className="btn" onClick={() => navigate('/app/learning')} onMouseEnter={loadLearning} onFocus={loadLearning}>View certificate</button>
               </div>
             )}
 
@@ -272,7 +373,7 @@ export default function StudentHome() {
                   <div className="path-live-title">{live.title}</div>
                   <div className="path-live-time">
                     {new Date(live.startsAt).toLocaleString([], { weekday: 'short', hour: '2-digit', minute: '2-digit' })}
-                    {live.batchId?.name ? ` · ${live.batchId.name.replace(/^Demo — /, '')}` : ''}
+                    {live.batchId?.name ? ` · ${live.batchId.name.replace(/^Demo[^A-Za-z0-9]+/, '')}` : ''}
                   </div>
                 </div>
                 {live.joinUrl
@@ -284,7 +385,9 @@ export default function StudentHome() {
         )}
       </div>
 
-      {/* Everything else is secondary and stays quiet. */}
+      {/* Everything else is secondary and stays quiet. Held back with the
+          rest of the dashboard rather than the CTA above. */}
+      {!loading && (
       <div className="home-grid">
         <section>
           <h3 className="ruled-head">Due next</h3>
@@ -341,7 +444,7 @@ export default function StudentHome() {
           <div className="qlist">
             <div className="qrow">
               <div style={{ flex: 1 }}><div className="qrow-title">Attendance</div><div className="qrow-sub">{att.present} of {att.total} sessions</div></div>
-              <span className="figure">{att.total ? `${att.pct}%` : '—'}</span>
+              <span className="figure">{att.total ? `${att.pct}%` : '-'}</span>
             </div>
             <div className="qrow">
               <div style={{ flex: 1 }}><div className="qrow-title">Assignments</div><div className="qrow-sub">submitted</div></div>
@@ -372,6 +475,7 @@ export default function StudentHome() {
           </section>
         )}
       </div>
+      )}
     </div>
   );
 }
