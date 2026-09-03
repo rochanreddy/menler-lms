@@ -2,11 +2,17 @@ import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
 import { Progress } from '../models/Progress.js';
 import { Program } from '../models/Program.js';
+import { Batch } from '../models/Batch.js';
 
 const router = Router();
 
 const totalTopics = (program) =>
   (program.modules || []).reduce((n, m) => n + (m.chapters || []).reduce((c, ch) => c + (ch.topics || []).length, 0), 0);
+
+// Does this topicId actually belong to this program's tree? Guards toggle
+// below against arbitrary ids being pushed into completedTopics.
+const hasTopic = (program, topicId) =>
+  (program.modules || []).some((m) => (m.chapters || []).some((c) => (c.topics || []).some((t) => String(t._id) === topicId)));
 
 // GET /api/lms/progress/me?programId= — the student's completion for one program.
 router.get('/me', requireAuth, async (req, res) => {
@@ -24,9 +30,17 @@ router.get('/me', requireAuth, async (req, res) => {
 router.post('/toggle', requireAuth, async (req, res) => {
   const { programId, topicId } = req.body || {};
   if (!programId || !topicId) return res.status(400).json({ error: 'programId and topicId are required.' });
+
+  const program = await Program.findById(programId).select('modules');
+  if (!program) return res.status(404).json({ error: 'Program not found.' });
+  const id = String(topicId);
+  if (!hasTopic(program, id)) return res.status(400).json({ error: 'That lesson does not belong to this program.' });
+  if (!(await Batch.exists({ programId, studentIds: req.user._id }))) {
+    return res.status(403).json({ error: 'You are not enrolled in this program.' });
+  }
+
   let p = await Progress.findOne({ studentId: req.user._id, programId });
   if (!p) p = await Progress.create({ studentId: req.user._id, programId, completedTopics: [] });
-  const id = String(topicId);
   const has = p.completedTopics.includes(id);
   p.completedTopics = has ? p.completedTopics.filter((t) => t !== id) : [...p.completedTopics, id];
   await p.save();
