@@ -160,7 +160,7 @@ export default function AiReview({ submission, onApply, onDone }) {
       setCopied(key);
       setTimeout(() => setCopied(''), 1600);
     } catch {
-      setError('Could not reach the clipboard — select the text and copy it manually.');
+      setError('Could not reach the clipboard. Select the text and copy it manually.');
     }
   }
 
