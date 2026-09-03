@@ -36,7 +36,7 @@ export default function Register({ onLogin }) {
         <div className="auth-brand"><MenlerWordmark size={30} theme="dark" tagline /></div>
         <div className="auth-hero-copy">
           <h2>Start learning with Menler.</h2>
-          <p>Live sessions, quizzes, projects and mentor feedback — everything in one place.</p>
+          <p>Live sessions, quizzes, projects and mentor feedback. Everything in one place.</p>
         </div>
         <div />
       </div>
