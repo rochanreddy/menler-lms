@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { api } from '../../api.js';
 import Empty from '../../components/Empty.jsx';
 
-const fmtDate = (d) => (d ? new Date(d).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' }) : '—');
+const fmtDate = (d) => (d ? new Date(d).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' }) : '-');
 
 // Admin drill-down into one mentor: edit their profile, see the batches they
 // run and every student sitting under them, block/unblock their LMS access or
@@ -69,10 +69,10 @@ export default function MentorDetail() {
       <div className="page-head">
         <div>
           <Link to="/app/mentors" className="crumb">← All mentors</Link>
-          <h1 style={{ marginTop: 4 }}>
+          <h1 style={{ marginTop: 'var(--space-1)' }}>
             {u.full_name || u.email}
-            <span className="badge badge-mentor" style={{ marginLeft: 10 }}>mentor</span>
-            {lmsBlocked && <span className="badge badge-blocked" style={{ marginLeft: 6 }}>blocked</span>}
+            <span className="badge badge-mentor" style={{ marginLeft: 'var(--space-3)' }}>mentor</span>
+            {lmsBlocked && <span className="badge badge-blocked" style={{ marginLeft: 'var(--space-2)' }}>blocked</span>}
           </h1>
           <p className="muted">{u.email}{u.phone ? ` · ${u.phone}` : ''} · joined {fmtDate(u.created_at)} · last active {fmtDate(u.last_active_at)}</p>
         </div>
@@ -87,24 +87,24 @@ export default function MentorDetail() {
       {err && <p className="error">{err}</p>}
       {lmsBlocked && (
         <div className="blockbox">
-          This mentor is blocked from the entire LMS{u.blocked.reason ? ` — “${u.blocked.reason}”` : ''}. They cannot log in until unblocked.
+          This mentor is blocked from the entire LMS{u.blocked.reason ? `, “${u.blocked.reason}”` : ''}. They cannot log in until unblocked.
         </div>
       )}
 
       {/* Edit profile */}
-      <section className="panel" style={{ marginTop: 6 }}>
+      <section className="panel" style={{ marginTop: 'var(--space-2)' }}>
         <div className="row" style={{ justifyContent: 'space-between' }}>
           <h3 style={{ margin: 0 }}>Profile</h3>
           {!form && <button className="btn sm ghost" onClick={() => setForm({ fullName: u.full_name || '', phone: u.phone || '', email: u.email })}>Edit</button>}
         </div>
         {!form ? (
-          <div className="muted" style={{ marginTop: 8 }}>
-            <div><strong style={{ color: 'var(--ink)' }}>{u.full_name || '—'}</strong></div>
+          <div className="muted" style={{ marginTop: 'var(--space-2)' }}>
+            <div><strong style={{ color: 'var(--ink)' }}>{u.full_name || '-'}</strong></div>
             <div>{u.email}</div>
             <div>{u.phone || 'No phone on file'}</div>
           </div>
         ) : (
-          <form className="inline-form" style={{ marginTop: 10 }} onSubmit={saveProfile}>
+          <form className="inline-form" style={{ marginTop: 'var(--space-3)' }} onSubmit={saveProfile}>
             <input placeholder="Full name" value={form.fullName} onChange={(e) => setForm((f) => ({ ...f, fullName: e.target.value }))} />
             <input type="email" placeholder="Email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} required />
             <input placeholder="Phone" value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} />
@@ -115,7 +115,7 @@ export default function MentorDetail() {
       </section>
 
       {/* Batches they run — with per-course block */}
-      <section className="panel" style={{ marginTop: 18 }}>
+      <section className="panel" style={{ marginTop: 'var(--space-5)' }}>
         <h3>Runs batches</h3>
         {data.batches.length === 0 && <p className="muted">Not assigned to any batch. Assign one from the Mentors list.</p>}
         {data.batches.map((b) => (
@@ -132,7 +132,7 @@ export default function MentorDetail() {
       </section>
 
       {/* Every student under this mentor */}
-      <section className="panel" style={{ marginTop: 18 }}>
+      <section className="panel" style={{ marginTop: 'var(--space-5)' }}>
         <h3>Students under this mentor</h3>
         {(!data.students || data.students.length === 0) ? <Empty inline icon="students" title="No students yet." hint="Students in this mentor’s batches are listed here." /> : (
           <div className="table-wrap">
@@ -141,7 +141,7 @@ export default function MentorDetail() {
               <tbody>
                 {data.students.map((s) => (
                   <tr key={s.id}>
-                    <td>{s.full_name || '—'}</td>
+                    <td>{s.full_name || '-'}</td>
                     <td>{s.email}</td>
                     <td>{s.blocked ? <span className="badge badge-blocked">blocked</span> : <span className="badge badge-student">active</span>}</td>
                     <td>{fmtDate(s.last_active_at)}</td>
