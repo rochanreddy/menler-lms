@@ -26,7 +26,7 @@ async function run() {
   const keep = [...batches].sort((a, b) =>
     (b.status === 'ongoing') - (a.status === 'ongoing') || b.studentIds.length - a.studentIds.length,
   )[0];
-  if (!keep) { console.log('No batches found — nothing to trim.'); process.exit(0); }
+  if (!keep) { console.log('No batches found, nothing to trim.'); process.exit(0); }
 
   const keepMentor = keep.mentorIds[0] || null;
   const keepStudents = keep.studentIds.map(String);
