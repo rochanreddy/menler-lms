@@ -78,7 +78,7 @@ function shell({ preview, greeting, body, cta, why, title }) {
         </td></tr>
 
         <tr><td class="px" style="padding:32px 40px 44px;">
-          ${P('If anything about signing in does not work, just reply to this email.', 0)}
+          ${P('If anything about signing in does not work, let the Menler team know.', 0)}
           ${P('See you in class!', 24)}
           ${P('<strong style="font-weight:700;">Menler</strong><br />Your turning point in the AI era', 24)}
         </td></tr>
@@ -146,7 +146,7 @@ export function accountCreatedEmail({ fullName, email, password, role = 'student
       P('Sign in through the link below:'),
     ].join('\n'),
     cta: { label: 'Sign in', href: loginUrl },
-    why: `You're receiving this because a Menler account was created for ${esc(email)}. If that wasn't you, reply and let us know.`,
+    why: `You're receiving this because a Menler account was created for ${esc(email)}. If that wasn't you, you can ignore this email.`,
   });
 
   const text = [
@@ -156,7 +156,7 @@ export function accountCreatedEmail({ fullName, email, password, role = 'student
     `Password: ${password}`, '',
     tempNote, '',
     `Sign in: ${loginUrl}`, '',
-    'If anything about signing in does not work, just reply to this email.', '',
+    'If anything about signing in does not work, let the Menler team know.', '',
     SIGN_OFF,
   ].join('\n');
 
@@ -176,7 +176,7 @@ export function passwordResetByAdminEmail({ fullName, email, password, loginUrl 
     greeting: first,
     body: [P(opener), credentials(email, password), P(tempNote), P('Sign in through the link below:')].join('\n'),
     cta: { label: 'Sign in', href: loginUrl },
-    why: `You're receiving this because the password for ${esc(email)} was reset. If you didn't ask for this, reply and let us know.`,
+    why: `You're receiving this because the password for ${esc(email)} was reset. If you didn't ask for this, get in touch with the Menler team.`,
   });
 
   const text = [
