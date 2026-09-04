@@ -1,5 +1,4 @@
 import { Router } from 'express';
-import crypto from 'crypto';
 import { requireAuth, requireRole, invalidateUser } from '../middleware/auth.js';
 import { revokeOtherSessions } from '../utils/sessions.js';
 import { releaseLease } from '../utils/playback.js';
@@ -43,7 +42,7 @@ router.post('/', requireAuth, requireRole('admin'), async (req, res) => {
 
   // Admin may set a custom password; otherwise a temp one is generated. Either
   // way the user must change it on first login.
-  const temp = password || crypto.randomBytes(6).toString('hex');
+  const temp = password || DEFAULT_TEMP_PASSWORD;
   const user = await User.create({
     email: clean,
     fullName: fullName || '',
@@ -61,7 +60,7 @@ router.post('/:id/reset-password', requireAuth, requireRole('admin'), async (req
   const user = await User.findById(req.params.id);
   if (!user) return res.status(404).json({ error: 'User not found.' });
   const { password } = req.body || {};
-  const temp = password || crypto.randomBytes(6).toString('hex');
+  const temp = password || DEFAULT_TEMP_PASSWORD;
   user.passwordHash = await hashPassword(temp);
   user.resetTokenHash = '';
   user.resetExpires = null;
