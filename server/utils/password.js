@@ -30,3 +30,9 @@ export function needsRehash(hash) {
     return false;
   }
 }
+
+// The password every admin-provisioned account starts on. It is deliberately
+// not random: the account carries `mustChangePassword`, so the temp password
+// only has to survive being read out over the phone once before the user
+// replaces it, and a random hex string mostly got mistyped.
+export const DEFAULT_TEMP_PASSWORD = '123456789';
