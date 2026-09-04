@@ -20,6 +20,11 @@ cd server && npm run dev       # :4100 (node --watch)
 cd server && npm run seed      # admin@menler.in / ChangeMe123!
 cd server && npm run seed:full # the whole LMS, mid-cohort (see below)
 cd server && npm run test:flows # drives all three roles against a RUNNING server
+cd server && CONFIRM_DB=<db> LMS_LAUNCH_STUDENT_PASSWORD=… node scripts/resetForLaunch.js
+                               # wipe to launch state: admin + one student, two named
+                               # batches, lesson trees + real library kept. Backs up
+                               # every lms_* collection to server/backups/ first and
+                               # refuses to run unless CONFIRM_DB names the connected DB.
 ```
 
 ### Curriculum
