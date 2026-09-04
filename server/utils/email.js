@@ -24,9 +24,12 @@ export function isMailConfigured() {
   return isResendConfigured() || isSmtpConfigured();
 }
 
-// MAIL_FROM wins; SMTP_FROM is honoured for installs that predate it.
+// MAIL_FROM wins; SMTP_FROM is honoured for installs that predate it. Quotes
+// are stripped because a dashboard (Render, say) passes them through verbatim
+// where a .env file would have eaten them, and Resend 422s on the result.
+const unquote = (s) => String(s || '').trim().replace(/^["']+|["']+$/g, '').trim();
 function fromAddress() {
-  return process.env.MAIL_FROM || process.env.SMTP_FROM || (process.env.SMTP_USER ? `Menler <${process.env.SMTP_USER}>` : 'Menler <onboarding@resend.dev>');
+  return unquote(process.env.MAIL_FROM) || unquote(process.env.SMTP_FROM) || (process.env.SMTP_USER ? `Menler <${process.env.SMTP_USER}>` : 'Menler <onboarding@resend.dev>');
 }
 
 let cachedTransport = null;
