@@ -11,6 +11,12 @@ import { QuizAttempt } from '../models/QuizAttempt.js';
 import { Attendance } from '../models/Attendance.js';
 import { Progress } from '../models/Progress.js';
 import { Program } from '../models/Program.js';
+import { Notification } from '../models/Notification.js';
+import { Doubt } from '../models/Doubt.js';
+import { Message } from '../models/Message.js';
+import { DeviceSession } from '../models/DeviceSession.js';
+import { PlaybackLease } from '../models/PlaybackLease.js';
+import { FileAsset } from '../models/FileAsset.js';
 import { hashPassword, DEFAULT_TEMP_PASSWORD } from '../utils/password.js';
 import { trySendMail } from '../utils/email.js';
 import { accountCreatedEmail, passwordResetByAdminEmail, loginUrl } from '../utils/emailTemplates.js';
@@ -315,6 +321,42 @@ router.patch('/:id', requireAuth, requireRole('admin'), async (req, res) => {
   invalidateUser(user._id);
 
   res.json({ ok: true, user: user.toPublic() });
+});
+
+// DELETE /api/lms/users/:id — admin removes an account outright. Blocking is
+// the reversible option and stays the default; this is for the seat that was
+// provisioned by mistake or the student who asked to be removed. Everything
+// keyed on the user goes with them — a submission whose student no longer
+// exists would be a grading-queue row nobody can open — and they are pulled
+// out of every roster and forum thread so nothing populates to null. Admin
+// accounts cannot be deleted from here: that is how you lock everyone out of
+// the admin panel.
+router.delete('/:id', requireAuth, requireRole('admin'), async (req, res) => {
+  const user = await User.findById(req.params.id);
+  if (!user) return res.status(404).json({ error: 'User not found.' });
+  if (user.role === 'admin') return res.status(400).json({ error: 'Admin accounts cannot be deleted.' });
+  const id = user._id;
+
+  await Promise.all([
+    Submission.deleteMany({ studentId: id }),
+    QuizAttempt.deleteMany({ studentId: id }),
+    Attendance.deleteMany({ studentId: id }),
+    Progress.deleteMany({ studentId: id }),
+    Notification.deleteMany({ userId: id }),
+    Message.deleteMany({ authorId: id }),
+    Doubt.deleteMany({ authorId: id }),
+    Doubt.updateMany({}, { $pull: { likes: id, comments: { authorId: id } } }),
+    DeviceSession.deleteMany({ userId: id }),
+    PlaybackLease.deleteOne({ _id: id }),
+    FileAsset.deleteMany({ ownerId: id }),
+    Batch.updateMany({ $or: [{ studentIds: id }, { mentorIds: id }] }, { $pull: { studentIds: id, mentorIds: id } }),
+    Program.updateMany({ mentorIds: id }, { $pull: { mentorIds: id } }),
+  ]);
+  await User.deleteOne({ _id: id });
+  // Their access token may still be in a browser somewhere; the chokepoint
+  // re-reads the user on the next request and finds nothing.
+  invalidateUser(id);
+  res.json({ ok: true });
 });
 
 export default router;

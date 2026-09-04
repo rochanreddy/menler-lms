@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams, Link, useOutletContext } from 'react-router-dom';
+import { useParams, Link, useOutletContext, useNavigate } from 'react-router-dom';
 import { api, downloadFile, mailNote } from '../../api.js';
 import { Donut, Meter, SEQ, SEQ_AQUA, EMPTY_SLICE } from '../../components/Charts.jsx';
 import { CheckBadge, SubmissionCheckPanel } from '../../components/SubmissionCheck.jsx';
@@ -15,6 +15,7 @@ const fmtDate = (d) => (d ? new Date(d).toLocaleDateString([], { day: 'numeric',
 // in their own batches, plus the CSV report.
 export default function StudentDetail() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const { user: viewer } = useOutletContext();
   const isAdmin = viewer.role === 'admin';
   const [data, setData] = useState(null);
@@ -76,6 +77,18 @@ export default function StudentDetail() {
     } catch (e) { setErr(e.message); }
   }
 
+  // Irreversible, so the confirm spells out what goes and points at Block as
+  // the alternative that keeps the record.
+  async function deleteStudent() {
+    const who = data.user.full_name || data.user.email;
+    if (!window.confirm(`Delete ${who}’s account?\n\nThis removes their login and everything recorded against them: submissions, quiz attempts, attendance and lesson progress. It cannot be undone.\n\nTo keep the record but shut them out, use “Block LMS access” instead.`)) return;
+    setErr('');
+    try {
+      await api(`/users/${id}`, { method: 'DELETE' });
+      navigate('/app/students', { replace: true });
+    } catch (e) { setErr(e.message); }
+  }
+
   if (err && !data) return <p className="error">{err}</p>;
   if (!data) return <div className="skeleton-stack"><div className="skeleton-row" /><div className="skeleton-row tall" /><div className="skeleton-row tall" /></div>;
 
@@ -110,6 +123,7 @@ export default function StudentDetail() {
               {lmsBlocked ? 'Unblock LMS access' : 'Block LMS access'}
             </button>
           )}
+          {isAdmin && <button className="btn sm danger ghost-danger" onClick={deleteStudent}>Delete account</button>}
         </div>
       </div>
       {err && <p className="error">{err}</p>}

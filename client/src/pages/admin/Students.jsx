@@ -17,6 +17,7 @@ export default function AdminStudents() {
   const [search, setSearch] = useState('');
   const [busy, setBusy] = useState(false);
   const [activeQuery, setActiveQuery] = useState(''); // the query the shown list reflects
+  const [listErr, setListErr] = useState('');
 
   const load = (q = '') => api(`/users?role=student${q ? `&search=${encodeURIComponent(q)}` : ''}`)
     .then((d) => setStudents(d.users || []))
@@ -42,6 +43,18 @@ export default function AdminStudents() {
       load();
     } catch (e2) { setErr(e2.message); }
     finally { setBusy(false); }
+  }
+
+  // Irreversible, so the confirm spells out what goes and points at Block (on
+  // the student's page) as the alternative that keeps the record.
+  async function remove(s) {
+    const who = s.full_name || s.email;
+    if (!window.confirm(`Delete ${who}’s account?\n\nThis removes their login and everything recorded against them: submissions, quiz attempts, attendance and lesson progress. It cannot be undone.\n\nTo keep the record but shut them out, open the student and use “Block LMS access” instead.`)) return;
+    setListErr('');
+    try {
+      await api(`/users/${s.id}`, { method: 'DELETE' });
+      setStudents((list) => list.filter((x) => x.id !== s.id));
+    } catch (e2) { setListErr(e2.message); }
   }
 
   return (
@@ -85,6 +98,7 @@ export default function AdminStudents() {
         )}
       </form>
 
+      {listErr && <p className="error" role="alert">{listErr}</p>}
       <div className="list">
         {shown.map((s) => (
           <div className="panel list-row row-click" key={s.id} onClick={() => navigate(`/app/students/${s.id}`)}>
@@ -96,6 +110,7 @@ export default function AdminStudents() {
             <div className="row">
               <span className="badge badge-muted">{s.batch_ids?.length || 0} batch{(s.batch_ids?.length || 0) === 1 ? '' : 'es'}</span>
               <Link className="btn sm" to={`/app/students/${s.id}`}>Open</Link>
+              <button className="btn sm ghost" onClick={(e) => { e.stopPropagation(); remove(s); }}>Delete</button>
             </div>
           </div>
         ))}
