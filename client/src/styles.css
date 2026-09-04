@@ -1930,6 +1930,9 @@ input:hover:not(:disabled):not(:focus), select:hover:not(:disabled):not(:focus),
 
 /* ── Text selection in the brand ── */
 ::selection { background: rgba(83,74,183,.2); color: var(--indigo); }
+/* On the dark stage that indigo sits on near-indigo and the selected words
+   vanish, so the dark surfaces take parchment on a lavender wash. */
+.reader ::selection, .auth-hero ::selection, .path-hero ::selection { background: rgba(175,169,236,.32); color: var(--parchment); }
 
 /* ── Accessibility ── Honour a stated preference for less motion: keep the
    state changes, drop the movement. */
