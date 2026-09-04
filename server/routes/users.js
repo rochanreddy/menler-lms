@@ -11,7 +11,9 @@ import { QuizAttempt } from '../models/QuizAttempt.js';
 import { Attendance } from '../models/Attendance.js';
 import { Progress } from '../models/Progress.js';
 import { Program } from '../models/Program.js';
-import { hashPassword } from '../utils/password.js';
+import { hashPassword, DEFAULT_TEMP_PASSWORD } from '../utils/password.js';
+import { trySendMail } from '../utils/email.js';
+import { accountCreatedEmail, passwordResetByAdminEmail, loginUrl } from '../utils/emailTemplates.js';
 
 const router = Router();
 
@@ -51,7 +53,10 @@ router.post('/', requireAuth, requireRole('admin'), async (req, res) => {
     passwordHash: await hashPassword(temp),
     mustChangePassword: true,
   });
-  res.status(201).json({ user: user.toPublic(), tempPassword: temp, custom: !!password });
+  // The credentials go out by email too. `emailed` tells the admin whether
+  // that happened so they know if they still have to pass the password on.
+  const mail = await trySendMail({ to: clean, ...accountCreatedEmail({ fullName, email: clean, password: temp, role, loginUrl: loginUrl() }) });
+  res.status(201).json({ user: user.toPublic(), tempPassword: temp, custom: !!password, ...mail });
 });
 
 // POST /api/lms/users/:id/reset-password — admin resets a user's password and
@@ -67,7 +72,8 @@ router.post('/:id/reset-password', requireAuth, requireRole('admin'), async (req
   user.mustChangePassword = true; // force a fresh password on next login
   await user.save();
   invalidateUser(user._id);
-  res.json({ ok: true, tempPassword: temp, custom: !!password });
+  const mail = await trySendMail({ to: user.email, ...passwordResetByAdminEmail({ fullName: user.fullName, email: user.email, password: temp, loginUrl: loginUrl() }) });
+  res.json({ ok: true, tempPassword: temp, custom: !!password, ...mail });
 });
 
 // GET /api/lms/users/my-students — every student across the batches this

@@ -3,7 +3,9 @@ import { requireAuth, requireRole, invalidateUser } from '../middleware/auth.js'
 import { Batch } from '../models/Batch.js';
 import { User } from '../models/User.js';
 import { canAccessBatch, myBatchIds } from '../utils/access.js';
-import { hashPassword } from '../utils/password.js';
+import { hashPassword, DEFAULT_TEMP_PASSWORD } from '../utils/password.js';
+import { trySendMail } from '../utils/email.js';
+import { accountCreatedEmail, loginUrl } from '../utils/emailTemplates.js';
 
 const router = Router();
 
@@ -92,10 +94,16 @@ router.post('/:id/students', requireAuth, requireRole('admin'), async (req, res)
   } else if (user.role !== 'student') {
     return res.status(400).json({ error: 'That email belongs to a non-student account.' });
   }
-  await Batch.findByIdAndUpdate(req.params.id, { $addToSet: { studentIds: user._id } });
+  const batch = await Batch.findByIdAndUpdate(req.params.id, { $addToSet: { studentIds: user._id } }, { new: true }).populate('programId', 'title');
   await User.findByIdAndUpdate(user._id, { $addToSet: { batchIds: req.params.id } });
   invalidateUser(user._id);
-  res.json({ ok: true, user: user.toPublic(), created: !!tempPassword, tempPassword });
+  // A brand-new account gets its credentials by email, named for the
+  // programme it was just enrolled in. An existing account gets nothing —
+  // they already have a password, and enrolment shows on their next load.
+  const mail = tempPassword
+    ? await trySendMail({ to: email, ...accountCreatedEmail({ fullName, email, password: tempPassword, role: 'student', loginUrl: loginUrl(), programme: batch?.programId?.title || batch?.name }) })
+    : {};
+  res.json({ ok: true, user: user.toPublic(), created: !!tempPassword, tempPassword, ...mail });
 });
 
 // DELETE /api/lms/batches/:id/members/:userId — admin removes a member from either list.
