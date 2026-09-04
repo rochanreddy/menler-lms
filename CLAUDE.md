@@ -106,6 +106,15 @@ across all three roles.
 - **Data isolation rule**: this service touches only `lms_*` collections. The
   Atlas cluster is shared with the marketing site; never read or write `leads`,
   `orders`, or the marketing `users`.
+- **Email** goes through `sendMail()` in [server/utils/email.js](server/utils/email.js)
+  only — Resend (`RESEND_API_KEY`, free tier 100/day) first, SMTP second, the
+  server console when neither is set. Creating an account or resetting its
+  password (users and batches routes) emails the credentials on the template in
+  [server/utils/emailTemplates.js](server/utils/emailTemplates.js), which is the
+  [docs/email-reference-enrollment-confirmation.html](docs/email-reference-enrollment-confirmation.html) layout with LMS copy; the response carries
+  `emailed` so the admin UI can say whether it went out. The mail carries no
+  images and no links to the marketing site — the LMS is a separate deployment
+  and its mail must not depend on menler.in being up.
 
 ### One account, one device
 
