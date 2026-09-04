@@ -1,5 +1,4 @@
 import { Router } from 'express';
-import crypto from 'crypto';
 import { requireAuth, requireRole, invalidateUser } from '../middleware/auth.js';
 import { Batch } from '../models/Batch.js';
 import { User } from '../models/User.js';
@@ -88,7 +87,7 @@ router.post('/:id/students', requireAuth, requireRole('admin'), async (req, res)
   let user = await User.findOne({ email });
   let tempPassword;
   if (!user) {
-    tempPassword = crypto.randomBytes(6).toString('hex');
+    tempPassword = DEFAULT_TEMP_PASSWORD;
     user = await User.create({ email, fullName: fullName || '', role: 'student', passwordHash: await hashPassword(tempPassword), mustChangePassword: true });
   } else if (user.role !== 'student') {
     return res.status(400).json({ error: 'That email belongs to a non-student account.' });
