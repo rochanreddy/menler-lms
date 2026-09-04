@@ -12,6 +12,7 @@ import { Assignment } from '../models/Assignment.js';
 import { Submission } from '../models/Submission.js';
 import { Doubt } from '../models/Doubt.js';
 import { Announcement } from '../models/Announcement.js';
+import { generalistModules } from './curricula.js';
 
 const BASE = process.env.LMS_API || 'http://localhost:4100/api/lms';
 const PASSWORD = process.env.LMS_SEED_TEST_PASSWORD || 'Test@1234';
@@ -111,7 +112,11 @@ async function run() {
   // stricter contract: both PDFs on every lesson.
   const genFull = await call(`/programs/${gen._id}`, { token: admin.token });
   const genTopics = (genFull.json.program.modules || []).flatMap((m) => m.chapters.flatMap((c) => c.topics));
-  ok('Generalist has 24 seeded lessons', genTopics.length === 24, `got ${genTopics.length}`);
+  // The count comes from curricula.js, not a literal: that file is the single
+  // source of truth for both programmes, so when the PDF changes the fixture
+  // and this check move together instead of one going stale.
+  const genExpected = generalistModules().flatMap((m) => m.chapters.flatMap((c) => c.topics)).length;
+  ok('Generalist has every lesson curricula.js defines', genTopics.length === genExpected, `got ${genTopics.length}, curricula.js has ${genExpected}`);
   ok('every seeded lesson carries a reading PDF', genTopics.every((t) => t.readingUrl?.endsWith('.pdf')));
   ok('every seeded lesson carries teacher notes PDF', genTopics.every((t) => t.notesUrl?.endsWith('.pdf')));
 
