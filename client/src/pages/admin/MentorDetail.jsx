@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { api } from '../../api.js';
+import { api, mailNote } from '../../api.js';
 import Empty from '../../components/Empty.jsx';
 
 const fmtDate = (d) => (d ? new Date(d).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' }) : '-');
@@ -54,7 +54,7 @@ export default function MentorDetail() {
     if (!window.confirm(`Reset password for ${data.user.email}?`)) return;
     try {
       const r = await api(`/users/${id}/reset-password`, { method: 'POST' });
-      window.alert(`New temp password for ${data.user.email}: ${r.tempPassword}`);
+      window.alert(`New temp password for ${data.user.email}: ${r.tempPassword}\n${mailNote(r)}`);
     } catch (e) { setErr(e.message); }
   }
 

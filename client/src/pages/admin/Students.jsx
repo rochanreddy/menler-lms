@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { api } from '../../api.js';
+import { api, mailNote } from '../../api.js';
 import LineIcon from '../../components/LineIcon.jsx';
 import Empty from '../../components/Empty.jsx';
 
@@ -37,7 +37,7 @@ export default function AdminStudents() {
     setBusy(true);
     try {
       const res = await api('/users', { method: 'POST', body: { ...form, role: 'student' } });
-      setTemp({ email: res.user.email, password: res.tempPassword, custom: res.custom });
+      setTemp({ email: res.user.email, password: res.tempPassword, custom: res.custom, emailed: res.emailed, error: res.error });
       setForm({ email: '', fullName: '', password: '' });
       load();
     } catch (e2) { setErr(e2.message); }
@@ -67,7 +67,7 @@ export default function AdminStudents() {
         {temp && (
           <div className="tempbox">
             <LineIcon name="check" size={15} className="tempbox-ic" /> Created <strong>{temp.email}</strong>, {temp.custom ? 'password' : 'temp password'}: <code>{temp.password}</code>
-            <div className="muted">Share it; they'll set their own password on first login.</div>
+            <div className="muted">{mailNote(temp)} They'll set their own password on first login.</div>
           </div>
         )}
       </form>

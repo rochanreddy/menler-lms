@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { api } from '../../api.js';
+import { api, mailNote } from '../../api.js';
 import LineIcon from '../../components/LineIcon.jsx';
 import Empty from '../../components/Empty.jsx';
 
@@ -44,7 +44,7 @@ export default function AdminMentors() {
     setBusy(true);
     try {
       const res = await api('/users', { method: 'POST', body: { ...form, role: 'mentor' } });
-      setTemp({ email: res.user.email, password: res.tempPassword, custom: res.custom });
+      setTemp({ email: res.user.email, password: res.tempPassword, custom: res.custom, emailed: res.emailed, error: res.error });
       setForm({ email: '', fullName: '', password: '' });
       load();
     } catch (e2) { setErr(e2.message); }
@@ -56,7 +56,7 @@ export default function AdminMentors() {
     if (!window.confirm(`Reset password for ${m.email}? Their current password stops working.`)) return;
     try {
       const res = await api(`/users/${m.id}/reset-password`, { method: 'POST' });
-      setReset({ email: m.email, password: res.tempPassword });
+      setReset({ email: m.email, password: res.tempPassword, emailed: res.emailed, error: res.error });
     } catch (e2) { setErr(e2.message); }
   }
 
@@ -82,7 +82,7 @@ export default function AdminMentors() {
         {err && <span className="error" role="alert">{err}</span>}
         {temp && (
           <div className="tempbox">
-            <div className="tempbox-line"><span className="tempbox-ic"><LineIcon name="check" size={16} /></span><span>Created <strong>{temp.email}</strong>, {temp.custom ? 'password' : 'temp password'}: <code>{temp.password}</code></span></div>
+            <div className="tempbox-line"><span className="tempbox-ic"><LineIcon name="check" size={16} /></span><span>Created <strong>{temp.email}</strong>, {temp.custom ? 'password' : 'temp password'}: <code>{temp.password}</code>. {mailNote(temp)}</span></div>
             <div className="muted">Share this with the mentor; they'll be asked to set their own password on first login.</div>
           </div>
         )}
@@ -90,7 +90,7 @@ export default function AdminMentors() {
 
       {reset && (
         <div className="tempbox">
-          <div className="tempbox-line"><span className="tempbox-ic" style={{ color: 'var(--brand)' }}><LineIcon name="key" size={16} /></span><span>New password for <strong>{reset.email}</strong>: <code>{reset.password}</code></span></div>
+          <div className="tempbox-line"><span className="tempbox-ic" style={{ color: 'var(--brand)' }}><LineIcon name="key" size={16} /></span><span>New password for <strong>{reset.email}</strong>: <code>{reset.password}</code>. {mailNote(reset)}</span></div>
           <div className="muted">Share it with the mentor; they change it after signing in.</div>
         </div>
       )}

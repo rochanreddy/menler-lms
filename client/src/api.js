@@ -323,3 +323,12 @@ export async function downloadFile(path, fallbackName = 'report.csv') {
   a.remove();
   URL.revokeObjectURL(url);
 }
+
+// One sentence for the admin after a temp password is minted: did the
+// credentials email go out, or do they still have to pass it on themselves?
+// Reads the `emailed` / `error` the users and batches routes attach.
+export function mailNote(res) {
+  if (res?.emailed) return 'Emailed to them too.';
+  if (res?.error) return `Email failed (${res.error}) — share it yourself.`;
+  return 'Email is not set up — share it yourself.';
+}

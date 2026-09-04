@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { api, downloadFile } from '../api.js';
+import { api, downloadFile, mailNote } from '../api.js';
 import LineIcon from './LineIcon.jsx';
 import Markdown from './Markdown.jsx';
 import Empty from './Empty.jsx';
@@ -65,7 +65,7 @@ export default function BatchWorkspace({ batchId, mode }) {
       const res = await api(`/batches/${batchId}/students`, { method: 'POST', body: { email: newEmail } });
       setNewEmail('');
       loadBatch();
-      if (res.created) { setNewStudent({ email: res.user.email, password: res.tempPassword }); loadPeople(); }
+      if (res.created) { setNewStudent({ email: res.user.email, password: res.tempPassword, emailed: res.emailed, error: res.error }); loadPeople(); }
       else flash('Student enrolled');
     } catch (e2) { flash(e2.message); }
   }
@@ -203,7 +203,7 @@ export default function BatchWorkspace({ batchId, mode }) {
 
             {newStudent && (
               <div className="tempbox">
-                <div className="tempbox-line"><span className="tempbox-ic"><LineIcon name="check" size={16} /></span><span>New student account created for <strong>{newStudent.email}</strong>, temp password: <code>{newStudent.password}</code></span></div>
+                <div className="tempbox-line"><span className="tempbox-ic"><LineIcon name="check" size={16} /></span><span>New student account created for <strong>{newStudent.email}</strong>, temp password: <code>{newStudent.password}</code>. {mailNote(newStudent)}</span></div>
                 <div className="muted">Share these; they'll set their own password on first login.</div>
               </div>
             )}

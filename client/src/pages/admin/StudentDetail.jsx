@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link, useOutletContext } from 'react-router-dom';
-import { api, downloadFile } from '../../api.js';
+import { api, downloadFile, mailNote } from '../../api.js';
 import { Donut, Meter, SEQ, SEQ_AQUA, EMPTY_SLICE } from '../../components/Charts.jsx';
 import { CheckBadge, SubmissionCheckPanel } from '../../components/SubmissionCheck.jsx';
 import AiReview from '../../components/AiReview.jsx';
@@ -72,7 +72,7 @@ export default function StudentDetail() {
     if (!window.confirm(`Reset password for ${data.user.email}?`)) return;
     try {
       const r = await api(`/users/${id}/reset-password`, { method: 'POST' });
-      window.alert(`New temp password for ${data.user.email}: ${r.tempPassword}`);
+      window.alert(`New temp password for ${data.user.email}: ${r.tempPassword}\n${mailNote(r)}`);
     } catch (e) { setErr(e.message); }
   }
 
