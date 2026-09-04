@@ -4,7 +4,7 @@ import bcrypt from 'bcryptjs';
 
 import { User, ROLES } from '../models/User.js';
 import { signAccessToken, signRefreshToken, verifyToken } from '../utils/token.js';
-import { isSmtpConfigured, sendMail } from '../utils/email.js';
+import { isMailConfigured, sendMail } from '../utils/email.js';
 import { invalidateUser, requireAuth } from '../middleware/auth.js';
 import { hashPassword, needsRehash } from '../utils/password.js';
 import {
@@ -235,8 +235,8 @@ router.post('/forgot', async (req, res) => {
       user.resetExpires = new Date(Date.now() + 1000 * 60 * 30);
       await user.save();
       const link = `${APP_URL()}/reset?token=${raw}&email=${encodeURIComponent(email)}`;
-      if (isSmtpConfigured()) await sendMail({ to: email, subject: 'Reset your Menler LMS password', text: `Reset your password:\n\n${link}\n\nExpires in 30 minutes.` });
-      else console.log('[forgot] SMTP off, reset link:', link);
+      if (isMailConfigured()) await sendMail({ to: email, subject: 'Reset your Menler LMS password', text: `Reset your password:\n\n${link}\n\nExpires in 30 minutes.` });
+      else console.log('[forgot] mail off, reset link:', link);
     }
     return res.json({ ok: true });
   } catch (err) {
