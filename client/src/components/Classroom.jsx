@@ -269,15 +269,20 @@ export default function Classroom() {
           </div>
           <h1 className="reader-title">{topic.title}</h1>
           <div className="reader-tools">
-            {/* Reading and notes only. The class itself plays inline below, so
-                a "join class" link up here would be a second door to the same
-                room. */}
             <button className="rchip" disabled={!readingUrl} title={readingUrl ? undefined : 'Your mentor hasn’t attached the reading for this lesson yet'} onClick={() => setViewer({ label: 'Reading Material', subtitle: topic.title, url: readingUrl })}>
               <LessonIcon type="pdf" size={14} /> {readingUrl ? 'Reading material' : 'No reading yet'}
             </button>
             <button className="rchip" disabled={!notesUrl} title={notesUrl ? undefined : 'Your mentor hasn’t attached the notes for this lesson yet'} onClick={() => setViewer({ label: 'Teacher Notes', subtitle: topic.title, url: notesUrl })}>
               <LineIcon name="slides" size={14} /> {notesUrl ? 'Teacher notes' : 'No notes yet'}
             </button>
+            {/* The class recording / live link. Kept as a chip even when there
+                is nothing to open: a student who cannot see a video button
+                assumes the video is missing; "not yet" tells them to come back. */}
+            {topic.classLink ? (
+              <a className="rchip" href={topic.classLink} target="_blank" rel="noreferrer"><LineIcon name="video" size={14} /> Watch class video</a>
+            ) : (
+              <button className="rchip" disabled title="Your mentor hasn’t posted this class’s video yet"><LineIcon name="video" size={14} /> Video not available yet</button>
+            )}
             {isDone && <span className="rchip is-done"><LineIcon name="check" size={14} /> Done</span>}
           </div>
           {/* How far through the reading you are — fills as the body scrolls. */}

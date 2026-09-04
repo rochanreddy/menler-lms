@@ -508,7 +508,8 @@ a:focus-visible,
 .list-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 /* The text block must be allowed to shrink, or one long email pushes the
    button off the side of a phone; the button itself never shrinks. */
-.list-row > :first-child { flex: 1; min-width: 0; }
+.list-row > :first-child { flex: 1 1 auto; min-width: 0; }
+.list-row > .row { flex: 0 1 auto; justify-content: flex-end; }
 .list-row > :first-child .muted { overflow-wrap: anywhere; }
 .list-row > .btn { flex: none; }
 
@@ -1137,7 +1138,8 @@ h1.md-h { font-size: 22px; } h2.md-h { font-size: 19px; } h3.md-h { font-size: 1
 .inline-form input, .inline-form select { padding: 9px 11px; border: 1px solid var(--line); border-radius: 9px; font-size: 13.5px; font-family: var(--font); }
 .inline-form input { min-width: 200px; }
 .ann-body { padding: 9px 11px; border: 1px solid var(--line); border-radius: 9px; font-size: 13.5px; font-family: var(--font); box-sizing: border-box; }
-.table-wrap { overflow-x: auto; margin-top: 8px; }
+.table-wrap { overflow-x: auto; margin-top: 8px; -webkit-overflow-scrolling: touch; }
+.grade-table .sub-cell { display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; }
 .grade-table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
 .grade-table th, .grade-table td { padding: 9px 12px; text-align: left; border-bottom: 1px solid var(--line-soft); white-space: nowrap; }
 .grade-table th { font-size: 12px; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); font-weight: 600; }
@@ -1759,7 +1761,9 @@ h1.md-h { font-size: 22px; } h2.md-h { font-size: 19px; } h3.md-h { font-size: 1
   .sub-check-head { align-items: flex-start; }
 
   /* Notifications dropdown fits the viewport */
-  .notif-menu { width: calc(100vw - 32px); right: -8px; max-width: 340px; }
+  /* Anchored to the viewport, not the bell: the bell is nowhere near the
+     right edge on a phone, so a right-anchored menu ran off the left. */
+  .notif-menu { position: fixed; top: 62px; left: 12px; right: 12px; width: auto; max-width: none; max-height: 70vh; max-height: 70dvh; }
 }
 
 /* Only genuinely small screens get the bottom sheet. Above this the palette
@@ -1778,6 +1782,19 @@ h1.md-h { font-size: 22px; } h2.md-h { font-size: 19px; } h3.md-h { font-size: 1
   .tiles, .stats { grid-template-columns: 1fr; }
   .att-item { flex-wrap: wrap; }
   .att-modal, .cert { max-width: 100%; }
+  /* Admin rows: actions drop to their own line under the name. */
+  .list-row { flex-wrap: wrap; }
+  .list-row > .row { flex: 1 1 100%; justify-content: flex-start; }
+  /* A cohort row: name on the first line, count · status · action on the next. */
+  .prog-batch { flex-wrap: wrap; row-gap: 6px; }
+  .prog-batch-name { flex: 1 1 100%; }
+  .prog-batch .btn { margin-left: auto; }
+  .prog-batch-add { flex-wrap: wrap; }
+  .prog-batch-add input:not([type="date"]) { flex: 1 1 100%; }
+  .prog-batch-add input[type="date"] { flex: 1 1 auto; width: auto; min-width: 0; }
+  .prog-batch-add .btn { flex: 0 0 auto; }
+  /* Tables bleed to the card's edge so the sideways scroll reads as one. */
+  .panel > .table-wrap { margin-left: -18px; margin-right: -18px; padding: 0 18px; }
   .att-toolbar { flex-wrap: wrap; gap: 8px; }
   .af-top, .assign-title { flex-direction: column; align-items: stretch; }
   .af-seg { width: 100%; } .af-seg button { flex: 1; }
