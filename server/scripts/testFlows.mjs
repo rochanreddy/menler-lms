@@ -117,8 +117,9 @@ async function run() {
   // and this check move together instead of one going stale.
   const genExpected = generalistModules().flatMap((m) => m.chapters.flatMap((c) => c.topics)).length;
   ok('Generalist has every lesson curricula.js defines', genTopics.length === genExpected, `got ${genTopics.length}, curricula.js has ${genExpected}`);
-  ok('every seeded lesson carries a reading PDF', genTopics.every((t) => t.readingUrl?.endsWith('.pdf')));
-  ok('every seeded lesson carries teacher notes PDF', genTopics.every((t) => t.notesUrl?.endsWith('.pdf')));
+  const hasPdf = (url) => !!url && (url.endsWith('.pdf') || url.startsWith('/uploads/'));
+  ok('every seeded lesson carries a reading PDF', genTopics.every((t) => hasPdf(t.readingUrl)));
+  ok('every seeded lesson carries teacher notes PDF', genTopics.every((t) => hasPdf(t.notesUrl)));
 
   // Fellowship was a duplicate of the Kickstarter curriculum with no batch behind
   // it; it should not reappear in the programme picker.

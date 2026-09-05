@@ -21,6 +21,13 @@ const fileAssetSchema = new mongoose.Schema(
     size: { type: Number, required: true },
     ownerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     kind: { type: String, enum: ['resume', 'curriculum-pdf'], default: 'resume', index: true },
+
+    // SHA-256 of `data`, so the same file uploaded twice is stored once.
+    // Course material is the case that needs it: one 750 KB ebook attached to
+    // twenty lessons was being stored twenty times, because every drop in the
+    // curriculum editor minted a new row. Empty on rows written before this
+    // existed, which is why nothing may treat it as required.
+    hash: { type: String, default: '', index: true },
   },
   { timestamps: true },
 );

@@ -19,6 +19,8 @@ cd client && npm run dev       # :5174
 cd server && npm run dev       # :4100 (node --watch)
 cd server && npm run seed      # admin@menler.in / ChangeMe123!
 cd server && npm run seed:full # the whole LMS, mid-cohort (see below)
+cd server && node scripts/dedupeCurriculumPdfs.js          # dry run; --apply to collapse
+                               # duplicate curriculum PDF blobs (needs CONFIRM_DB to apply)
 cd server && npm run test:flows # drives all three roles against a RUNNING server
 cd server && CONFIRM_DB=<db> LMS_LAUNCH_STUDENT_PASSWORD=… node scripts/resetForLaunch.js
                                # wipe to launch state: admin + one student, two named
@@ -38,6 +40,31 @@ same trees and adds the per-lesson PDFs and class links. Neither seed carries
 lesson text of its own — if a PDF changes, it changes in `curricula.js` and both
 seeds follow. `seed:full` will not overwrite a curriculum that already has
 lessons; pass `FORCE_CURRICULUM=1` to reset a programme back to the PDF.
+
+**A fixture seed refuses to run on live.** `seed:full`, `seed:demo` and
+`seed:content` call `assertSeedTarget()`
+([scripts/seedGuard.js](server/scripts/seedGuard.js)) straight after connecting:
+they run freely against a database whose name ends in `_test`, and against
+anything else only when `CONFIRM_DB` names that database. This exists because
+`seed:full` was once run with the default `MONGODB_URI` and replaced the live
+launch cohorts with sixteen invented students mid-course.
+
+**Media belongs to the admin, not to the seed.** `curricula.js` carries lesson
+copy only, so a lesson rebuilt from it has every media field empty. `seed:content`
+therefore carries `readingUrl`, `notesUrl`, `classLink` and `contentUrl` across
+with the lesson id — otherwise a re-author silently detaches every PDF uploaded
+through the curriculum editor. The exception is the placeholders `seed:full`
+stamps on (the marketing brochure, the joke recording): those count as an empty
+slot, or the real curriculum would be pinned to them forever.
+
+**Module ebooks.** [server/assets/curriculum-pdfs/](server/assets/curriculum-pdfs/)
+holds the week/session ebooks, committed so a seed is reproducible off one
+laptop. `CURRICULUM_PDF_RULES` in
+[curriculumPdfAssets.js](server/utils/curriculumPdfAssets.js) maps a module title
+prefix to its ebook; the seed loads each into Mongo once (keyed on the content
+hash, so re-seeding never duplicates a blob or moves a URL) and fills the reading
+slot of every lesson in that module that has none. Modules with no rule keep an
+empty slot, which the lesson UI renders honestly as "No reading yet".
 
 **Lesson ids are load-bearing.** Modules/chapters/topics are embedded
 sub-documents, so a naive `p.modules = …` re-mints every `_id` and orphans the

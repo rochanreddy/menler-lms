@@ -37,7 +37,9 @@ export default function CurriculumEditor({ programId, batch, onClose }) {
 
   useEffect(() => {
     api(`/programs/${programId}`).then(({ program: p }) => {
-      setProgram(p); setModules(p.modules || []); setPublished(!!p.published);
+      setProgram(p);
+      setModules(structuredClone(p.modules || []));
+      setPublished(!!p.published);
     }).catch(() => {});
   }, [programId]);
 
@@ -60,7 +62,9 @@ export default function CurriculumEditor({ programId, batch, onClose }) {
   const delTopic = (mi, ci, ti) => { touch((m) => m[mi].chapters[ci].topics.splice(ti, 1)); setSel(null); };
   const setModuleTitle = (mi, v) => touch((m) => { m[mi].title = v; });
   const setChapterTitle = (mi, ci, v) => touch((m) => { m[mi].chapters[ci].title = v; });
-  const setTopicField = (mi, ci, ti, patch) => touch((m) => { Object.assign(m[mi].chapters[ci].topics[ti], patch); });
+  const setTopicField = (mi, ci, ti, patch) => touch((m) => {
+    m[mi].chapters[ci].topics[ti] = { ...m[mi].chapters[ci].topics[ti], ...patch };
+  });
   const move = (mi, dir) => touch((m) => { const j = mi + dir; if (j < 0 || j >= m.length) return; [m[mi], m[j]] = [m[j], m[mi]]; });
 
   async function onImport(e) {
@@ -175,6 +179,8 @@ export default function CurriculumEditor({ programId, batch, onClose }) {
                 <>
                   <label className="ce-label">Lesson PDF</label>
                   <PdfUrlField
+                    key={`${sel.mi}-${sel.ci}-${sel.ti}-content`}
+                    fieldKey={`${sel.mi}-${sel.ci}-${sel.ti}-content`}
                     value={selTopic.contentUrl}
                     onChange={(contentUrl) => setTopicField(sel.mi, sel.ci, sel.ti, { contentUrl })}
                   />
@@ -212,12 +218,16 @@ export default function CurriculumEditor({ programId, batch, onClose }) {
 
               <label className="ce-label">Reading material <span className="muted">(PDF, opens in the in-page viewer)</span></label>
               <PdfUrlField
+                key={`${sel.mi}-${sel.ci}-${sel.ti}-reading`}
+                fieldKey={`${sel.mi}-${sel.ci}-${sel.ti}-reading`}
                 value={selTopic.readingUrl || ''}
                 onChange={(readingUrl) => setTopicField(sel.mi, sel.ci, sel.ti, { readingUrl })}
               />
 
               <label className="ce-label">Teacher notes <span className="muted">(PDF, opens in the in-page viewer)</span></label>
               <PdfUrlField
+                key={`${sel.mi}-${sel.ci}-${sel.ti}-notes`}
+                fieldKey={`${sel.mi}-${sel.ci}-${sel.ti}-notes`}
                 value={selTopic.notesUrl || ''}
                 onChange={(notesUrl) => setTopicField(sel.mi, sel.ci, sel.ti, { notesUrl })}
               />
@@ -234,12 +244,20 @@ export default function CurriculumEditor({ programId, batch, onClose }) {
 
 // Drop a PDF or paste a link. Uploaded files land in Mongo and the stored
 // `/uploads/…` path is what students read through the in-app PDF viewer.
-function PdfUrlField({ value, onChange }) {
+function PdfUrlField({ value, onChange, fieldKey }) {
   const inputRef = useRef(null);
+  const aliveRef = useRef(true);
   const [uploading, setUploading] = useState(false);
   const [drag, setDrag] = useState(false);
   const [fileName, setFileName] = useState('');
   const [err, setErr] = useState('');
+
+  useEffect(() => {
+    aliveRef.current = true;
+    setFileName('');
+    setErr('');
+    return () => { aliveRef.current = false; };
+  }, [fieldKey]);
 
   async function take(file) {
     if (!file) return;
@@ -249,14 +267,16 @@ function PdfUrlField({ value, onChange }) {
     }
     setErr('');
     setUploading(true);
+    const slot = fieldKey;
     try {
       const { url, name } = await uploadCurriculumPdf(file);
+      if (!aliveRef.current || slot !== fieldKey) return;
       setFileName(name || file.name);
       onChange(url);
     } catch (e) {
-      setErr(e.message);
+      if (aliveRef.current) setErr(e.message);
     } finally {
-      setUploading(false);
+      if (aliveRef.current) setUploading(false);
     }
   }
 

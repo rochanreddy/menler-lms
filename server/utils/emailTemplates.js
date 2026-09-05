@@ -1,12 +1,11 @@
-// The account emails, laid out on the same table as the enrolment
-// confirmation in docs/email-reference-enrollment-confirmation.html
-// — same palette, type, button and permission bar, so an LMS login mail
-// reads as the same company. The body copy is different: that template
-// confirms a seat, these hand over a sign-in.
+// The account emails, laid out on the same shell as
+// docs/email-reference-enrollment-confirmation.html — banner, button, logo
+// footer and permission bar, so an LMS login mail reads as the same company.
+// The body copy is different: that template confirms a seat, these hand over
+// a sign-in.
 //
-// No images. The reference hot-links a banner and logo from the marketing
-// site; this LMS is a separate deployment with no asset host of its own, so
-// the masthead is set in type instead and the mail depends on nothing.
+// Images are hot-linked from menler.in (public/email-banner.jpg,
+// public/email-logo.png) — same as the marketing mailers.
 
 // Where the button points. Same env the password-reset link is built from.
 export const loginUrl = () => `${(process.env.LMS_APP_URL || 'http://localhost:5174').replace(/\/+$/, '')}/login`;
@@ -19,6 +18,61 @@ const firstNameOf = (fullName, email) => {
 };
 
 const P = (inner, top = 22) => `<p style="margin:${top}px 0 0; font-size:16px; line-height:1.8; color:#1F2430;">${inner}</p>`;
+
+const BANNER = 'https://menler.in/email-banner.jpg';
+const LOGO = 'https://menler.in/email-logo.png';
+
+const FOOTER = `<tr><td bgcolor="#211B4C" class="px" style="background-color:#211B4C; padding:34px 40px 30px;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+
+    <td class="stack" width="56%" valign="top" style="width:56%;">
+      <img src="${LOGO}" width="128" alt="menler" style="width:128px; height:auto; display:block;" />
+      <div style="font-family:'DM Serif Display',Georgia,serif; font-style:italic; font-size:15px; color:#8E82F5; margin-top:0; line-height:1.4;">
+        Your turning point in the AI Era.
+      </div>
+      <div style="font-size:13.5px; color:#B9B3E8; margin-top:11px; line-height:1.6; max-width:215px;">
+        AI learning, built for the people doing the work.
+      </div>
+    </td>
+
+    <td class="gap" width="4%" style="width:4%; font-size:0;">&nbsp;</td>
+
+    <td class="stack-r" width="40%" valign="top" align="right" style="width:40%;">
+      <div style="font-size:11px; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:#8F87C9; padding-bottom:14px;">Follow us</div>
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="right" class="al"><tr>
+        <td style="padding:0 0 0 8px;">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+            <td width="36" height="36" align="center" valign="middle" style="width:36px; height:36px; border:1px solid #453D80; border-radius:11px;">
+              <a href="https://menler.in" title="Website" style="text-decoration:none;"><img src="https://img.icons8.com/ios-filled/100/B9B3E8/internet.png" width="17" height="17" alt="Website" style="width:17px; height:17px; display:inline-block; vertical-align:middle; border:0;" /></a>
+            </td>
+          </tr></table>
+        </td>
+        <td style="padding:0 0 0 8px;">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+            <td width="36" height="36" align="center" valign="middle" style="width:36px; height:36px; border:1px solid #453D80; border-radius:11px;">
+              <a href="https://www.linkedin.com/company/menler" title="LinkedIn" style="text-decoration:none;"><img src="https://img.icons8.com/ios-filled/100/B9B3E8/linkedin.png" width="17" height="17" alt="LinkedIn" style="width:17px; height:17px; display:inline-block; vertical-align:middle; border:0;" /></a>
+            </td>
+          </tr></table>
+        </td>
+        <td style="padding:0 0 0 8px;">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+            <td width="36" height="36" align="center" valign="middle" style="width:36px; height:36px; border:1px solid #453D80; border-radius:11px;">
+              <a href="https://www.instagram.com/menler.in/" title="Instagram" style="text-decoration:none;"><img src="https://img.icons8.com/ios-filled/100/B9B3E8/instagram-new.png" width="17" height="17" alt="Instagram" style="width:17px; height:17px; display:inline-block; vertical-align:middle; border:0;" /></a>
+            </td>
+          </tr></table>
+        </td>
+        <td style="padding:0 0 0 8px;">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+            <td width="36" height="36" align="center" valign="middle" style="width:36px; height:36px; border:1px solid #453D80; border-radius:11px;">
+              <a href="https://www.facebook.com/people/Menler/61589670181082/" title="Facebook" style="text-decoration:none;"><img src="https://img.icons8.com/ios-filled/100/B9B3E8/facebook-new.png" width="17" height="17" alt="Facebook" style="width:17px; height:17px; display:inline-block; vertical-align:middle; border:0;" /></a>
+            </td>
+          </tr></table>
+        </td>
+      </tr></table>
+    </td>
+
+  </tr></table>
+</td></tr>`;
 
 // One shell, two bodies. `body` is the paragraphs between "Dear …" and the
 // button; `cta` the button label + href; `why` the permission-bar line.
@@ -56,13 +110,10 @@ function shell({ preview, greeting, body, cta, why, title }) {
     <tr><td align="center" style="padding:0;">
       <table role="presentation" class="container" width="620" cellpadding="0" cellspacing="0" border="0" style="width:620px; max-width:620px; background:#ffffff;">
 
-        <!-- Masthead. Text, not a hosted image: this mailer has no asset host
-             of its own and must not lean on the marketing site's. -->
-        <tr><td bgcolor="#211B4C" class="px" style="background-color:#211B4C; padding:34px 40px 30px;">
-          <div style="font-family:'DM Serif Display',Georgia,serif; font-size:30px; line-height:1.1; color:#FFFFFF; letter-spacing:-.01em;">menler</div>
-          <div style="font-family:'DM Serif Display',Georgia,serif; font-style:italic; font-size:15px; color:#8E82F5; margin-top:8px; line-height:1.4;">Your turning point in the AI Era.</div>
+        <tr><td style="font-size:0; line-height:0;">
+          <img src="${BANNER}" width="620" alt="Menler — Your turning point in the AI era."
+               class="fluid" style="width:100%; max-width:620px; height:auto; display:block; border:0;" />
         </td></tr>
-        <tr><td height="3" bgcolor="#534AB7" style="height:3px; background-color:#534AB7; font-size:0; line-height:0;">&nbsp;</td></tr>
 
         <tr><td class="px" style="padding:40px 40px 0;">
           ${P(`Dear ${esc(greeting)},`, 0)}
@@ -83,10 +134,7 @@ function shell({ preview, greeting, body, cta, why, title }) {
           ${P('<strong style="font-weight:700;">Menler</strong><br />Your turning point in the AI era', 24)}
         </td></tr>
 
-        <tr><td bgcolor="#211B4C" class="px" style="background-color:#211B4C; padding:30px 40px 28px;">
-          <div style="font-family:'DM Serif Display',Georgia,serif; font-size:20px; color:#FFFFFF;">menler</div>
-          <div style="font-size:13.5px; color:#B9B3E8; margin-top:8px; line-height:1.6;">AI learning, built for the people doing the work.</div>
-        </td></tr>
+        ${FOOTER}
 
         <tr><td height="3" bgcolor="#534AB7" style="height:3px; background-color:#534AB7; font-size:0; line-height:0;">&nbsp;</td></tr>
 

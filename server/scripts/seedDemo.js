@@ -14,6 +14,7 @@ import { QuizAttempt } from '../models/QuizAttempt.js';
 import { Message } from '../models/Message.js';
 import { Doubt } from '../models/Doubt.js';
 import { hashPassword } from '../utils/password.js';
+import { assertSeedTarget } from './seedGuard.js';
 
 const DEMO_DOMAIN = '@demo.menler.in';
 const STUDENTS = [
@@ -24,6 +25,7 @@ const STUDENTS = [
 
 async function run() {
   await connectDb();
+  assertSeedTarget('seed:demo', 'It deletes every @demo.menler.in account and every "Demo: …" batch, then rebuilds them.');
 
   // ── Clear previous demo data ──
   const oldStudents = await User.find({ email: { $regex: `${DEMO_DOMAIN}$` } }).select('_id');

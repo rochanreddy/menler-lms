@@ -39,15 +39,15 @@ import {
   KICKSTARTER_DESCRIPTION,
   GENERALIST_DESCRIPTION,
 } from './curricula.js';
+import { loadCurriculumPdfUrls, applyModuleReadingPdfs } from '../utils/curriculumPdfAssets.js';
+import { assertSeedTarget } from './seedGuard.js';
 
 // ── Knobs ────────────────────────────────────────────────────────────────────
 const PASSWORD = process.env.LMS_SEED_TEST_PASSWORD || 'Test@1234';
 const ADMIN_EMAIL = process.env.LMS_SEED_EMAIL || 'admin@menler.in';
 const ADMIN_PASSWORD = process.env.LMS_SEED_PASSWORD || 'ChangeMe123!';
 
-// Real, public, and served over https — the in-app PDF viewer fetches the file
-// itself and cannot reach localhost, so a local path would render as a dead
-// frame in exactly the flow we are trying to test.
+// Fallback for modules without a week/session ebook yet (weeks 3–6, sessions 3–4).
 const PDF = 'https://menler.in/pdfs/Menler_AI_Kickstarter_Curriculum.pdf';
 const RECORDING = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ';
 const LIVE_ROOM = 'https://zoom.us/j/98765432101';
@@ -111,18 +111,17 @@ const emailFor = (name) => `${name.toLowerCase().replace(/[^a-z]+/g, '.')}@stude
 // used to end up in front of students.
 //
 // What the fixture adds on top is the per-lesson media the lesson UI needs.
-function withLessonMedia(modules) {
-  const lastLive = Math.min(2, modules.length - 1);
-  return modules.map((m, mi) => ({
+function withLessonMedia(modules, programTitle, urlByFile) {
+  const withReading = applyModuleReadingPdfs(modules, programTitle, urlByFile);
+  const lastLive = Math.min(2, withReading.length - 1);
+  return withReading.map((m, mi) => ({
     ...m,
     chapters: m.chapters.map((ch) => ({
       ...ch,
       topics: ch.topics.map((t) => ({
         ...t,
-        // Every lesson carries both PDFs, so the reading/notes viewers are
-        // always exercisable rather than falling through to the placeholder.
-        readingUrl: PDF,
-        notesUrl: PDF,
+        readingUrl: t.readingUrl || PDF,
+        notesUrl: t.notesUrl || PDF,
         // Past lectures point at a recording, the current module at a live
         // room, later ones at nothing — the three-state case the lesson UI
         // handles.
@@ -210,7 +209,7 @@ async function upsertUser({ email, fullName, role }) {
   });
 }
 
-async function upsertProgram(title, buildModules, description) {
+async function upsertProgram(title, buildModules, description, pdfUrls) {
   let p = await Program.findOne({ title });
   if (!p) p = new Program({ title });
   p.type = 'cohort';
@@ -224,7 +223,7 @@ async function upsertProgram(title, buildModules, description) {
   // FORCE_CURRICULUM=1 to reset a programme back to the PDF curriculum.
   const existing = (p.modules || []).reduce((n, m) => n + (m.chapters || []).reduce((c, ch) => c + (ch.topics || []).length, 0), 0);
   if (existing === 0 || process.env.FORCE_CURRICULUM === '1') {
-    p.modules = withLessonMedia(buildModules());
+    p.modules = withLessonMedia(buildModules(), title, pdfUrls);
     p.description = description;
     await p.save();
     return { doc: p, authored: false };
@@ -238,6 +237,7 @@ const topicIdsOf = (program) =>
 
 async function run() {
   await connectDb();
+  assertSeedTarget('seed:full', 'It invents sixteen students and four mentors, and deletes and rebuilds every "Kickstarter · …" and "Generalist · …" batch along with its sessions, assignments and submissions.');
   console.log('\n─────────── seeding a full LMS, mid-cohort ───────────\n');
 
   // ── Admin ──
@@ -253,8 +253,9 @@ async function run() {
   }
 
   // ── Programmes ──
-  const kickR = await upsertProgram('Kickstarter', kickstarterModules, KICKSTARTER_DESCRIPTION);
-  const genR = await upsertProgram('Generalist', generalistModules, GENERALIST_DESCRIPTION);
+  const pdfUrls = await loadCurriculumPdfUrls(admin._id);
+  const kickR = await upsertProgram('Kickstarter', kickstarterModules, KICKSTARTER_DESCRIPTION, pdfUrls);
+  const genR = await upsertProgram('Generalist', generalistModules, GENERALIST_DESCRIPTION, pdfUrls);
   const kick = kickR.doc;
   const gen = genR.doc;
   const progByTag = { K: kick, G: gen };
