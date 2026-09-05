@@ -22,6 +22,18 @@ const P = (inner, top = 22) => `<p style="margin:${top}px 0 0; font-size:16px; l
 const BANNER = 'https://menler.in/email-banner.jpg';
 const LOGO = 'https://menler.in/email-logo.png';
 
+// Where a student writes when something is wrong. The mail is sent from a
+// no-reply address, so every "tell us" has to name this instead.
+const SUPPORT_EMAIL = 'support@menler.in';
+
+// PLACEHOLDER — swap for the real prerequisites page before the next cohort.
+const PREREQUISITES_URL = 'https://menler.in/prerequisites';
+
+// The permission bar sits on #1B1640, so a link there needs the light violet;
+// the global `a{color:#534AB7}` would be near-invisible against it.
+const mailtoLink = (color = '#534AB7') =>
+  `<a href="mailto:${SUPPORT_EMAIL}" style="color:${color}; text-decoration:underline;">${SUPPORT_EMAIL}</a>`;
+
 const FOOTER = `<tr><td bgcolor="#211B4C" class="px" style="background-color:#211B4C; padding:34px 40px 30px;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
 
@@ -129,7 +141,7 @@ function shell({ preview, greeting, body, cta, why, title }) {
         </td></tr>
 
         <tr><td class="px" style="padding:32px 40px 44px;">
-          ${P('If anything about signing in does not work, let the Menler team know.', 0)}
+          ${P(`If anything about signing in does not work, write to ${mailtoLink()}.`, 0)}
           ${P('See you in class!', 24)}
           ${P('<strong style="font-weight:700;">Menler</strong><br />Your turning point in the AI era', 24)}
         </td></tr>
@@ -191,10 +203,11 @@ export function accountCreatedEmail({ fullName, email, password, role = 'student
       P(roleLine),
       credentials(email, password),
       P(tempNote),
+      P(`Before your first session, please go through the prerequisites: <a href="${PREREQUISITES_URL}" style="color:#534AB7; text-decoration:underline;">${PREREQUISITES_URL}</a>`),
       P('Sign in through the link below:'),
     ].join('\n'),
     cta: { label: 'Sign in', href: loginUrl },
-    why: `You're receiving this because a Menler account was created for ${esc(email)}. If that wasn't you, you can ignore this email.`,
+    why: `You're receiving this because a Menler account was created for ${esc(email)}. If that wasn't you, write to ${mailtoLink('#8E82F5')}.`,
   });
 
   const text = [
@@ -203,8 +216,9 @@ export function accountCreatedEmail({ fullName, email, password, role = 'student
     `Email:    ${email}`,
     `Password: ${password}`, '',
     tempNote, '',
+    `Prerequisites: ${PREREQUISITES_URL}`, '',
     `Sign in: ${loginUrl}`, '',
-    'If anything about signing in does not work, let the Menler team know.', '',
+    `If anything about signing in does not work, write to ${SUPPORT_EMAIL}.`, '',
     SIGN_OFF,
   ].join('\n');
 
@@ -224,7 +238,7 @@ export function passwordResetByAdminEmail({ fullName, email, password, loginUrl 
     greeting: first,
     body: [P(opener), credentials(email, password), P(tempNote), P('Sign in through the link below:')].join('\n'),
     cta: { label: 'Sign in', href: loginUrl },
-    why: `You're receiving this because the password for ${esc(email)} was reset. If you didn't ask for this, get in touch with the Menler team.`,
+    why: `You're receiving this because the password for ${esc(email)} was reset. If you didn't ask for this, write to ${mailtoLink('#8E82F5')}.`,
   });
 
   const text = [
@@ -234,6 +248,7 @@ export function passwordResetByAdminEmail({ fullName, email, password, loginUrl 
     `Password: ${password}`, '',
     tempNote, '',
     `Sign in: ${loginUrl}`, '',
+    `If anything about signing in does not work, write to ${SUPPORT_EMAIL}.`, '',
     SIGN_OFF,
   ].join('\n');
 
