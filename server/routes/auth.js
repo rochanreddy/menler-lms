@@ -7,6 +7,7 @@ import { signAccessToken, signRefreshToken, verifyToken } from '../utils/token.j
 import { isMailConfigured, sendMail } from '../utils/email.js';
 import { invalidateUser, requireAuth } from '../middleware/auth.js';
 import { hashPassword, needsRehash } from '../utils/password.js';
+import { rateLimit } from '../utils/rateLimit.js';
 import {
   SESSION_MODE,
   liveSessions,
@@ -21,28 +22,7 @@ import { releaseLease } from '../utils/playback.js';
 
 const router = Router();
 
-// ── Tiny in-memory rate limiter (per IP+route, or per user where noted) ──
-const hits = new Map();
-// Expired buckets are dropped on a sweep rather than never — the map is keyed
-// by caller, so without this it grows for the life of the process. Same
-// opportunistic pattern as the signed-in user cache in middleware/auth.js.
-let lastSweep = 0;
-const SWEEP_EVERY_MS = 60_000;
-
-function rateLimit(key, max, windowMs) {
-  const now = Date.now();
-  if (now - lastSweep > SWEEP_EVERY_MS) {
-    for (const [k, v] of hits) if (now > v.reset) hits.delete(k);
-    lastSweep = now;
-  }
-  const rec = hits.get(key);
-  if (!rec || now > rec.reset) {
-    hits.set(key, { count: 1, reset: now + windowMs });
-    return true;
-  }
-  rec.count += 1;
-  return rec.count <= max;
-}
+// Rate limiting is shared across instances via the database — see utils/rateLimit.js.
 
 const hashToken = (t) => crypto.createHash('sha256').update(String(t)).digest('hex');
 const APP_URL = () => (process.env.LMS_APP_URL || 'http://localhost:5174').replace(/\/+$/, '');
@@ -54,7 +34,7 @@ router.post('/register', async (req, res) => {
     // native binding), so each call buys a few hundred ms of worker CPU —
     // the cheapest way to saturate this service. Signing up is a once-ever
     // action, so 5/min still clears a classroom behind one shared NAT.
-    if (!rateLimit(`register:${req.ip}`, 5, 60_000)) return res.status(429).json({ error: 'Too many attempts. Try again shortly.' });
+    if (!(await rateLimit(`register:${req.ip}`, 5, 60_000))) return res.status(429).json({ error: 'Too many attempts. Try again shortly.' });
     const { email, password, fullName, phone } = req.body || {};
     if (!email || !password) return res.status(400).json({ error: 'Email and password are required.' });
     if (String(password).length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters.' });
@@ -92,7 +72,7 @@ router.post('/login', async (req, res) => {
     // fewer than one sign-in per user. Fifteen bcrypt compares a minute from a
     // single IP is still nothing, and the CPU-exhaustion case this guards
     // against needs orders of magnitude more.
-    if (!rateLimit(`login:${req.ip}`, 15, 60_000)) return res.status(429).json({ error: 'Too many attempts. Try again shortly.' });
+    if (!(await rateLimit(`login:${req.ip}`, 15, 60_000))) return res.status(429).json({ error: 'Too many attempts. Try again shortly.' });
     const { email, password } = req.body || {};
     const user = await User.findOne({ email: String(email || '').toLowerCase().trim() });
     const ok = user && user.passwordHash && (await bcrypt.compare(String(password || ''), user.passwordHash));
@@ -174,7 +154,7 @@ router.post('/refresh', async (req, res) => {
   // refreshes at the same time each morning, and a 429 here logs them out
   // (see refreshAccessToken in client/src/api.js). Per user, one legitimate
   // refresh every 8h means 20/min is only ever hit by a replay loop.
-  if (!rateLimit(`refresh:${payload.sub}`, 20, 60_000)) return res.status(429).json({ error: 'Too many attempts. Try again shortly.' });
+  if (!(await rateLimit(`refresh:${payload.sub}`, 20, 60_000))) return res.status(429).json({ error: 'Too many attempts. Try again shortly.' });
   const user = await User.findById(payload.sub);
   if (!user) return res.status(401).json({ error: 'Invalid refresh token.' });
   // A refresh token signed before a password reset must not be able to mint
@@ -226,7 +206,7 @@ router.post('/refresh', async (req, res) => {
 // POST /api/lms/auth/forgot — always returns success (no account enumeration).
 router.post('/forgot', async (req, res) => {
   try {
-    if (!rateLimit(`forgot:${req.ip}`, 5, 60_000)) return res.status(429).json({ error: 'Too many attempts. Try again shortly.' });
+    if (!(await rateLimit(`forgot:${req.ip}`, 5, 60_000))) return res.status(429).json({ error: 'Too many attempts. Try again shortly.' });
     const email = String(req.body?.email || '').toLowerCase().trim();
     const user = await User.findOne({ email });
     if (user) {
@@ -250,7 +230,7 @@ router.post('/reset', async (req, res) => {
   try {
     // Also unauthenticated, also hashes at cost 12 — same CPU vector as
     // /register, and the same 5/min ceiling /forgot already uses.
-    if (!rateLimit(`reset:${req.ip}`, 5, 60_000)) return res.status(429).json({ error: 'Too many attempts. Try again shortly.' });
+    if (!(await rateLimit(`reset:${req.ip}`, 5, 60_000))) return res.status(429).json({ error: 'Too many attempts. Try again shortly.' });
     const { email, token, password } = req.body || {};
     if (!password || String(password).length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters.' });
     const user = await User.findOne({
