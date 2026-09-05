@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { api, postFile, getLessonVideos, setLessonVideo, clearLessonVideo } from '../api.js';
+import { api, postFile, uploadCurriculumPdf, isStoredFile, getLessonVideos, setLessonVideo, clearLessonVideo } from '../api.js';
 import Empty from './Empty.jsx';
 import LessonIcon from './LessonIcon.jsx';
 import LineIcon from './LineIcon.jsx';
@@ -173,8 +173,11 @@ export default function CurriculumEditor({ programId, batch, onClose }) {
 
               {selTopic.contentType === 'pdf' && (
                 <>
-                  <label className="ce-label">PDF URL</label>
-                  <input className="ce-field" placeholder="https://…" value={selTopic.contentUrl} onChange={(e) => setTopicField(sel.mi, sel.ci, sel.ti, { contentUrl: e.target.value })} />
+                  <label className="ce-label">Lesson PDF</label>
+                  <PdfUrlField
+                    value={selTopic.contentUrl}
+                    onChange={(contentUrl) => setTopicField(sel.mi, sel.ci, sel.ti, { contentUrl })}
+                  />
                 </>
               )}
 
@@ -208,19 +211,15 @@ export default function CurriculumEditor({ programId, batch, onClose }) {
               />
 
               <label className="ce-label">Reading material <span className="muted">(PDF, opens in the in-page viewer)</span></label>
-              <input
-                className="ce-field"
-                placeholder="https://… .pdf"
+              <PdfUrlField
                 value={selTopic.readingUrl || ''}
-                onChange={(e) => setTopicField(sel.mi, sel.ci, sel.ti, { readingUrl: e.target.value })}
+                onChange={(readingUrl) => setTopicField(sel.mi, sel.ci, sel.ti, { readingUrl })}
               />
 
               <label className="ce-label">Teacher notes <span className="muted">(PDF, opens in the in-page viewer)</span></label>
-              <input
-                className="ce-field"
-                placeholder="https://… .pdf"
+              <PdfUrlField
                 value={selTopic.notesUrl || ''}
-                onChange={(e) => setTopicField(sel.mi, sel.ci, sel.ti, { notesUrl: e.target.value })}
+                onChange={(notesUrl) => setTopicField(sel.mi, sel.ci, sel.ti, { notesUrl })}
               />
 
               <label className="ce-label">Content <span className="muted">(Markdown, # headings, **bold**, - lists, `code`)</span></label>
@@ -229,6 +228,85 @@ export default function CurriculumEditor({ programId, batch, onClose }) {
           )}
         </section>
       </div>
+    </div>
+  );
+}
+
+// Drop a PDF or paste a link. Uploaded files land in Mongo and the stored
+// `/uploads/…` path is what students read through the in-app PDF viewer.
+function PdfUrlField({ value, onChange }) {
+  const inputRef = useRef(null);
+  const [uploading, setUploading] = useState(false);
+  const [drag, setDrag] = useState(false);
+  const [fileName, setFileName] = useState('');
+  const [err, setErr] = useState('');
+
+  async function take(file) {
+    if (!file) return;
+    if (!/\.pdf$/i.test(file.name) && file.type !== 'application/pdf') {
+      setErr('Only PDF files are accepted.');
+      return;
+    }
+    setErr('');
+    setUploading(true);
+    try {
+      const { url, name } = await uploadCurriculumPdf(file);
+      setFileName(name || file.name);
+      onChange(url);
+    } catch (e) {
+      setErr(e.message);
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  function onPick(e) {
+    take(e.target.files?.[0]);
+    if (inputRef.current) inputRef.current.value = '';
+  }
+
+  function onDrop(e) {
+    e.preventDefault();
+    setDrag(false);
+    take(e.dataTransfer.files?.[0]);
+  }
+
+  const stored = isStoredFile(value);
+
+  return (
+    <div className="pdf-field">
+      <div
+        className={`pdf-drop ${drag ? 'drag' : ''} ${uploading ? 'busy' : ''}`}
+        onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
+        onDragLeave={() => setDrag(false)}
+        onDrop={onDrop}
+      >
+        <input ref={inputRef} type="file" accept=".pdf,application/pdf" onChange={onPick} hidden />
+        <LineIcon name="upload" size={20} />
+        <div>
+          <strong>{uploading ? 'Uploading…' : 'Drop a PDF here'}</strong>
+          <p className="muted">or <button type="button" className="pdf-browse" onClick={() => inputRef.current?.click()} disabled={uploading}>browse</button> · up to 15 MB</p>
+        </div>
+      </div>
+
+      {stored ? (
+        <div className="pdf-attached">
+          <span className="pdf-attached-name">{fileName || 'Uploaded PDF'}</span>
+          <button type="button" className="btn sm quiet" onClick={() => { onChange(''); setFileName(''); }}>Remove</button>
+        </div>
+      ) : (
+        <label className="pdf-link">
+          <span className="muted">…or paste a link</span>
+          <input
+            className="ce-field"
+            placeholder="https://… .pdf"
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+          />
+        </label>
+      )}
+
+      {err && <p className="pdf-err">{err}</p>}
     </div>
   );
 }

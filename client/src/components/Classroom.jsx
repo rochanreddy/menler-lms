@@ -297,7 +297,9 @@ export default function Classroom() {
               <VdoCipherPlayer key={topic._id} fetchOtp={(takeover) => getLessonVideoOtp(myVideo(topic._id).batchId, topic._id, takeover)} />
             )}
             {topic.contentType === 'video' && !myVideo(topic._id) && topic.contentUrl && <LessonVideo key={topic._id} url={topic.contentUrl} />}
-            {topic.contentType === 'pdf' && topic.contentUrl && <a className="btn" href={topic.contentUrl} target="_blank" rel="noreferrer">📄 Open PDF</a>}
+            {topic.contentType === 'pdf' && topic.contentUrl && (
+              <button type="button" className="btn" onClick={() => setViewer({ label: 'Lesson PDF', subtitle: topic.title, url: topic.contentUrl })}>📄 Open PDF</button>
+            )}
             {topic.body ? <Markdown text={topic.body} /> : (topic.contentType === 'text' && <p className="muted">No content for this lesson yet.</p>)}
           </div>
         </div>

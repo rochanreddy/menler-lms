@@ -1126,6 +1126,17 @@ h1.md-h { font-size: 22px; } h2.md-h { font-size: 19px; } h3.md-h { font-size: 1
 .ce-label { display: block; font-size: 12px; font-weight: 600; color: var(--ink-2); margin: 16px 0 6px; }
 .ce-label:first-child { margin-top: 0; }
 .ce-field { width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 9px; font-size: 14px; font-family: var(--font); box-sizing: border-box; }
+.pdf-field { display: grid; gap: 10px; margin-bottom: 4px; }
+.pdf-drop { display: flex; align-items: center; gap: 14px; padding: 16px 18px; border: 1.5px dashed var(--line); border-radius: 10px; background: var(--surface-2, #fafafa); transition: border-color .15s, background .15s; }
+.pdf-drop.drag { border-color: var(--accent, #2563eb); background: color-mix(in srgb, var(--accent, #2563eb) 6%, transparent); }
+.pdf-drop.busy { opacity: .7; pointer-events: none; }
+.pdf-drop strong { display: block; font-size: 14px; }
+.pdf-drop p { margin: 2px 0 0; font-size: 13px; }
+.pdf-browse { background: none; border: none; padding: 0; font: inherit; color: var(--accent, #2563eb); cursor: pointer; text-decoration: underline; }
+.pdf-attached { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface-2, #fafafa); }
+.pdf-attached-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+.pdf-link { display: grid; gap: 6px; }
+.pdf-err { margin: 0; font-size: 13px; color: var(--danger, #b91c1c); }
 .ce-types { display: flex; gap: 8px; }
 .ce-type { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--card); border-radius: 9px; padding: 8px 14px; cursor: pointer; font-size: 13px; font-family: var(--font); color: var(--ink-2); }
 .ce-type.on { border-color: var(--brand); background: var(--brand-soft); color: var(--brand); font-weight: 600; }

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { fetchStoredFileBytes, isStoredFile } from '../api.js';
 // `?url` emits the worker as its own asset and hands us a string — the 1.3 MB
 // never enters the bundle, and is only fetched when a PDF is actually opened.
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
@@ -15,7 +16,7 @@ import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 function FileViewer({ label, subtitle, url, onClose, allowNewTab = false }) {
   const ext = (url.split(/[?#]/)[0].split('.').pop() || '').toLowerCase();
   const isOffice = ['doc', 'docx', 'xls', 'xlsx'].includes(ext);
-  const isPdf = ext === 'pdf';
+  const isPdf = ext === 'pdf' || isStoredFile(url);
   const isLocal = /^https?:\/\/(localhost|127\.0\.0\.1|\[?::1)/i.test(url);
   const src = isOffice ? `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(url)}` : url;
 
@@ -291,7 +292,9 @@ function PdfReader({ url }) {
       try {
         const lib = await import('pdfjs-dist/build/pdf.min.mjs');
         lib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
-        const doc = await lib.getDocument({ url, isEvalSupported: false }).promise;
+        const doc = isStoredFile(url)
+          ? await lib.getDocument({ data: await fetchStoredFileBytes(url), isEvalSupported: false }).promise
+          : await lib.getDocument({ url, isEvalSupported: false }).promise;
         if (dead) { doc.destroy(); return; }
         const first = await doc.getPage(1);
         const unit = first.getViewport({ scale: 1 });

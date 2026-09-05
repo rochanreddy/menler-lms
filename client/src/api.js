@@ -201,9 +201,10 @@ async function authedFetch(path, init = {}) {
 }
 
 // POST a File (multipart, field "file") to any endpoint → parsed JSON.
-export async function postFile(path, file) {
+export async function postFile(path, file, fields = {}) {
   const fd = new FormData();
   fd.append('file', file);
+  for (const [k, v] of Object.entries(fields)) fd.append(k, v);
   // No Content-Type header: the browser has to set the multipart boundary itself.
   const res = await authedFetch(path, { method: 'POST', body: fd });
   const data = await res.json().catch(() => ({}));
@@ -213,6 +214,9 @@ export async function postFile(path, file) {
 
 // Upload a File → returns { url, name }. Used for resume/submissions.
 export const uploadFile = (file) => postFile('/uploads', file);
+
+// Curriculum PDF from the admin editor → stored in Mongo, up to 15 MB.
+export const uploadCurriculumPdf = (file) => postFile('/uploads', file, { kind: 'curriculum-pdf' });
 
 // A resume field holds either a link the user pasted or a file we stored. Only
 // the second kind needs a token to read, so the two render differently.
@@ -231,6 +235,16 @@ export async function openStoredFile(path) {
   window.open(url, '_blank', 'noopener');
   // The tab has the blob by now; releasing the handle keeps it out of memory.
   setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
+// Fetch bytes for a stored file — used by the in-app PDF reader.
+export async function fetchStoredFileBytes(path) {
+  const res = await authedFetch(path);
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || 'Could not load that file.');
+  }
+  return res.arrayBuffer();
 }
 
 

@@ -1,7 +1,8 @@
 import mongoose from 'mongoose';
 
 // Binary files that belong to the product rather than to a student's own Drive.
-// Today that is exactly one thing: the resume uploaded from the Profile page.
+// Resumes from Profile, and curriculum PDFs uploaded from the admin editor
+// (reading material, teacher notes, lesson PDFs).
 //
 // These live in Mongo rather than on the server's disk because the API runs on
 // a host with an ephemeral filesystem -- anything written to ./uploads is gone
@@ -19,7 +20,7 @@ const fileAssetSchema = new mongoose.Schema(
     mimeType: { type: String, default: 'application/octet-stream' },
     size: { type: Number, required: true },
     ownerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
-    kind: { type: String, enum: ['resume'], default: 'resume', index: true },
+    kind: { type: String, enum: ['resume', 'curriculum-pdf'], default: 'resume', index: true },
   },
   { timestamps: true },
 );
