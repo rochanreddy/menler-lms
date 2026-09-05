@@ -14,6 +14,7 @@ const ICONS = {
   inbox: <><path d="M3 13h5l1.5 3h5L16 13h5" /><path d="M4.6 6.4 3 13v5a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5l-1.6-6.6A2 2 0 0 0 17.5 5h-11a2 2 0 0 0-1.9 1.4z" /></>,
   list: <><path d="M9 6h12" /><path d="M9 12h12" /><path d="M9 18h12" /><path d="M4 6h.01" /><path d="M4 12h.01" /><path d="M4 18h.01" /></>,
   sidebar: <><rect x="3" y="4" width="18" height="16" rx="2.5" /><path d="M9.5 4v16" /></>,
+  menu: <><path d="M4 7h16" /><path d="M4 12h16" /><path d="M4 17h16" /></>,
   close: <><path d="m6 6 12 12" /><path d="m18 6-12 12" /></>,
 };
 

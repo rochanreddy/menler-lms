@@ -1743,8 +1743,8 @@ h1.md-h { font-size: 22px; } h2.md-h { font-size: 19px; } h3.md-h { font-size: 1
   .reader-head { padding: 14px 16px 0; }
   .reader-pos { display: none; }
   /* The position doubles as the sheet's handle: "4/53" with a list icon. */
-  .reader-syl { display: inline-flex; align-items: center; gap: 6px; flex: none; padding: 6px 11px; border-radius: var(--pill); border: 1px solid var(--stage-line); background: var(--stage-2); color: var(--parchment); font-family: var(--display); font-size: 13px; font-weight: 700; cursor: pointer; font-variant-numeric: tabular-nums; }
-  .reader-syl-of { color: var(--lavender); font-weight: 600; opacity: .8; }
+  .reader-syl { display: inline-flex; align-items: center; gap: 7px; flex: none; padding: 7px 12px 7px 10px; border-radius: var(--pill); border: 1px solid var(--stage-line); background: var(--stage-2); color: var(--parchment); font-family: var(--display); font-size: 13px; font-weight: 700; cursor: pointer; font-variant-numeric: tabular-nums; }
+  .reader-syl-of { color: var(--lavender); font-weight: 600; opacity: .8; font-family: var(--font); font-size: 12px; margin-left: 2px; }
   .reader-title { font-size: 21px; margin-top: 6px; }
   /* Resources become one row that scrolls sideways under the thumb. */
   .reader-tools { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 12px -16px 12px; padding: 0 16px; }

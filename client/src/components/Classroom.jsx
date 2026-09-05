@@ -262,9 +262,11 @@ export default function Classroom() {
               {current.chap && current.chap !== 'Lessons' && <span className="reader-crumb-chap"> / {current.chap}</span>}
             </div>
             <div className="reader-pos">{idx + 1} <span>/ {flat.length}</span></div>
-            {/* Phones: the rail is a sheet, opened from here. */}
+            {/* Phones: the rail is a sheet, opened from here. Labelled, not just an
+                icon — a bare list glyph next to "1/115" read as a counter, and
+                nobody found the index behind it. */}
             <button className="reader-syl" onClick={() => setSheet(true)} aria-controls="cls-rail" aria-expanded={sheet}>
-              <LineIcon name="list" size={15} /> {idx + 1}<span className="reader-syl-of">/{flat.length}</span>
+              <LineIcon name="menu" size={16} /> Syllabus <span className="reader-syl-of">{idx + 1}/{flat.length}</span>
             </button>
           </div>
           <h1 className="reader-title">{topic.title}</h1>
