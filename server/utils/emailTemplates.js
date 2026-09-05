@@ -26,8 +26,8 @@ const LOGO = 'https://menler.in/email-logo.png';
 // no-reply address, so every "tell us" has to name this instead.
 const SUPPORT_EMAIL = 'support@menler.in';
 
-// PLACEHOLDER — swap for the real prerequisites page before the next cohort.
-const PREREQUISITES_URL = 'https://menler.in/prerequisites';
+// The shared Drive folder students work through before session one.
+const PREREQUISITES_URL = 'https://drive.google.com/drive/folders/1yi0IWBMnztCtygN94Klb0AGq2DYB6bg2?usp=sharing';
 
 // The permission bar sits on #1B1640, so a link there needs the light violet;
 // the global `a{color:#534AB7}` would be near-invisible against it.
@@ -203,7 +203,9 @@ export function accountCreatedEmail({ fullName, email, password, role = 'student
       P(roleLine),
       credentials(email, password),
       P(tempNote),
-      P(`Before your first session, please go through the prerequisites: <a href="${PREREQUISITES_URL}" style="color:#534AB7; text-decoration:underline;">${PREREQUISITES_URL}</a>`),
+      // Linked words, not the bare URL: the Drive link is long enough to wrap
+      // badly in a 620px column. The plain-text part spells it out in full.
+      P(`Before your first session, please go through the <a href="${PREREQUISITES_URL}" style="color:#534AB7; text-decoration:underline;">prerequisites folder</a>.`),
       P('Sign in through the link below:'),
     ].join('\n'),
     cta: { label: 'Sign in', href: loginUrl },
