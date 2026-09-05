@@ -20,6 +20,12 @@
 //                                (default "Kickstarter · Sept 2026,Generalist · Sept 2026")
 //   LMS_LAUNCH_STUDENT_BATCH     which kept batch the student is enrolled in
 //                                (default "Generalist · Sept 2026")
+//   LMS_KEEP_USERS               real accounts to spare, comma-separated, as
+//                                `email` or `email=Batch Name`. They keep their
+//                                id, password and provisioning state; a named
+//                                batch becomes their enrolment.
+//   LMS_BATCH_START/_END         dates for any kept batch that has to be
+//                                created because it does not exist yet.
 //
 // Before it deletes anything it writes every lms_* collection to
 // server/backups/<db>-<timestamp>/<collection>.json as canonical Extended
@@ -61,6 +67,23 @@ const KEEP_BATCHES = (process.env.LMS_KEEP_BATCHES || 'Kickstarter · Sept 2026,
   .split(',').map((s) => s.trim()).filter(Boolean);
 const STUDENT_BATCH = process.env.LMS_LAUNCH_STUDENT_BATCH || 'Generalist · Sept 2026';
 
+// Real accounts that must survive the cull, as a comma-separated list of
+// `email` or `email=Batch Name`. They keep their id, password and provisioning
+// state (an account that has never set its password stays that way); with a
+// batch named, they come out enrolled in it. They do NOT keep coursework —
+// this resets to launch state, and nobody is mid-course in a launch state.
+const KEEP_USERS = (process.env.LMS_KEEP_USERS || '')
+  .split(',').map((s) => s.trim()).filter(Boolean)
+  .map((entry) => {
+    const [email, batch = ''] = entry.split('=');
+    return { email: email.toLowerCase().trim(), batch: batch.trim() };
+  });
+
+// Dates for any kept batch this script has to create. A cohort that starts
+// today is the honest default for a launch.
+const BATCH_START = process.env.LMS_BATCH_START || '';
+const BATCH_END = process.env.LMS_BATCH_END || '';
+
 // Collections from retired features (the old partner/jobs board) that no model
 // references any more. Dropped outright rather than emptied.
 const RETIRED_COLLECTIONS = ['lms_jobs', 'lms_applications'];
@@ -98,10 +121,42 @@ async function run() {
   // ── Preconditions: never leave the LMS with no way in, and never guess a batch ──
   const admins = await User.find({ role: 'admin' }).select('_id email');
   if (admins.length === 0) fail('No admin account found — refusing to delete every other user.');
-  const keep = await Batch.find({ name: { $in: KEEP_BATCHES } }).populate('programId', 'title');
-  const missing = KEEP_BATCHES.filter((n) => !keep.some((b) => b.name === n));
-  if (missing.length) fail(`Batch(es) not found by exact name: ${missing.map((m) => `"${m}"`).join(', ')}.`);
-  const studentBatch = keep.find((b) => b.name === STUDENT_BATCH);
+  let keep = await Batch.find({ name: { $in: KEEP_BATCHES } }).populate('programId', 'title');
+
+  // A kept batch that does not exist is created rather than refused. The name
+  // carries its programme ("Kickstarter · Sept 2026"), which is the only thing
+  // needed to build it — and the case this exists for is a cohort that a stray
+  // seed deleted, where refusing just leaves the operator to rebuild it by hand
+  // before running the very script meant to put things right.
+  const missing = KEEP_BATCHES.filter((n) => !keep.some((x) => x.name === n));
+  for (const name of missing) {
+    const programTitle = name.split('·')[0].trim();
+    const program = await Program.findOne({ title: programTitle });
+    if (!program) fail(`Batch "${name}" does not exist and no programme is called "${programTitle}", so it cannot be created.`);
+    await Batch.create({
+      programId: program._id,
+      name,
+      startDate: BATCH_START ? new Date(BATCH_START) : new Date(),
+      endDate: BATCH_END ? new Date(BATCH_END) : null,
+      status: 'ongoing',
+      mentorIds: [],
+      studentIds: [],
+    });
+    console.log(`• created batch   "${name}" (${programTitle}) — it did not exist`);
+  }
+  if (missing.length) keep = await Batch.find({ name: { $in: KEEP_BATCHES } }).populate('programId', 'title');
+  const studentBatch = keep.find((x) => x.name === STUDENT_BATCH);
+
+  // Kept accounts have to exist, and their batches have to be ones we keep —
+  // both are typos worth catching before anything is deleted.
+  const kept = [];
+  for (const k of KEEP_USERS) {
+    const u = await User.findOne({ email: k.email });
+    if (!u) fail(`LMS_KEEP_USERS names "${k.email}", which is not an account here.`);
+    if (u.role === 'admin') continue; // admins are kept anyway
+    if (k.batch && !keep.some((x) => x.name === k.batch)) fail(`LMS_KEEP_USERS puts "${k.email}" in "${k.batch}", which is not in LMS_KEEP_BATCHES.`);
+    kept.push({ ...k, doc: u });
+  }
 
   console.log(`\n─────────── resetting "${db.databaseName}" to launch state ───────────\n`);
 
@@ -111,6 +166,7 @@ async function run() {
 
   // ── Everything cohort-scoped goes, kept batches included (they are meant to be fresh) ──
   const adminIds = admins.map((a) => a._id);
+  const sparedIds = [...adminIds, ...kept.map((k) => k.doc._id)];
   const wipes = [
     ['sessions', Session.deleteMany({})],
     ['attendance', Attendance.deleteMany({})],
@@ -127,8 +183,11 @@ async function run() {
     ['webinars', Webinar.deleteMany({})],
     ['[seed] library', LibraryItem.deleteMany({ title: /^\[seed\]/ })],
     ['playback leases', PlaybackLease.deleteMany({})],
-    ['device sessions', DeviceSession.deleteMany({ userId: { $nin: adminIds } })],
-    ['uploaded files', FileAsset.deleteMany({ ownerId: { $nin: adminIds } })],
+    ['device sessions', DeviceSession.deleteMany({ userId: { $nin: sparedIds } })],
+    // Resumes only. Curriculum PDFs are course material the lesson tree points
+    // at by id — deleting them because a mentor happened to upload them would
+    // leave every lesson in that module showing a reading link that 404s.
+    ['uploaded resumes', FileAsset.deleteMany({ kind: 'resume', ownerId: { $nin: sparedIds } })],
   ];
   for (const [label, op] of wipes) {
     const r = await op;
@@ -146,9 +205,10 @@ async function run() {
   // ── Programmes keep their lesson trees; no mentor teaches them yet ──
   await Program.updateMany({}, { $set: { mentorIds: [] } });
 
-  // ── Users: everyone but the admins ──
-  const gone = await User.find({ role: { $ne: 'admin' } }).select('email role');
-  await User.deleteMany({ role: { $ne: 'admin' } });
+  // ── Users: everyone but the admins and the accounts named in LMS_KEEP_USERS ──
+  const keptIds = kept.map((k) => k.doc._id);
+  const gone = await User.find({ role: { $ne: 'admin' }, _id: { $nin: keptIds } }).select('email role');
+  await User.deleteMany({ role: { $ne: 'admin' }, _id: { $nin: keptIds } });
   console.log(`✓ deleted         ${String(gone.length).padStart(4)}  users (${['mentor', 'student'].map((r) => `${gone.filter((u) => u.role === r).length} ${r}s`).join(', ')}, ${gone.filter((u) => !['mentor', 'student'].includes(u.role)).length} other)`);
   for (const u of gone) console.log(`                    - ${u.email} (${u.role})`);
 
@@ -174,6 +234,16 @@ async function run() {
   });
   await Batch.updateOne({ _id: studentBatch._id }, { $addToSet: { studentIds: student._id } });
   console.log(`✓ student         ${STUDENT_EMAIL} → "${studentBatch.name}" (${studentBatch.programId?.title})`);
+
+  // ── Kept accounts: enrolment rebuilt, everything else about them untouched ──
+  for (const k of kept) {
+    const batch = k.batch ? keep.find((x) => x.name === k.batch) : null;
+    k.doc.batchIds = batch ? [batch._id] : [];
+    await k.doc.save();
+    if (batch) await Batch.updateOne({ _id: batch._id }, { $addToSet: { studentIds: k.doc._id } });
+    const state = k.doc.mustChangePassword ? 'still to set their password' : 'password unchanged';
+    console.log(`✓ kept            ${k.doc.email} → ${batch ? `"${batch.name}"` : 'no batch'} (${state})`);
+  }
 
   // ── Final state ──
   const [users, programs, batches] = await Promise.all([

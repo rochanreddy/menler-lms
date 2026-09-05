@@ -67,6 +67,11 @@ function carryMedia(fresh, old) {
   // pin the real curriculum to them forever, blocking the module ebook from
   // ever being attached. Treat them as the empty slot they stand in for.
   for (const f of MEDIA) if (old[f] && !isPlaceholder(old[f])) out[f] = old[f];
+  // Teacher notes that are byte-for-byte the same link as the reading material
+  // are not a document anyone chose: seedFull.js used to assign notesUrl from
+  // readingUrl, so the notes chip opened a second copy of the student ebook.
+  // An empty slot reading "No notes yet" is the truthful version of that.
+  if (out.notesUrl && out.notesUrl === out.readingUrl) out.notesUrl = '';
   // contentType only means anything next to a contentUrl. curricula.js always
   // says 'text' because it attaches no file, so an admin who turned a lesson
   // into a video or a PDF keeps that.
