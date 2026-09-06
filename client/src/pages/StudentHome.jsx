@@ -344,9 +344,10 @@ export default function StudentHome() {
                   <div className="path-next-eyebrow">Next for you</div>
                   <h2 className="path-next-title">{nextLesson.topic.title}</h2>
                   <div className="path-next-meta">
+                    {/* No content type here. Every lesson in both curricula is
+                        'text', so the word only ever read "text" — a label that
+                        cost a line and told a student nothing. */}
                     <span>{nextLesson.station.title}</span>
-                    <span className="dot ahead" />
-                    <span>{nextLesson.topic.contentType || 'text'}</span>
                     <span className="dot ahead" />
                     <span>lesson {doneTopics + 1} of {totalTopics}</span>
                   </div>
