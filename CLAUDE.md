@@ -22,9 +22,11 @@ cd server && npm run seed:full # the whole LMS, mid-cohort (see below)
 cd server && node scripts/dedupeCurriculumPdfs.js          # dry run; --apply to collapse
                                # duplicate curriculum PDF blobs (needs CONFIRM_DB to apply)
 cd server && node scripts/syncCurriculumAssignments.js     # dry run; --apply to write
-                               # puts the Generalist curriculum's 6 weekly assignments
-                               # and 4 milestone projects into every Generalist batch's
-                               # Assignments & Projects tab. Idempotent; sets no dates.
+                               # puts a curriculum's work into every one of its batches'
+                               # Assignments & Projects tab: Generalist 6 weekly
+                               # assignments + 4 milestone projects, Kickstarter 17
+                               # session assignments + 4 portfolio projects. Name one
+                               # programme to limit it. Idempotent; sets no dates.
 cd server && npm run test:flows # drives all three roles against a RUNNING server
 cd server && CONFIRM_DB=<db> LMS_LAUNCH_STUDENT_PASSWORD=… node scripts/resetForLaunch.js
                                # wipe to launch state: admin + one student, two named

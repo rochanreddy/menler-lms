@@ -12,6 +12,10 @@ const assignmentSchema = new mongoose.Schema(
     // the curriculum, which then sorts after the numbered weeks rather than
     // being forced into one.
     week: { type: Number, default: null },
+    // What to call that group in the list. The number above only orders them;
+    // Generalist counts in weeks and Kickstarter in sessions, and printing
+    // "Week 1" over a Kickstarter session would be plainly wrong.
+    groupLabel: { type: String, default: '' },
     // Submissions open at startDate and close at dueDate. Both optional —
     // null start means "open immediately", null due means "no cutoff".
     startDate: { type: Date, default: null },

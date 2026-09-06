@@ -125,7 +125,10 @@ function weekGroups(rows) {
     .sort((x, y) => (x === null) - (y === null) || x - y)
     .map((week) => ({
       week,
-      label: week == null ? 'Elsewhere in the course' : `Week ${week}`,
+      // The programme names its own groups — Generalist counts in weeks,
+      // Kickstarter in sessions — so print what it says rather than assuming.
+      label: by.get(week).find((r) => r.a.groupLabel)?.a.groupLabel
+        || (week == null ? 'Elsewhere in the course' : `Week ${week}`),
       rows: by.get(week).sort((p, q) =>
         order(p) - order(q)
         || (new Date(p.a.dueDate || 0) - new Date(q.a.dueDate || 0))

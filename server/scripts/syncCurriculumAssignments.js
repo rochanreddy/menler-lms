@@ -1,25 +1,33 @@
-// Put the Generalist curriculum's assignments and projects into the
-// Assignments & Projects tab.
+// Put a curriculum's assignments and projects into the Assignments & Projects
+// tab.
 //
-//   node scripts/syncCurriculumAssignments.js            # dry run, writes nothing
+//   node scripts/syncCurriculumAssignments.js                  # dry run, all programmes
+//   node scripts/syncCurriculumAssignments.js Kickstarter      # dry run, one programme
 //   CONFIRM_DB=<db> node scripts/syncCurriculumAssignments.js --apply
 //
-// The curriculum already describes ten pieces of work — six weekly assignments
-// and four milestone projects — but only as reading. A student sees them in
-// Learning and then finds nothing to hand in, because the tab is built from
-// Assignment documents, which are per BATCH and nobody had created.
+// The curriculum describes the work a student has to hand in, but only as
+// reading. A student sees it in Learning and then finds nothing to submit,
+// because the tab is built from Assignment documents, which are per BATCH and
+// nobody had created.
 //
 // So this reads the authored tree and upserts one Assignment per batch per
 // piece of work. It is matched on (batchId, title), so running it twice
 // changes nothing and running it after a curriculum edit refreshes the brief.
 //
+// ── The two programmes keep their work in different places ──────────────────
+// Generalist has a chapter per piece: "Weekly Assignment: …" and "Milestone
+// Project 1 · …", each with its brief as the chapter's page. Kickstarter has
+// an "Assignment: …" LESSON inside every session topic, and its four portfolio
+// projects in a module of their own at the end. Hence one extractor each,
+// rather than one clever rule that fits neither.
+//
 // ── On dates ────────────────────────────────────────────────────────────────
-// It sets none. The curriculum says a weekly assignment belongs to week 3; it
-// does not say when week 3 falls for a batch that started in July, and
-// guessing would mark work overdue the moment this ran. Null start means "open
-// now", null due means "no cutoff", so everything lands as open work and a
-// mentor sets real deadlines in the UI. Once set, this script leaves them
-// alone — it only ever rewrites the title's description.
+// It sets none. The curriculum says an assignment belongs to week 3; it does
+// not say when week 3 falls for a batch that started in July, and guessing
+// would mark work overdue the moment this ran. Null start means "open now",
+// null due means "no cutoff", so everything lands as open work and a mentor
+// sets real deadlines in the UI. Once set, this script leaves them alone — it
+// only ever rewrites the brief and the grouping.
 import 'dotenv/config';
 import { connectDb } from '../db.js';
 import { assertSeedTarget } from './seedGuard.js';
@@ -27,99 +35,101 @@ import { Program } from '../models/Program.js';
 import { Batch } from '../models/Batch.js';
 import { Assignment } from '../models/Assignment.js';
 
-const PROGRAM = 'Generalist';
 const APPLY = process.argv.includes('--apply');
+const ONLY = process.argv.slice(2).find((x) => !x.startsWith('--')) || '';
 
-// "Weekly Assignment: My AI Landscape Report" → assignment, "My AI Landscape
-// Report". "Milestone Project 1 · My Claude OS" → project, "My Claude OS".
-// Anything else in the tree is a session or a week, and not work to hand in.
-function classify(chapterTitle) {
-  const weekly = chapterTitle.match(/^Weekly Assignment:\s*(.+)$/i);
-  if (weekly) return { type: 'assignment', name: weekly[1].trim() };
-  const milestone = chapterTitle.match(/^Milestone Project\s*(\d+)\s*·\s*(.+)$/i);
-  if (milestone) return { type: 'project', name: milestone[2].trim(), n: Number(milestone[1]) };
-  return null;
-}
+// Join a chapter's or a lesson's parts into the one description the tab shows.
+const headed = (pairs) => pairs
+  .filter(([, body]) => body && String(body).trim())
+  .map(([h, body]) => `## ${h}\n\n${String(body).trim()}`)
+  .join('\n\n');
 
-// The brief is the chapter's page; how to hand it in is the lesson under it.
-// The tab shows one description, so it gets both, in that order.
-function briefOf(chapter) {
-  const parts = [];
-  if (chapter.description?.trim()) parts.push(chapter.description.trim());
-  for (const t of chapter.topics || []) {
-    if (!t.body?.trim()) continue;
-    parts.push(`## ${t.title}\n\n${t.body.trim()}`);
-  }
-  return parts.join('\n\n');
-}
-
-function itemsFrom(program) {
+// ── Generalist ──────────────────────────────────────────────────────────────
+// A chapter is a piece of work if its title says so. The brief is the
+// chapter's page and how to hand it in is the lesson under it; the tab shows
+// one description, so it gets both, in that order.
+function generalistItems(program) {
   const out = [];
   for (const m of program.modules || []) {
+    const week = Number((m.title.match(/^WEEK\s+(\d+)/i) || [])[1]) || null;
     for (const c of m.chapters || []) {
-      const kind = classify(c.title);
-      if (!kind) continue;
+      const isWeekly = /^Weekly Assignment:/i.test(c.title);
+      const isMilestone = /^Milestone Project\s*\d+\s*·/i.test(c.title);
+      if (!isWeekly && !isMilestone) continue;
       out.push({
-        type: kind.type,
-        // The chapter's own title, verbatim. A student reads "Milestone
-        // Project 1 · My Claude OS" in the syllabus and must find that exact
-        // name in the tab; a tidier one they have to translate is worse.
+        type: isMilestone ? 'project' : 'assignment',
         title: c.title,
-        // What this used to be called, so a rename moves the existing row
-        // instead of creating a second one beside it.
-        wasTitled: kind.type === 'project' ? `Project ${kind.n}: ${kind.name}` : kind.name,
-        description: briefOf(c),
-        // "WEEK 3 · THINK + CREATE…" -> 3. The tab groups on this, so the
-        // list reads in the order the programme is taught.
-        week: Number((m.title.match(/^WEEK\s+(\d+)/i) || [])[1]) || null,
-        weekLabel: m.title.split('·')[0].trim(),
+        description: [c.description?.trim(), headed((c.topics || []).map((t) => [t.title, t.body]))]
+          .filter(Boolean).join('\n\n'),
+        week,
+        groupLabel: week ? `Week ${week}` : '',
       });
     }
   }
   return out;
 }
 
-async function run() {
-  await connectDb();
-  if (APPLY) {
-    assertSeedTarget(
-      'syncCurriculumAssignments --apply',
-      'It creates or updates Assignment documents for every Generalist batch.',
-    );
+// ── Kickstarter ─────────────────────────────────────────────────────────────
+// One "Assignment: …" lesson per session topic, and the four portfolio
+// projects from the module that collects them. The short "PROJECT 0N: …"
+// lesson inside a session is a pointer to that module, not a second brief, so
+// it is skipped rather than filed as a duplicate.
+function kickstarterItems(program) {
+  const out = [];
+  for (const m of program.modules || []) {
+    const session = Number((m.title.match(/^S(\d+)/i) || [])[1]) || null;
+    if (session) {
+      for (const c of m.chapters || []) {
+        for (const t of c.topics || []) {
+          if (!/^Assignment:/i.test(t.title)) continue;
+          out.push({
+            type: 'assignment',
+            title: t.title,
+            description: t.body || '',
+            week: session,
+            groupLabel: `Session ${String(session).padStart(2, '0')}`,
+          });
+        }
+      }
+      continue;
+    }
+    if (!/^Portfolio Projects/i.test(m.title)) continue;
+    for (const c of m.chapters || []) {
+      out.push({
+        type: 'project',
+        title: c.title,
+        description: headed((c.topics || []).map((t) => [t.title, t.body])),
+        // After every session, which is where they sit in the syllabus.
+        week: 99,
+        groupLabel: 'Portfolio projects',
+      });
+    }
   }
+  return out;
+}
 
-  const program = await Program.findOne({ title: PROGRAM });
-  if (!program) throw new Error(`No "${PROGRAM}" programme found.`);
-  const items = itemsFrom(program);
-  if (!items.length) throw new Error('Found no assignments or projects in the curriculum.');
+const PROGRAMS = [
+  { title: 'Generalist', build: generalistItems },
+  { title: 'Kickstarter', build: kickstarterItems },
+];
 
+async function syncProgram({ title, build }) {
+  const tally = { created: 0, updated: 0, unchanged: 0 };
+  const program = await Program.findOne({ title });
+  if (!program) { console.log(`\n${title}: no such programme, skipped.`); return tally; }
+  const items = build(program);
   const batches = await Batch.find({ programId: program._id });
-  console.log(`\n${PROGRAM}: ${items.length} pieces of work in the curriculum, ${batches.length} batch(es).\n`);
-  for (const it of items) console.log(`  ${it.type.padEnd(10)} ${it.weekLabel.padEnd(8)} ${it.title}`);
+  console.log(`\n═══ ${title}: ${items.length} pieces of work · ${batches.length} batch(es)`);
+  for (const it of items) console.log(`  ${it.type.padEnd(10)} ${it.groupLabel.padEnd(19)} ${it.title.slice(0, 62)}`);
+  if (!items.length || !batches.length) return tally;
 
-  if (!batches.length) {
-    console.log('\nNo batches run this programme, so there is nothing to attach them to.');
-    process.exit(0);
-  }
-
-  let created = 0;
-  let updated = 0;
-  let unchanged = 0;
   for (const b of batches) {
     console.log(`\n─ ${b.name} (${b.studentIds?.length || 0} students)`);
     for (const it of items) {
-      let existing = await Assignment.findOne({ batchId: b._id, title: it.title });
-      if (!existing && it.wasTitled) {
-        existing = await Assignment.findOne({ batchId: b._id, title: it.wasTitled });
-        if (existing) {
-          console.log(`   ~ ${it.type.padEnd(10)} ${it.wasTitled}  → renamed to match the syllabus`);
-          existing.title = it.title;
-          if (APPLY) await existing.save();
-        }
-      }
+      const existing = await Assignment.findOne({ batchId: b._id, title: it.title });
       if (!existing) {
-        console.log(`   + ${it.type.padEnd(10)} ${it.title}`);
-        created++;
+        console.log(`   + ${it.type.padEnd(10)} ${it.title.slice(0, 62)}`);
+        tally.created++;
         if (APPLY) {
           await Assignment.create({
             batchId: b._id,
@@ -127,6 +137,7 @@ async function run() {
             title: it.title,
             description: it.description,
             week: it.week,
+            groupLabel: it.groupLabel,
             startDate: null,
             dueDate: null,
           });
@@ -134,23 +145,44 @@ async function run() {
         continue;
       }
       // Never touch a date, or the type a mentor may have corrected — only the
-      // brief, which is the thing the curriculum owns.
-      const sameBrief = (existing.description || '') === it.description;
-      const sameWeek = (existing.week ?? null) === it.week;
-      if (sameBrief && sameWeek) { unchanged++; continue; }
-      console.log(`   ~ ${it.type.padEnd(10)} ${it.title}  (${[!sameBrief && 'brief', !sameWeek && 'week'].filter(Boolean).join(' + ')} refreshed)`);
-      updated++;
+      // brief and the grouping, which are the things the curriculum owns.
+      const same = (existing.description || '') === it.description
+        && (existing.week ?? null) === it.week
+        && (existing.groupLabel || '') === it.groupLabel;
+      if (same) { tally.unchanged++; continue; }
+      console.log(`   ~ ${it.type.padEnd(10)} ${it.title.slice(0, 62)}`);
+      tally.updated++;
       if (APPLY) {
         existing.description = it.description;
         existing.week = it.week;
+        existing.groupLabel = it.groupLabel;
         await existing.save();
       }
     }
   }
+  return tally;
+}
 
-  console.log(`\n${created} to create · ${updated} to update · ${unchanged} already current`);
+async function run() {
+  await connectDb();
+  if (APPLY) {
+    assertSeedTarget(
+      'syncCurriculumAssignments --apply',
+      'It creates or updates Assignment documents for every batch of the programmes it touches.',
+    );
+  }
+  const wanted = PROGRAMS.filter((p) => !ONLY || p.title.toLowerCase() === ONLY.toLowerCase());
+  if (!wanted.length) throw new Error(`No programme called "${ONLY}". Try: ${PROGRAMS.map((p) => p.title).join(', ')}`);
+
+  const total = { created: 0, updated: 0, unchanged: 0 };
+  for (const p of wanted) {
+    const t = await syncProgram(p);
+    for (const k of Object.keys(total)) total[k] += t[k];
+  }
+
+  console.log(`\n${total.created} to create · ${total.updated} to update · ${total.unchanged} already current`);
   if (!APPLY) console.log('\nDry run. Nothing was written. Re-run with --apply (and CONFIRM_DB) to write.');
-  else console.log('\n✅ Written. Every assignment opens immediately and has no deadline — set those per batch in the UI.');
+  else console.log('\n✅ Written. Everything opens immediately and has no deadline — set those per batch in the UI.');
   process.exit(0);
 }
 
