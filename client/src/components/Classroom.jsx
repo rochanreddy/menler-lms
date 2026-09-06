@@ -36,10 +36,11 @@ export default function Classroom() {
   const [topicId, setTopicId] = useState(null);
   // The accordion: the one module whose lessons are showing.
   const [openMod, setOpenMod] = useState(null);
-  // A module opened from the rail shows its own page in the reader — the
-  // week's objective and outcome — until a lesson is picked. It is not a
-  // lesson: nothing to mark, not counted, and the URL still names the lesson.
-  const [overviewMod, setOverviewMod] = useState(null);
+  // A week or a session opened from the rail shows its own page in the reader
+  // — the objective and outcome, or what the session carries forward — until a
+  // lesson is picked. A page is not a lesson: nothing to mark, not counted,
+  // and it doesn't take the URL. `{ kind: 'module' | 'chapter', id }`.
+  const [pageRef, setPageRef] = useState(null);
   const [completed, setCompleted] = useState(new Set());
   const [total, setTotal] = useState(0);
   const [cert, setCert] = useState(null);
@@ -83,12 +84,32 @@ export default function Classroom() {
   const current = idx >= 0 ? flat[idx] : null;
   const topic = current?.topic || null;
   const next = idx >= 0 && idx < flat.length - 1 ? flat[idx + 1] : null;
-  // The module page on show, if any. Only a module with something to say
-  // has one; the others open straight onto their lessons as before.
-  const ovIdx = overviewMod ? (program?.modules || []).findIndex((m) => m._id === overviewMod) : -1;
-  const overview = ovIdx >= 0 && program.modules[ovIdx].description?.trim() ? program.modules[ovIdx] : null;
-  const firstLessonOf = (m) => flat.find((f) => f.modId === m._id) || null;
-  const lastLessonOf = (m) => [...flat].reverse().find((f) => f.modId === m._id) || null;
+  // The page on show, if any — resolved to everything the reader needs to
+  // draw it with a lesson's own furniture. Only a week or session that has
+  // something to say has a page; the rest open straight onto their lessons.
+  const has = (n) => !!n?.description?.trim();
+  const page = useMemo(() => {
+    if (!pageRef || !program) return null;
+    const mods = program.modules || [];
+    if (pageRef.kind === 'module') {
+      const mi = mods.findIndex((m) => m._id === pageRef.id);
+      if (mi < 0 || !has(mods[mi])) return null;
+      return { node: mods[mi], mod: mods[mi], chap: null, title: 'Week overview', crumb: mods[mi].title, pos: mi + 1, of: mods.length, go: 'Start week' };
+    }
+    for (const m of mods) {
+      const ci = (m.chapters || []).findIndex((c) => c._id === pageRef.id);
+      if (ci < 0) continue;
+      const c = m.chapters[ci];
+      if (!has(c)) return null;
+      return { node: c, mod: m, chap: c, title: 'Session overview', crumb: `${m.title} / ${c.title}`, pos: ci + 1, of: m.chapters.length, go: 'Start session' };
+    }
+    return null;
+  }, [pageRef, program]);
+  // Where a page's Previous and Next land: Next starts the thing you're
+  // looking at, Previous steps back to the lesson before it began.
+  const pageFirst = page ? flat.find((f) => (page.chap ? f.chapId === page.chap._id : f.modId === page.mod._id)) || null : null;
+  const pageFirstIdx = pageFirst ? flat.indexOf(pageFirst) : -1;
+  const pagePrev = pageFirstIdx > 0 ? flat[pageFirstIdx - 1] : null;
 
   const loadProgress = (programId) => {
     if (!isStudent || !programId) return;
@@ -105,7 +126,7 @@ export default function Classroom() {
 
   async function pick(id, preferTopicId) {
     const { program: p } = await api(`/programs/${id}`);
-    setProgram(p); setCert(null); setOverviewMod(null);
+    setProgram(p); setCert(null); setPageRef(null);
     const target = preferTopicId ? locate(p, preferTopicId) : null;
     if (target) {
       setOpenMod(target.modId);
@@ -122,7 +143,7 @@ export default function Classroom() {
   function selectTopic(f) {
     setTopicId(f.topic._id);
     setOpenMod(f.modId);
-    setOverviewMod(null);
+    setPageRef(null);
     setSheet(false);
     // replace, not push — Prev/Next shouldn't fill the back button with lessons.
     if (program) setParams({ program: program._id, topic: String(f.topic._id) }, { replace: true });
@@ -159,19 +180,28 @@ export default function Classroom() {
     if (String(urlTopic) === String(topicId)) return;
     if (urlProgram && urlProgram !== program._id) { pick(urlProgram, urlTopic); return; }
     const target = locate(program, urlTopic);
-    if (target) { setTopicId(target.topic._id); setOpenMod(target.modId); setOverviewMod(null); }
+    if (target) { setTopicId(target.topic._id); setOpenMod(target.modId); setPageRef(null); }
   }, [urlProgram, urlTopic]);
 
-  // Open a module from the rail. A module with a page of its own shows it;
-  // a click on the module that is already open folds it back up.
+  // Open a week from the rail. A week with a page of its own shows it; a
+  // click on the week that is already open folds it back up.
   function openModule(m) {
-    const page = !!m.description?.trim();
-    if (min) { setMin(false); setOpenMod(m._id); setOverviewMod(page ? m._id : null); return; }
+    const hasPage = has(m);
+    const ref = hasPage ? { kind: 'module', id: m._id } : null;
+    if (min) { setMin(false); setOpenMod(m._id); setPageRef(ref); return; }
     // Clicking the week that's already open folds it away again — unless its
     // page is what brings you back, in which case the first click shows that.
-    if (openMod === m._id && (!page || overviewMod === m._id)) { setOpenMod(null); setOverviewMod(null); return; }
+    const onIt = pageRef?.kind === 'module' && pageRef.id === m._id;
+    if (openMod === m._id && (!hasPage || onIt)) { setOpenMod(null); setPageRef(null); return; }
     setOpenMod(m._id);
-    setOverviewMod(page ? m._id : null);
+    setPageRef(ref);
+  }
+
+  // Open a session from the rail. The same idea one level down: the session's
+  // own page on the stage, its lessons still listed underneath it.
+  function openChapter(m, c) {
+    setOpenMod(m._id);
+    setPageRef({ kind: 'chapter', id: c._id });
   }
 
   // The page is sized to the viewport: everything above it is measured once
@@ -215,7 +245,7 @@ export default function Classroom() {
     if (bodyRef.current) bodyRef.current.scrollTop = 0;
     setRead(0);
     revealActive();
-  }, [topicId, overviewMod]);
+  }, [topicId, pageRef]);
   useEffect(() => { if (sheet || !railMin) revealActive(); }, [sheet, railMin]);
   const onBodyScroll = (e) => {
     const el = e.currentTarget;
@@ -225,16 +255,14 @@ export default function Classroom() {
 
   // From a module page, Next starts the week and Prev steps back to the
   // end of the week before it.
-  const ovPrev = overview ? (ovIdx > 0 ? lastLessonOf(program.modules[ovIdx - 1]) : null) : null;
-  const ovNext = overview ? firstLessonOf(overview) : null;
-  const goPrev = () => { if (overview) { if (ovPrev) selectTopic(ovPrev); } else if (idx > 0) selectTopic(flat[idx - 1]); };
-  const goNext = () => { if (overview) { if (ovNext) selectTopic(ovNext); } else if (next) selectTopic(next); };
+  const goPrev = () => { if (page) { if (pagePrev) selectTopic(pagePrev); } else if (idx > 0) selectTopic(flat[idx - 1]); };
+  const goNext = () => { if (page) { if (pageFirst) selectTopic(pageFirst); } else if (next) selectTopic(next); };
 
   // ← / → step between lessons when nothing else owns the keyboard.
   useEffect(() => {
     if (viewer || cert || sheet) return;
     // Nothing open yet — the arrows have nowhere to step from.
-    if (!topicId && !overviewMod) return;
+    if (!topicId && !pageRef) return;
     const onKey = (e) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       const t = e.target;
@@ -266,7 +294,7 @@ export default function Classroom() {
   const showProgress = isStudent && total > 0;
   const min = railMin && !isMobile;
   // The waiting state: no lesson open and no week page on show.
-  const blank = !topic && !overview;
+  const blank = !topic && !page;
 
   const railToggle = () => { if (isMobile) setSheet((v) => !v); else setMin(!railMin); };
 
@@ -305,20 +333,20 @@ export default function Classroom() {
             </div>
           </div>
         ) : (<>
-        {overview ? (
-          /* ── A module's own page: the week's overview, on the stage. Built
-               from the same parts as a lesson, in the same order — the week in
-               the crumb, what you're reading as the title, the counter on the
+        {page ? (
+          /* ── A week's or a session's own page, on the stage. Built from the
+               same parts as a lesson, in the same order — where you are in the
+               crumb, what you're reading as the title, the counter on the
                right — so moving between the two isn't a change of scenery. ── */
           <div className="reader-head reader-head-ov">
             <div className="reader-top">
-              <div className="reader-crumb" title={overview.title}><span>{overview.title}</span></div>
-              <div className="reader-pos">{ovIdx + 1} <span>/ {(program.modules || []).length}</span></div>
+              <div className="reader-crumb" title={page.crumb}><span>{page.crumb}</span></div>
+              <div className="reader-pos">{page.pos} <span>/ {page.of}</span></div>
               <button className="reader-syl" onClick={() => setSheet(true)} aria-controls="cls-rail" aria-expanded={sheet}>
-                <LineIcon name="menu" size={16} /> Syllabus <span className="reader-syl-of">{ovIdx + 1}/{(program.modules || []).length}</span>
+                <LineIcon name="menu" size={16} /> Syllabus <span className="reader-syl-of">{page.pos}/{page.of}</span>
               </button>
             </div>
-            <h1 className="reader-title">Week overview</h1>
+            <h1 className="reader-title">{page.title}</h1>
             <div className="reader-read" aria-hidden="true"><span style={{ transform: `scaleX(${read})` }} /></div>
           </div>
         ) : (
@@ -360,9 +388,9 @@ export default function Classroom() {
         )}
 
         <div className="reader-body" ref={bodyRef} onScroll={onBodyScroll}>
-          {overview ? (
+          {page ? (
             <div className="reader-inner">
-              <Markdown text={overview.description} />
+              <Markdown text={page.node.description} />
             </div>
           ) : (
           <div className="reader-inner">
@@ -378,13 +406,13 @@ export default function Classroom() {
           )}
         </div>
 
-        {overview ? (
+        {page ? (
           <div className="reader-foot">
-            <button className="btn sm rnav" disabled={!ovPrev} onClick={goPrev}>← Previous</button>
-            {/* Nothing to mark on a module page; the fill goes to starting the week. */}
-            <button className="btn sm rnav rnext on-stage" disabled={!ovNext} onClick={goNext} title={ovNext?.topic.title}>
-              <span className="rnext-label">{ovNext ? 'Start week' : 'No lessons yet'}</span>
-              {ovNext && <span className="rnext-title">{ovNext.topic.title}</span>}
+            <button className="btn sm rnav" disabled={!pagePrev} onClick={goPrev}>← Previous</button>
+            {/* Nothing to mark on a page; the fill goes to starting the thing. */}
+            <button className="btn sm rnav rnext on-stage" disabled={!pageFirst} onClick={goNext} title={pageFirst?.topic.title}>
+              <span className="rnext-label">{pageFirst ? page.go : 'No lessons yet'}</span>
+              {pageFirst && <span className="rnext-title">{pageFirst.topic.title}</span>}
               <span aria-hidden="true">→</span>
             </button>
           </div>
@@ -439,8 +467,8 @@ export default function Classroom() {
             const mDone = mTopics.filter((t) => completed.has(t._id)).length;
             const mPct = mTopics.length ? Math.round((mDone / mTopics.length) * 100) : 0;
             const isOpen = openMod === m._id;
-            const onOverview = overview?._id === m._id;
-            const here = onOverview || (!overview && current?.modId === m._id);
+            const onPage = page?.mod?._id === m._id;
+            const here = onPage || (!page && current?.modId === m._id);
             return (
               <div key={m._id} className={`rmod ${isOpen ? 'open' : ''} ${here ? 'here' : ''} ${mTopics.length > 0 && mDone === mTopics.length ? 'complete' : ''}`}>
                 <button
@@ -461,9 +489,16 @@ export default function Classroom() {
                   <div className="rmod-body">
                     {(m.chapters || []).map((c) => (
                       <div key={c._id} className="rchap">
-                        {(m.chapters.length > 1 || c.title !== 'Lessons') && <div className="rchap-title">{c.title}</div>}
+                        {/* A session with a page of its own is something to
+                            press; one without is just a label, as before. */}
+                        {has(c) ? (
+                          <button className={`rchap-title rchap-open ${page?.chap?._id === c._id ? 'active' : ''}`} onClick={() => openChapter(m, c)} aria-current={page?.chap?._id === c._id ? 'true' : undefined}>
+                            <span>{c.title}</span>
+                            <LineIcon name="list" size={13} />
+                          </button>
+                        ) : (m.chapters.length > 1 || c.title !== 'Lessons') && <div className="rchap-title">{c.title}</div>}
                         {(c.topics || []).map((t) => {
-                          const active = !overview && t._id === topicId;
+                          const active = !page && t._id === topicId;
                           const tdone = completed.has(t._id);
                           return (
                             <button key={t._id} className={`rlesson ${active ? 'active' : ''} ${tdone ? 'done' : ''}`} onClick={() => selectTopic({ topic: t, modId: m._id, chapId: c._id })} aria-current={active ? 'true' : undefined}>

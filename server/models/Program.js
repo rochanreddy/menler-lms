@@ -22,7 +22,14 @@ const topicSchema = new mongoose.Schema(
 );
 
 const chapterSchema = new mongoose.Schema(
-  { title: { type: String, required: true }, order: { type: Number, default: 0 }, topics: { type: [topicSchema], default: [] } },
+  {
+    title: { type: String, required: true },
+    // As on a module: markdown shown in the reader when the chapter itself is
+    // opened, rather than as lessons of its own.
+    description: { type: String, default: '' },
+    order: { type: Number, default: 0 },
+    topics: { type: [topicSchema], default: [] },
+  },
   { _id: true },
 );
 

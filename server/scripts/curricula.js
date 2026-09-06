@@ -715,14 +715,21 @@ export function generalistModules() {
       ['Week outcome', w.outcome],
     ].filter(([, body]) => body).map(([h, body]) => `## ${h}\n\n${body}`).join('\n\n');
     const chapters = [
+      // Same treatment one level down. Four of a session's five lessons were
+      // framing — what it carries forward, how Claude is used, what you build,
+      // what you build it with — and only "Key topics covered" was the class
+      // itself. The framing is the session's page, read when the session is
+      // opened; the lesson list is what's actually taught.
       ...w.sessions.map((s) => ({
         title: `${s.code} · Week ${w.week}: ${s.title}`,
+        description: [
+          ['Carries forward', s.carries],
+          ['Claude usage in this session', s.claudeUsage],
+          ['Build', s.build],
+          ['Tool stack this session', s.tools],
+        ].filter(([, body]) => body).map(([h, body]) => `## ${h}\n\n${body}`).join('\n\n'),
         topics: [
-          { title: 'Carries forward', contentType: 'text', body: s.carries, order: 0 },
-          { title: 'Key topics covered', contentType: 'text', body: bullets(s.topics), order: 1 },
-          { title: 'Claude usage in this session', contentType: 'text', body: s.claudeUsage, order: 2 },
-          { title: 'Build', contentType: 'text', body: s.build, order: 3 },
-          { title: 'Tool stack this session', contentType: 'text', body: s.tools, order: 4 },
+          { title: 'Key topics covered', contentType: 'text', body: bullets(s.topics), order: 0 },
         ],
       })),
       {
