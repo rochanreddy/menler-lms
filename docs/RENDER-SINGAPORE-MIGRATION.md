@@ -22,7 +22,11 @@ the fix is a new service and a cutover.
 ## Before you start
 
 Have the **old service's Environment tab open in another window** — you are
-copying seven secrets out of it. Nothing here is written down in the repo.
+copying six secrets out of it. Nothing here is written down in the repo.
+
+`LMS_SEED_EMAIL` and `LMS_SEED_PASSWORD` are on the old service but are read
+only by `scripts/seed.js` and `seedFull.js`, never by the running server. Do not
+carry them over; a seed credential does not belong on the host.
 
 Check the old service's Node version too (Settings → Build, or the first lines
 of a build log). If the new service picks a different major, set `NODE_VERSION`
@@ -40,7 +44,12 @@ path and root directory are not hand-entered.
 4. Paste each from the old service, **unchanged**:
 
    `MONGODB_URI` · `JWT_SECRET` · `RESEND_API_KEY` · `MAIL_FROM` ·
-   `SMTP_FROM` · `GOOGLE_DRIVE_API_KEY` · `VDOCIPHER_API_SECRET`
+   `GOOGLE_DRIVE_API_KEY` · `VDOCIPHER_API_SECRET`
+
+   Paste `MONGODB_URI` **without** the surrounding quotes the `.env` file has —
+   dotenv strips those locally, a dashboard passes them through verbatim and
+   the connection string then fails to parse. (`MAIL_FROM` is the exception:
+   `unquote()` in `utils/email.js` already defends against this.)
 
    `JWT_SECRET` matters most: a different value invalidates every token and
    device-session row in flight, logging everyone out the moment you cut over.
@@ -94,8 +103,11 @@ to this value; without it every call 404s.
 Vite bakes env vars in at build time, so **the change does nothing until you
 redeploy** the frontend. Deployments → ⋯ → Redeploy.
 
-CORS needs no change: `https://app.menler.in` is hardcoded in the allowlist in
-[server/index.js](../server/index.js) alongside `LMS_APP_URL`.
+CORS needs no change **provided `LMS_APP_URL` carries both origins**
+(`https://lms.menler.in,https://menler-lms.vercel.app` — the allowlist in
+[server/index.js](../server/index.js) splits it on commas). The origin that is
+hardcoded there is `app.menler.in`, which is not where this app is served, so
+that value is doing the real work. `render.yaml` sets it.
 
 ## 5. Confirm, then retire the old service
 

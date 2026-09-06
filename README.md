@@ -6,7 +6,7 @@ MongoDB Atlas cluster (uses only `lms_*` collections, so it never touches leads/
 ```
 menler-lms/
 ├── server/   Express + Mongoose API  → /api/lms   (port 4100)
-└── client/   React + Vite frontend    → app.menler.in (port 5174)
+└── client/   React + Vite frontend    → lms.menler.in (port 5174)
 ```
 
 ## Run locally
@@ -46,10 +46,11 @@ the API rejects unknown/retired roles at login and on every request
 ## Deploy
 - **Backend** → Render, from [render.yaml](render.yaml) (Blueprint: root `server/`, start
   `npm start`, health check `/health`, **region Singapore**). It prompts for the secrets;
-  `LMS_APP_URL=https://app.menler.in`. Never set `PORT` — Render injects it.
+  `LMS_APP_URL=https://lms.menler.in,https://menler-lms.vercel.app` (comma-separated;
+  it is what feeds the CORS allowlist). Never set `PORT` — Render injects it.
 - **Frontend** → Vercel (root `client/`). Env: `VITE_API_URL=https://<render-lms>/api/lms`
   — the `/api/lms` suffix is required, and Vite bakes it in at build time, so changing it
-  needs a redeploy. Point `app.menler.in` at it.
+  needs a redeploy. Point `lms.menler.in` at it.
 - The region is load-bearing: students and the Atlas cluster are both in India, and Render
   cannot move a service after creation. See
   [docs/RENDER-SINGAPORE-MIGRATION.md](docs/RENDER-SINGAPORE-MIGRATION.md).

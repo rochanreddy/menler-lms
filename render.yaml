@@ -30,11 +30,13 @@ services:
       - key: NODE_ENV
         value: production
 
-      # Read twice: it joins the CORS allowlist, and password/enrollment mail
-      # links point at it. app.menler.in is also hardcoded in the allowlist, so a
-      # wrong value here breaks email links before it breaks the browser.
+      # Read twice: it supplies the CORS allowlist (comma-separated, split in
+      # index.js) and the links in password/enrollment mail. The hardcoded
+      # fallback in index.js is app.menler.in, which is NOT where this app is
+      # served — so these two origins exist only because this value carries
+      # them. Get it wrong and every browser call is refused.
       - key: LMS_APP_URL
-        value: https://app.menler.in
+        value: https://lms.menler.in,https://menler-lms.vercel.app
 
       # sync:false = Render prompts for the value instead of storing it in git.
       # Copy each from the old service's Environment tab, unchanged.
@@ -49,8 +51,6 @@ services:
         sync: false
       - key: MAIL_FROM
         sync: false
-      - key: SMTP_FROM
-        sync: false
       - key: GOOGLE_DRIVE_API_KEY
         sync: false
       - key: VDOCIPHER_API_SECRET
@@ -60,5 +60,8 @@ services:
       #   PORT   — Render injects it; index.js reads process.env.PORT and only
       #            falls back to 4100 for local dev. Setting it here fights the
       #            platform's port detection.
-      #   SMTP_* — mail goes out over Resend; the SMTP fallback is unconfigured.
+      #   SMTP_*  — mail goes out over Resend; the SMTP fallback is unconfigured,
+      #             and MAIL_FROM supersedes the legacy SMTP_FROM.
+      #   LMS_SEED_* — read only by scripts/seed.js and seedFull.js, never by the
+      #             running server. They belong on your laptop, not on the host.
       #   LMS_SINGLE_SESSION — unset means "warn", the intended production mode.
