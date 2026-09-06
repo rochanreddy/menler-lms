@@ -41,6 +41,8 @@ export default function Classroom() {
   // lesson is picked. A page is not a lesson: nothing to mark, not counted,
   // and it doesn't take the URL. `{ kind: 'module' | 'chapter', id }`.
   const [pageRef, setPageRef] = useState(null);
+  // The session unfolded inside the open week, if any — the second accordion.
+  const [openChap, setOpenChap] = useState(null);
   const [completed, setCompleted] = useState(new Set());
   const [total, setTotal] = useState(0);
   const [cert, setCert] = useState(null);
@@ -88,6 +90,10 @@ export default function Classroom() {
   // draw it with a lesson's own furniture. Only a week or session that has
   // something to say has a page; the rest open straight onto their lessons.
   const has = (n) => !!n?.description?.trim();
+  // In the rail a session sits under its own week, so repeating "Week 3:" in
+  // every row costs a line of a two-line clamp and tells you nothing you can't
+  // read directly above it.
+  const chapLabel = (t) => String(t).replace(/\s*·\s*Week\s*\d+:\s*/, ' · ');
   const page = useMemo(() => {
     if (!pageRef || !program) return null;
     const mods = program.modules || [];
@@ -101,7 +107,7 @@ export default function Classroom() {
       if (ci < 0) continue;
       const c = m.chapters[ci];
       if (!has(c)) return null;
-      return { node: c, mod: m, chap: c, title: 'Session overview', crumb: `${m.title} / ${c.title}`, pos: ci + 1, of: m.chapters.length, go: 'Start session' };
+      return { node: c, mod: m, chap: c, title: c.pageLabel || 'Overview', crumb: `${m.title} / ${c.title}`, pos: ci + 1, of: m.chapters.length, go: c.pageLabel ? 'Next' : 'Start session' };
     }
     return null;
   }, [pageRef, program]);
@@ -110,6 +116,12 @@ export default function Classroom() {
   const pageFirst = page ? flat.find((f) => (page.chap ? f.chapId === page.chap._id : f.modId === page.mod._id)) || null : null;
   const pageFirstIdx = pageFirst ? flat.indexOf(pageFirst) : -1;
   const pagePrev = pageFirstIdx > 0 ? flat[pageFirstIdx - 1] : null;
+  // A week or session has no media of its own, but the lessons under it do —
+  // the module ebook, the class link — and those are exactly the things a
+  // student is looking for when the page is open. Take the first of each that
+  // is actually set, so the chips mean the same here as on a lesson.
+  const pageLessons = page ? flat.filter((f) => (page.chap ? f.chapId === page.chap._id : f.modId === page.mod._id)) : [];
+  const fromLessons = (field) => pageLessons.map((f) => f.topic[field]).find(Boolean) || '';
 
   const loadProgress = (programId) => {
     if (!isStudent || !programId) return;
@@ -130,12 +142,14 @@ export default function Classroom() {
     const target = preferTopicId ? locate(p, preferTopicId) : null;
     if (target) {
       setOpenMod(target.modId);
+      setOpenChap(target.chapId);
       setTopicId(target.topic._id);
     } else {
       // Nothing named in the URL: open nothing. A link to a lesson still lands
       // on that lesson; simply arriving lands on the syllabus, which is the
       // choice this page exists to offer.
       setOpenMod(null);
+      setOpenChap(null);
       setTopicId(null);
     }
     loadProgress(id);
@@ -143,6 +157,7 @@ export default function Classroom() {
   function selectTopic(f) {
     setTopicId(f.topic._id);
     setOpenMod(f.modId);
+    setOpenChap(f.chapId);
     setPageRef(null);
     setSheet(false);
     // replace, not push — Prev/Next shouldn't fill the back button with lessons.
@@ -180,7 +195,7 @@ export default function Classroom() {
     if (String(urlTopic) === String(topicId)) return;
     if (urlProgram && urlProgram !== program._id) { pick(urlProgram, urlTopic); return; }
     const target = locate(program, urlTopic);
-    if (target) { setTopicId(target.topic._id); setOpenMod(target.modId); setPageRef(null); }
+    if (target) { setTopicId(target.topic._id); setOpenMod(target.modId); setOpenChap(target.chapId); setPageRef(null); }
   }, [urlProgram, urlTopic]);
 
   // Open a week from the rail. A week with a page of its own shows it; a
@@ -188,20 +203,27 @@ export default function Classroom() {
   function openModule(m) {
     const hasPage = has(m);
     const ref = hasPage ? { kind: 'module', id: m._id } : null;
-    if (min) { setMin(false); setOpenMod(m._id); setPageRef(ref); return; }
+    if (min) { setMin(false); setOpenMod(m._id); setPageRef(ref); setOpenChap(null); return; }
     // Clicking the week that's already open folds it away again — unless its
     // page is what brings you back, in which case the first click shows that.
     const onIt = pageRef?.kind === 'module' && pageRef.id === m._id;
-    if (openMod === m._id && (!hasPage || onIt)) { setOpenMod(null); setPageRef(null); return; }
+    if (openMod === m._id && (!hasPage || onIt)) { setOpenMod(null); setPageRef(null); setOpenChap(null); return; }
     setOpenMod(m._id);
     setPageRef(ref);
+    setOpenChap(null);
   }
 
-  // Open a session from the rail. The same idea one level down: the session's
-  // own page on the stage, its lessons still listed underneath it.
-  function openChapter(m, c) {
-    setOpenMod(m._id);
+  // Unfold a session in the rail. Deliberately does NOT touch the stage: you
+  // opened a week to read its overview, and looking at what a session contains
+  // shouldn't take that away before you've chosen anything inside it.
+  function toggleChapter(c) {
+    setOpenChap((prev) => (prev === c._id ? null : c._id));
+  }
+  // ...and this is choosing something inside it.
+  function showChapterPage(c) {
+    setOpenChap(c._id);
     setPageRef({ kind: 'chapter', id: c._id });
+    setSheet(false);
   }
 
   // The page is sized to the viewport: everything above it is measured once
@@ -298,6 +320,30 @@ export default function Classroom() {
 
   const railToggle = () => { if (isMobile) setSheet((v) => !v); else setMin(!railMin); };
 
+  // The chips are the same row on a lesson, a session page and a week page —
+  // a student shouldn't have to work out which screen still offers the
+  // reading. Only the very first landing screen has none, because nothing is
+  // open yet for them to point at.
+  const toolsRow = ({ reading, notes, classLink, subtitle, done }) => (
+    <div className="reader-tools">
+      <button className="rchip" disabled={!reading} title={reading ? undefined : 'Your mentor hasn’t attached the reading for this yet'} onClick={() => setViewer({ label: 'Reading Material', subtitle, url: reading })}>
+        <LessonIcon type="pdf" size={14} /> {reading ? 'Reading material' : 'No reading yet'}
+      </button>
+      <button className="rchip" disabled={!notes} title={notes ? undefined : 'Your mentor hasn’t attached the notes for this yet'} onClick={() => setViewer({ label: 'Teacher Notes', subtitle, url: notes })}>
+        <LineIcon name="slides" size={14} /> {notes ? 'Teacher notes' : 'No notes yet'}
+      </button>
+      {/* The class recording / live link. Kept as a chip even when there is
+          nothing to open: a student who cannot see a video button assumes the
+          video is missing; "not yet" tells them to come back. */}
+      {classLink ? (
+        <a className="rchip" href={classLink} target="_blank" rel="noreferrer"><LineIcon name="video" size={14} /> Watch class video</a>
+      ) : (
+        <button className="rchip" disabled title="Your mentor hasn’t posted this class’s video yet"><LineIcon name="video" size={14} /> Video not available yet</button>
+      )}
+      {done && <span className="rchip is-done"><LineIcon name="check" size={14} /> Done</span>}
+    </div>
+  );
+
   const shell = (inner) => (
     <div className={`cls ${min ? 'rail-min' : ''} ${sheet ? 'sheet-open' : ''}`}>
       {inner}
@@ -338,7 +384,7 @@ export default function Classroom() {
                same parts as a lesson, in the same order — where you are in the
                crumb, what you're reading as the title, the counter on the
                right — so moving between the two isn't a change of scenery. ── */
-          <div className="reader-head reader-head-ov">
+          <div className="reader-head">
             <div className="reader-top">
               <div className="reader-crumb" title={page.crumb}><span>{page.crumb}</span></div>
               <div className="reader-pos">{page.pos} <span>/ {page.of}</span></div>
@@ -347,6 +393,7 @@ export default function Classroom() {
               </button>
             </div>
             <h1 className="reader-title">{page.title}</h1>
+            {toolsRow({ reading: fromLessons('readingUrl'), notes: fromLessons('notesUrl'), classLink: fromLessons('classLink'), subtitle: page.crumb })}
             <div className="reader-read" aria-hidden="true"><span style={{ transform: `scaleX(${read})` }} /></div>
           </div>
         ) : (
@@ -365,23 +412,7 @@ export default function Classroom() {
             </button>
           </div>
           <h1 className="reader-title">{topic.title}</h1>
-          <div className="reader-tools">
-            <button className="rchip" disabled={!readingUrl} title={readingUrl ? undefined : 'Your mentor hasn’t attached the reading for this lesson yet'} onClick={() => setViewer({ label: 'Reading Material', subtitle: topic.title, url: readingUrl })}>
-              <LessonIcon type="pdf" size={14} /> {readingUrl ? 'Reading material' : 'No reading yet'}
-            </button>
-            <button className="rchip" disabled={!notesUrl} title={notesUrl ? undefined : 'Your mentor hasn’t attached the notes for this lesson yet'} onClick={() => setViewer({ label: 'Teacher Notes', subtitle: topic.title, url: notesUrl })}>
-              <LineIcon name="slides" size={14} /> {notesUrl ? 'Teacher notes' : 'No notes yet'}
-            </button>
-            {/* The class recording / live link. Kept as a chip even when there
-                is nothing to open: a student who cannot see a video button
-                assumes the video is missing; "not yet" tells them to come back. */}
-            {topic.classLink ? (
-              <a className="rchip" href={topic.classLink} target="_blank" rel="noreferrer"><LineIcon name="video" size={14} /> Watch class video</a>
-            ) : (
-              <button className="rchip" disabled title="Your mentor hasn’t posted this class’s video yet"><LineIcon name="video" size={14} /> Video not available yet</button>
-            )}
-            {isDone && <span className="rchip is-done"><LineIcon name="check" size={14} /> Done</span>}
-          </div>
+          {toolsRow({ reading: readingUrl, notes: notesUrl, classLink: topic.classLink, subtitle: topic.title, done: isDone })}
           {/* How far through the reading you are — fills as the body scrolls. */}
           <div className="reader-read" aria-hidden="true"><span style={{ transform: `scaleX(${read})` }} /></div>
         </div>
@@ -487,17 +518,31 @@ export default function Classroom() {
                 </button>
                 {isOpen && (
                   <div className="rmod-body">
-                    {(m.chapters || []).map((c) => (
-                      <div key={c._id} className="rchap">
-                        {/* A session with a page of its own is something to
-                            press; one without is just a label, as before. */}
-                        {has(c) ? (
-                          <button className={`rchap-title rchap-open ${page?.chap?._id === c._id ? 'active' : ''}`} onClick={() => openChapter(m, c)} aria-current={page?.chap?._id === c._id ? 'true' : undefined}>
-                            <span>{c.title}</span>
-                            <LineIcon name="list" size={13} />
+                    {(m.chapters || []).map((c) => {
+                      // A session with a page of its own is a dropdown inside
+                      // the week's: pressing it only unfolds it, so whatever
+                      // you were reading — the week overview, most often —
+                      // stays put until you pick something inside. A chapter
+                      // with no page is a plain label with its lessons under
+                      // it, exactly as before.
+                      const fold = has(c);
+                      const cOpen = !fold || openChap === c._id;
+                      const onChapPage = page?.chap?._id === c._id;
+                      return (
+                      <div key={c._id} className={`rchap ${fold ? 'rchap-fold' : ''} ${cOpen ? 'open' : ''}`}>
+                        {fold ? (
+                          <button className={`rchap-head ${onChapPage ? 'here' : ''}`} onClick={() => toggleChapter(c)} aria-expanded={cOpen}>
+                            <span className="rchap-name">{chapLabel(c.title)}</span>
+                            <span className={`rmod-caret ${cOpen ? 'up' : ''}`}>⌄</span>
                           </button>
                         ) : (m.chapters.length > 1 || c.title !== 'Lessons') && <div className="rchap-title">{c.title}</div>}
-                        {(c.topics || []).map((t) => {
+                        {cOpen && fold && (
+                          <button className={`rlesson rlesson-ov ${onChapPage ? 'active' : ''}`} onClick={() => showChapterPage(c)} aria-current={onChapPage ? 'true' : undefined}>
+                            <LineIcon name="list" size={13} className="rov-icon" />
+                            <span className="rlesson-title">{c.pageLabel || 'Overview'}</span>
+                          </button>
+                        )}
+                        {cOpen && (c.topics || []).map((t) => {
                           const active = !page && t._id === topicId;
                           const tdone = completed.has(t._id);
                           return (
@@ -508,7 +553,8 @@ export default function Classroom() {
                           );
                         })}
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>

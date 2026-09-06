@@ -60,7 +60,13 @@ export default function AssignmentCard({ a, onChange, onSubmissionChange, defaul
   const { user } = useOutletContext();
   const sub = a.mySubmission;
   const state = assignmentState(a);
-  const [open, setOpen] = useState(defaultOpen ?? (state === 'todo' || state === 'overdue' || state === 'fixes'));
+  // Closed until asked. This used to open itself for anything still to do,
+  // which was fine when a batch had two of them and is not now: ten cards all
+  // in that state unrolled the whole tab on arrival, and the list you came to
+  // scan was a page of forms.
+  const [open, setOpen] = useState(defaultOpen ?? false);
+  // The brief inside an open card, folded by default — see below.
+  const [brief, setBrief] = useState(false);
   const [driveLink, setDriveLink] = useState(sub?.driveLink || '');
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -134,7 +140,19 @@ export default function AssignmentCard({ a, onChange, onSubmissionChange, defaul
 
       {open && (
         <div className="ac-body">
-          {a.description && <div className="assign-desc"><Markdown text={a.description} /></div>}
+          {/* The brief folds away. Since these came from the curriculum they
+              run to a full page — objective, what to build, tools, how to
+              submit — and left open they push the thing you came to do, the
+              Drive link and the button, off the bottom of the screen. */}
+          {a.description && (
+            <div className={`assign-brief ${brief ? 'open' : ''}`}>
+              <button type="button" className="assign-brief-head" onClick={() => setBrief((v) => !v)} aria-expanded={brief}>
+                <span>Brief</span>
+                <span className="assign-brief-caret" aria-hidden="true">⌄</span>
+              </button>
+              {brief && <div className="assign-desc"><Markdown text={a.description} /></div>}
+            </div>
+          )}
 
           {/* Current verification state — visible without opening notifications. */}
           {sub && !editing && (

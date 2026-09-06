@@ -718,47 +718,65 @@ export function generalistModules() {
       // Same treatment one level down. Four of a session's five lessons were
       // framing — what it carries forward, how Claude is used, what you build,
       // what you build it with — and only "Key topics covered" was the class
-      // itself. The framing is the session's page, read when the session is
-      // opened; the lesson list is what's actually taught.
-      ...w.sessions.map((s) => ({
-        title: `${s.code} · Week ${w.week}: ${s.title}`,
-        description: [
+      // itself. The framing becomes the session's page, read when the session
+      // is opened; the lesson list is then what is actually taught.
+      ...w.sessions.map((s) => {
+        const framing = [
           ['Carries forward', s.carries],
           ['Claude usage in this session', s.claudeUsage],
           ['Build', s.build],
           ['Tool stack this session', s.tools],
-        ].filter(([, body]) => body).map(([h, body]) => `## ${h}\n\n${body}`).join('\n\n'),
-        topics: [
-          { title: 'Key topics covered', contentType: 'text', body: bullets(s.topics), order: 0 },
-        ],
-      })),
+        ].filter(([, body]) => body);
+        const lesson = (title, body, order) => ({ title, contentType: 'text', body, order });
+        return {
+          title: `${s.code} · Week ${w.week}: ${s.title}`,
+          description: framing.map(([h, body]) => `## ${h}\n\n${body}`).join('\n\n'),
+          topics: [lesson('Key topics covered', bullets(s.topics), 0)],
+        };
+      }),
+      // The weekly assignment folds the same way, but its page is the brief
+      // and is named that — "Overview" would be a worse word for the one
+      // thing a student opens an assignment to read.
       {
         title: `Weekly Assignment: ${w.assignment.name}`,
+        pageLabel: 'Brief',
+        description: w.assignment.brief,
         topics: [
-          { title: 'Brief', contentType: 'text', body: w.assignment.brief, order: 0 },
           {
             title: 'Submission',
             contentType: 'text',
             body: `Submit as: ${w.assignment.submitAs}
 Time estimate: ${w.assignment.time}
 Feeds into: ${w.assignment.feedsInto}`,
-            order: 1,
+            order: 0,
           },
         ],
       },
     ];
     if (w.milestone) {
       const m = w.milestone;
+      // A milestone project splits the same way the weekly assignment does:
+      // what the project IS is the brief you read on opening it, and what you
+      // have to hand over — the bar it must clear, and how you present it —
+      // is the one lesson under it.
       chapters.push({
         title: `Milestone Project ${m.n} · ${m.name}`,
+        pageLabel: 'Brief',
+        description: [
+          ['Objective', `${m.tagline}\n\n${m.objective}`],
+          ['What to build', m.whatToBuild],
+          ['Tools', m.tools],
+        ].map(([h, body]) => `## ${h}\n\n${body}`).join('\n\n'),
         topics: [
-          { title: 'Objective', contentType: 'text', body: `${m.tagline}
-
-${m.objective}`, order: 0 },
-          { title: 'What to build', contentType: 'text', body: m.whatToBuild, order: 1 },
-          { title: 'Tools', contentType: 'text', body: m.tools, order: 2 },
-          { title: 'Success criteria', contentType: 'text', body: m.success, order: 3 },
-          { title: 'Presentation', contentType: 'text', body: m.presentation, order: 4 },
+          {
+            title: 'Submission',
+            contentType: 'text',
+            body: [
+              ['Success criteria', m.success],
+              ['Presentation', m.presentation],
+            ].map(([h, body]) => `## ${h}\n\n${body}`).join('\n\n'),
+            order: 0,
+          },
         ],
       });
     }

@@ -7,6 +7,11 @@ const assignmentSchema = new mongoose.Schema(
     type: { type: String, enum: ['assignment', 'project'], default: 'assignment', index: true },
     title: { type: String, required: true, trim: true },
     description: { type: String, default: '' },
+    // Which week of the programme this belongs to, so the student's list can be
+    // grouped the way the syllabus is. Null for anything a mentor set outside
+    // the curriculum, which then sorts after the numbered weeks rather than
+    // being forced into one.
+    week: { type: Number, default: null },
     // Submissions open at startDate and close at dueDate. Both optional —
     // null start means "open immediately", null due means "no cutoff".
     startDate: { type: Date, default: null },

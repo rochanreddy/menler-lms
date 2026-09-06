@@ -27,6 +27,10 @@ const chapterSchema = new mongoose.Schema(
     // As on a module: markdown shown in the reader when the chapter itself is
     // opened, rather than as lessons of its own.
     description: { type: String, default: '' },
+    // What to call that page, in the syllabus and as its title. Defaults to
+    // "Overview"; an assignment calls its page "Brief", because that is the
+    // thing a student opens an assignment to read.
+    pageLabel: { type: String, default: '' },
     order: { type: Number, default: 0 },
     topics: { type: [topicSchema], default: [] },
   },

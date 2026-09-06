@@ -108,6 +108,31 @@ const FILTERS = [
   { key: 'graded', label: 'Graded', match: (s) => s === 'graded' },
 ];
 
+// The list is grouped the way the syllabus is: by week, in teaching order,
+// with the week's assignment before the week's project — that is the order the
+// work is actually done in. Anything a mentor set outside the curriculum has no
+// week, and collects at the end rather than being filed under a week it does
+// not belong to.
+function weekGroups(rows) {
+  const by = new Map();
+  for (const r of rows) {
+    const k = Number.isFinite(r.a.week) ? r.a.week : null;
+    if (!by.has(k)) by.set(k, []);
+    by.get(k).push(r);
+  }
+  const order = (r) => (r.a.type === 'project' ? 1 : 0);
+  return [...by.keys()]
+    .sort((x, y) => (x === null) - (y === null) || x - y)
+    .map((week) => ({
+      week,
+      label: week == null ? 'Elsewhere in the course' : `Week ${week}`,
+      rows: by.get(week).sort((p, q) =>
+        order(p) - order(q)
+        || (new Date(p.a.dueDate || 0) - new Date(q.a.dueDate || 0))
+        || p.a.title.localeCompare(q.a.title)),
+    }));
+}
+
 function Assignments() {
   const { data: items, loading, reload, setData } = useFetch('/assignments?scope=mine', {
     select: (d) => d.assignments || [],
@@ -153,9 +178,14 @@ function Assignments() {
       {visible.length === 0 ? (
         <Empty icon="grades" title="Nothing here." hint="Try another filter." />
       ) : (
-        <div className="list work-list">
-          {visible.map(({ a }) => <AssignmentCard key={a._id} a={a} onChange={reload} onSubmissionChange={updateSubmission} />)}
-        </div>
+        weekGroups(visible).map((g) => (
+          <section key={String(g.week)} className="work-group">
+            <h2 className="work-group-title">{g.label}<span>{g.rows.length}</span></h2>
+            <div className="list work-list">
+              {g.rows.map(({ a }) => <AssignmentCard key={a._id} a={a} onChange={reload} onSubmissionChange={updateSubmission} />)}
+            </div>
+          </section>
+        ))
       )}
     </div>
   );
