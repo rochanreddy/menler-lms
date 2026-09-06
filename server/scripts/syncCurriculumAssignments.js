@@ -70,39 +70,29 @@ function generalistItems(program) {
 }
 
 // ── Kickstarter ─────────────────────────────────────────────────────────────
-// One "Assignment: …" lesson per session topic, and the four portfolio
-// projects from the module that collects them. The short "PROJECT 0N: …"
-// lesson inside a session is a pointer to that module, not a second brief, so
-// it is skipped rather than filed as a duplicate.
+// Both live as LESSONS inside a session topic: "Assignment: …" for the work
+// set that hour, and "P01 · …" for the portfolio project that hour introduces.
+// The projects used to sit in a module of their own as well, which is why the
+// same four appeared twice; they are now only here, carrying the full brief.
 function kickstarterItems(program) {
   const out = [];
   for (const m of program.modules || []) {
     const session = Number((m.title.match(/^S(\d+)/i) || [])[1]) || null;
-    if (session) {
-      for (const c of m.chapters || []) {
-        for (const t of c.topics || []) {
-          if (!/^Assignment:/i.test(t.title)) continue;
-          out.push({
-            type: 'assignment',
-            title: t.title,
-            description: t.body || '',
-            week: session,
-            groupLabel: `Session ${String(session).padStart(2, '0')}`,
-          });
-        }
-      }
-      continue;
-    }
-    if (!/^Portfolio Projects/i.test(m.title)) continue;
+    if (!session) continue;
     for (const c of m.chapters || []) {
-      out.push({
-        type: 'project',
-        title: c.title,
-        description: headed((c.topics || []).map((t) => [t.title, t.body])),
-        // After every session, which is where they sit in the syllabus.
-        week: 99,
-        groupLabel: 'Portfolio projects',
-      });
+      for (const t of c.topics || []) {
+        const isProject = /^P\d+\s*·/.test(t.title);
+        if (!isProject && !/^Assignment:/i.test(t.title)) continue;
+        out.push({
+          type: isProject ? 'project' : 'assignment',
+          title: t.title,
+          description: t.body || '',
+          // Projects group after every session, which is how a portfolio
+          // reads: the four things you finish the course holding.
+          week: isProject ? 99 : session,
+          groupLabel: isProject ? 'Portfolio projects' : `Session ${String(session).padStart(2, '0')}`,
+        });
+      }
     }
   }
   return out;

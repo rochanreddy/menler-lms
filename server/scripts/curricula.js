@@ -106,7 +106,7 @@ export const KICKSTARTER_SESSIONS = [
           'Projects as the foundation for automation: Sessions 03 and 04 build on top of this',
         ],
         assignment: { name: 'Connected Claude Workspace, Session 02 Deliverable', body: 'Create a Claude Project. Write a system prompt (150+ words). Add one Skill (2.1). Upload one knowledge document. Connect one Connector (2.2). Run 3 real tasks; document results.\nSubmit: Claude Artifact, Project Setup Summary.' },
-        project: { name: 'PROJECT 01: Personal AI Operating System', body: 'A fully configured Claude workspace personalised to your role, domain and recurring tasks. Must complete 3 of your real weekly tasks without switching apps or copy-pasting.' },
+        project: 'P01',
       },
       {
         code: '2.4', time: '55 min', title: 'Research Intelligence, Claude + Perplexity + NotebookLM',
@@ -120,6 +120,7 @@ export const KICKSTARTER_SESSIONS = [
           'Building a research brief in under 30 minutes using the full stack',
         ],
         assignment: { name: 'Research Intelligence Pipeline', body: 'Pick a topic. Step 1, Perplexity: 3 queries, screenshot top 3 results with citations. Step 2, NotebookLM: upload 2 documents, ask 5 questions. Step 3, Claude: synthesise into a 300-word insight brief with 3 recommendations. Evaluate what AI got right vs what needed judgement.\nSubmit: Claude Artifact, 1-page Research Brief with source trail. Feeds into Project 02.' },
+        project: 'P02',
       },
       {
         code: '2.5', time: '50 min', title: 'AI Creatives, Image, Audio & Video Generation',
@@ -191,7 +192,7 @@ export const KICKSTARTER_SESSIONS = [
           'Testing and debugging automations: what breaks and how to fix it',
         ],
         assignment: { name: 'Design + Ship One External Automation, Session 03 Deliverable', body: 'Design on paper: Trigger → Claude step (exact prompt) → Output destination. Build in Zapier (free tier) or n8n using the Claude action. Trigger 3× with real inputs; screenshot all 3. Evaluate accuracy; document name, problem, time saved.\nSubmit: Live Automation System, Schedule + Routine + External Zap in one Artifact.' },
-        project: { name: 'PROJECT 03: Automation Suite', body: 'Three automation systems (Schedule + Routine + external Zap) that collectively save at least 2 hours per week, each run 3× and evaluated for consistency.' },
+        project: 'P03',
       },
     ],
   },
@@ -221,7 +222,7 @@ export const KICKSTARTER_SESSIONS = [
           'Combining your Session 01–03 deliverables into a unified capstone narrative',
         ],
         assignment: { name: 'Capstone Project, Final Polish', body: 'Finalise your capstone (must incorporate at least one Artifact, one workflow and one automation from Sessions 01–03). Record a 90-second Loom walkthrough (problem → Claude solving it → output; live demo, no slides). Write a 3-sentence summary. Publish via a public URL.\nSubmit before Demo Day.' },
-        project: { name: 'PROJECT 04: Capstone', body: 'An AI-powered solution to a real problem, Claude at the core + 2 other tools, usable by someone else, shareable via public URL, demoable in 3 minutes.' },
+        project: 'P04',
       },
       {
         code: '4.3', time: '40 min', title: 'Demo Day, Present, Critique, Level Up',
@@ -669,36 +670,36 @@ export const GENERALIST_WEEKS = [
 // ── Module builders ──────────────────────────────────────────────────────────
 const bullets = (xs) => xs.map((x) => `• ${x}`).join('\n');
 
+// A portfolio project's full brief, as one lesson body.
+const projectBody = (p) => [
+  ['Tools', p.tools],
+  ['Project brief', p.brief],
+  ['Deliverables', bullets(p.deliverables)],
+  ['Stretch goal', p.stretch],
+].map(([h, body]) => `## ${h}\n\n${body}`).join('\n\n');
+
 export function kickstarterModules() {
-  const modules = KICKSTARTER_SESSIONS.map((s, i) => ({
+  // Each portfolio project is a lesson of the session that sets it, carrying
+  // the whole brief. It used to be both: a one-line teaser in the session and
+  // a separate "Portfolio Projects" module holding the detail, so the same
+  // four projects appeared twice and neither copy was the whole thing. The
+  // module is gone and the detail moved up.
+  return KICKSTARTER_SESSIONS.map((s, i) => ({
     title: s.session,
     order: i,
-    chapters: s.topics.map((t, ci) => ({
-      title: `${t.code} · ${t.title} · ${t.time}`,
-      order: ci,
-      topics: [
-        { title: "What's covered", contentType: 'text', body: bullets(t.covered), order: 0 },
-        { title: `Assignment: ${t.assignment.name}`, contentType: 'text', body: t.assignment.body, order: 1 },
-        ...(t.project ? [{ title: t.project.name, contentType: 'text', body: t.project.body, order: 2 }] : []),
-      ],
-    })),
+    chapters: s.topics.map((t, ci) => {
+      const project = t.project && KICKSTARTER_PROJECTS.find((p) => p.code === t.project);
+      return {
+        title: `${t.code} · ${t.title} · ${t.time}`,
+        order: ci,
+        topics: [
+          { title: "What's covered", contentType: 'text', body: bullets(t.covered), order: 0 },
+          { title: `Assignment: ${t.assignment.name}`, contentType: 'text', body: t.assignment.body, order: 1 },
+          ...(project ? [{ title: `${project.code} · ${project.name}`, contentType: 'text', body: projectBody(project), order: 2 }] : []),
+        ],
+      };
+    }),
   }));
-  // Portfolio projects as a final module.
-  modules.push({
-    title: 'Portfolio Projects: All 4',
-    order: KICKSTARTER_SESSIONS.length,
-    chapters: KICKSTARTER_PROJECTS.map((p, i) => ({
-      title: `${p.code} · ${p.name}`,
-      order: i,
-      topics: [
-        { title: 'Tools', contentType: 'text', body: p.tools, order: 0 },
-        { title: 'Project brief', contentType: 'text', body: p.brief, order: 1 },
-        { title: 'Deliverables', contentType: 'text', body: bullets(p.deliverables), order: 2 },
-        { title: 'Stretch goal', contentType: 'text', body: p.stretch, order: 3 },
-      ],
-    })),
-  });
-  return modules;
 }
 
 export function generalistModules() {

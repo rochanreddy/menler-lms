@@ -92,7 +92,7 @@ role flow is tested against. It **never deletes a User** — accounts are upsert
 by email so logins survive reruns — and its randomness is seeded, so two runs
 produce the same data.
 
-- **Programmes** Kickstarter (53 lessons) · Generalist (22 lessons) — the real
+- **Programmes** Kickstarter (38 lessons) · Generalist (22 lessons) — the real
   curricula, not placeholders (see below) — every lesson carrying a reading PDF,
   teacher-notes PDF and a class link.
 - **Batches** one per programme, started 8 weeks ago, ending in 6 — so progress,
