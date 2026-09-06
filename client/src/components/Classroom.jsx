@@ -36,6 +36,10 @@ export default function Classroom() {
   const [topicId, setTopicId] = useState(null);
   // The accordion: the one module whose lessons are showing.
   const [openMod, setOpenMod] = useState(null);
+  // A module opened from the rail shows its own page in the reader — the
+  // week's objective and outcome — until a lesson is picked. It is not a
+  // lesson: nothing to mark, not counted, and the URL still names the lesson.
+  const [overviewMod, setOverviewMod] = useState(null);
   const [completed, setCompleted] = useState(new Set());
   const [total, setTotal] = useState(0);
   const [cert, setCert] = useState(null);
@@ -79,6 +83,12 @@ export default function Classroom() {
   const current = idx >= 0 ? flat[idx] : null;
   const topic = current?.topic || null;
   const next = idx >= 0 && idx < flat.length - 1 ? flat[idx + 1] : null;
+  // The module page on show, if any. Only a module with something to say
+  // has one; the others open straight onto their lessons as before.
+  const ovIdx = overviewMod ? (program?.modules || []).findIndex((m) => m._id === overviewMod) : -1;
+  const overview = ovIdx >= 0 && program.modules[ovIdx].description?.trim() ? program.modules[ovIdx] : null;
+  const firstLessonOf = (m) => flat.find((f) => f.modId === m._id) || null;
+  const lastLessonOf = (m) => [...flat].reverse().find((f) => f.modId === m._id) || null;
 
   const loadProgress = (programId) => {
     if (!isStudent || !programId) return;
@@ -95,23 +105,24 @@ export default function Classroom() {
 
   async function pick(id, preferTopicId) {
     const { program: p } = await api(`/programs/${id}`);
-    setProgram(p); setCert(null);
+    setProgram(p); setCert(null); setOverviewMod(null);
     const target = preferTopicId ? locate(p, preferTopicId) : null;
     if (target) {
       setOpenMod(target.modId);
       setTopicId(target.topic._id);
     } else {
-      // Auto-open + select the very first lesson so the page is never empty.
-      const firstMod = (p.modules || [])[0];
-      const firstTopic = firstMod?.chapters?.[0]?.topics?.[0];
-      setOpenMod(firstMod?._id || null);
-      setTopicId(firstTopic?._id || null);
+      // Nothing named in the URL: open nothing. A link to a lesson still lands
+      // on that lesson; simply arriving lands on the syllabus, which is the
+      // choice this page exists to offer.
+      setOpenMod(null);
+      setTopicId(null);
     }
     loadProgress(id);
   }
   function selectTopic(f) {
     setTopicId(f.topic._id);
     setOpenMod(f.modId);
+    setOverviewMod(null);
     setSheet(false);
     // replace, not push — Prev/Next shouldn't fill the back button with lessons.
     if (program) setParams({ program: program._id, topic: String(f.topic._id) }, { replace: true });
@@ -148,8 +159,20 @@ export default function Classroom() {
     if (String(urlTopic) === String(topicId)) return;
     if (urlProgram && urlProgram !== program._id) { pick(urlProgram, urlTopic); return; }
     const target = locate(program, urlTopic);
-    if (target) { setTopicId(target.topic._id); setOpenMod(target.modId); }
+    if (target) { setTopicId(target.topic._id); setOpenMod(target.modId); setOverviewMod(null); }
   }, [urlProgram, urlTopic]);
+
+  // Open a module from the rail. A module with a page of its own shows it;
+  // a click on the module that is already open folds it back up.
+  function openModule(m) {
+    const page = !!m.description?.trim();
+    if (min) { setMin(false); setOpenMod(m._id); setOverviewMod(page ? m._id : null); return; }
+    // Clicking the week that's already open folds it away again — unless its
+    // page is what brings you back, in which case the first click shows that.
+    if (openMod === m._id && (!page || overviewMod === m._id)) { setOpenMod(null); setOverviewMod(null); return; }
+    setOpenMod(m._id);
+    setOverviewMod(page ? m._id : null);
+  }
 
   // The page is sized to the viewport: everything above it is measured once
   // it's on screen (layout offset, not a viewport rect — the answer must not
@@ -192,7 +215,7 @@ export default function Classroom() {
     if (bodyRef.current) bodyRef.current.scrollTop = 0;
     setRead(0);
     revealActive();
-  }, [topicId]);
+  }, [topicId, overviewMod]);
   useEffect(() => { if (sheet || !railMin) revealActive(); }, [sheet, railMin]);
   const onBodyScroll = (e) => {
     const el = e.currentTarget;
@@ -200,12 +223,18 @@ export default function Classroom() {
     setRead(max > 0 ? Math.min(1, el.scrollTop / max) : 1);
   };
 
-  const goPrev = () => { if (idx > 0) selectTopic(flat[idx - 1]); };
-  const goNext = () => { if (next) selectTopic(next); };
+  // From a module page, Next starts the week and Prev steps back to the
+  // end of the week before it.
+  const ovPrev = overview ? (ovIdx > 0 ? lastLessonOf(program.modules[ovIdx - 1]) : null) : null;
+  const ovNext = overview ? firstLessonOf(overview) : null;
+  const goPrev = () => { if (overview) { if (ovPrev) selectTopic(ovPrev); } else if (idx > 0) selectTopic(flat[idx - 1]); };
+  const goNext = () => { if (overview) { if (ovNext) selectTopic(ovNext); } else if (next) selectTopic(next); };
 
   // ← / → step between lessons when nothing else owns the keyboard.
   useEffect(() => {
     if (viewer || cert || sheet) return;
+    // Nothing open yet — the arrows have nowhere to step from.
+    if (!topicId && !overviewMod) return;
     const onKey = (e) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       const t = e.target;
@@ -236,6 +265,8 @@ export default function Classroom() {
   const notesUrl = topic?.notesUrl || '';
   const showProgress = isStudent && total > 0;
   const min = railMin && !isMobile;
+  // The waiting state: no lesson open and no week page on show.
+  const blank = !topic && !overview;
 
   const railToggle = () => { if (isMobile) setSheet((v) => !v); else setMin(!railMin); };
 
@@ -255,6 +286,42 @@ export default function Classroom() {
     <div className="cls-ws" ref={wsRef} style={{ '--cls-top': `${wsTop}px` }}>
       {/* ── The reader ── */}
       <section className="reader" aria-label="Lesson">
+        {/* Nothing picked yet. Arriving on Learning used to drop you into the
+            first lesson of the first week, which is somebody's idea of where
+            to start, not yours — so the stage waits and the syllabus is the
+            thing to act on. */}
+        {blank ? (
+          <div className="reader-blank">
+            <div className="reader-blank-inner">
+              <p className="reader-blank-eyebrow">{program.title}</p>
+              <h1 className="reader-title">{flat.length} lessons, {(program.modules || []).length} weeks.</h1>
+              <p className="reader-blank-hint">Open a week {isMobile || min ? 'in the syllabus' : 'on the left'} to see what it covers, then pick a lesson to start reading.</p>
+              {/* Only where the syllabus isn't already sitting open beside you. */}
+              {(isMobile || min) && (
+                <button className="btn sm on-stage reader-blank-cta" onClick={() => (isMobile ? setSheet(true) : setMin(false))}>
+                  <LineIcon name="menu" size={15} /> Open the syllabus
+                </button>
+              )}
+            </div>
+          </div>
+        ) : (<>
+        {overview ? (
+          /* ── A module's own page: the week's overview, on the stage. Built
+               from the same parts as a lesson, in the same order — the week in
+               the crumb, what you're reading as the title, the counter on the
+               right — so moving between the two isn't a change of scenery. ── */
+          <div className="reader-head reader-head-ov">
+            <div className="reader-top">
+              <div className="reader-crumb" title={overview.title}><span>{overview.title}</span></div>
+              <div className="reader-pos">{ovIdx + 1} <span>/ {(program.modules || []).length}</span></div>
+              <button className="reader-syl" onClick={() => setSheet(true)} aria-controls="cls-rail" aria-expanded={sheet}>
+                <LineIcon name="menu" size={16} /> Syllabus <span className="reader-syl-of">{ovIdx + 1}/{(program.modules || []).length}</span>
+              </button>
+            </div>
+            <h1 className="reader-title">Week overview</h1>
+            <div className="reader-read" aria-hidden="true"><span style={{ transform: `scaleX(${read})` }} /></div>
+          </div>
+        ) : (
         <div className="reader-head">
           <div className="reader-top">
             <div className="reader-crumb" title={`${current.mod}${current.chap && current.chap !== 'Lessons' ? ` / ${current.chap}` : ''}`}>
@@ -290,8 +357,14 @@ export default function Classroom() {
           {/* How far through the reading you are — fills as the body scrolls. */}
           <div className="reader-read" aria-hidden="true"><span style={{ transform: `scaleX(${read})` }} /></div>
         </div>
+        )}
 
         <div className="reader-body" ref={bodyRef} onScroll={onBodyScroll}>
+          {overview ? (
+            <div className="reader-inner">
+              <Markdown text={overview.description} />
+            </div>
+          ) : (
           <div className="reader-inner">
             {topic.contentType === 'video' && myVideo(topic._id) && (
               <VdoCipherPlayer key={topic._id} fetchOtp={(takeover) => getLessonVideoOtp(myVideo(topic._id).batchId, topic._id, takeover)} />
@@ -302,8 +375,20 @@ export default function Classroom() {
             )}
             {topic.body ? <Markdown text={topic.body} /> : (topic.contentType === 'text' && <p className="muted">No content for this lesson yet.</p>)}
           </div>
+          )}
         </div>
 
+        {overview ? (
+          <div className="reader-foot">
+            <button className="btn sm rnav" disabled={!ovPrev} onClick={goPrev}>← Previous</button>
+            {/* Nothing to mark on a module page; the fill goes to starting the week. */}
+            <button className="btn sm rnav rnext on-stage" disabled={!ovNext} onClick={goNext} title={ovNext?.topic.title}>
+              <span className="rnext-label">{ovNext ? 'Start week' : 'No lessons yet'}</span>
+              {ovNext && <span className="rnext-title">{ovNext.topic.title}</span>}
+              <span aria-hidden="true">→</span>
+            </button>
+          </div>
+        ) : (
         <div className="reader-foot">
           <button className="btn sm rnav" disabled={idx <= 0} onClick={goPrev}>← Previous</button>
           {isStudent && (
@@ -319,6 +404,8 @@ export default function Classroom() {
             <span aria-hidden="true">→</span>
           </button>
         </div>
+        )}
+        </>)}
       </section>
 
       {/* Phones: the scrim behind the sheet. */}
@@ -352,12 +439,13 @@ export default function Classroom() {
             const mDone = mTopics.filter((t) => completed.has(t._id)).length;
             const mPct = mTopics.length ? Math.round((mDone / mTopics.length) * 100) : 0;
             const isOpen = openMod === m._id;
-            const here = current?.modId === m._id;
+            const onOverview = overview?._id === m._id;
+            const here = onOverview || (!overview && current?.modId === m._id);
             return (
               <div key={m._id} className={`rmod ${isOpen ? 'open' : ''} ${here ? 'here' : ''} ${mTopics.length > 0 && mDone === mTopics.length ? 'complete' : ''}`}>
                 <button
                   className="rmod-head"
-                  onClick={() => { if (min) { setMin(false); setOpenMod(m._id); } else setOpenMod(isOpen ? null : m._id); }}
+                  onClick={() => openModule(m)}
                   aria-expanded={isOpen}
                   title={min ? m.title : undefined}
                 >
@@ -375,7 +463,7 @@ export default function Classroom() {
                       <div key={c._id} className="rchap">
                         {(m.chapters.length > 1 || c.title !== 'Lessons') && <div className="rchap-title">{c.title}</div>}
                         {(c.topics || []).map((t) => {
-                          const active = t._id === topicId;
+                          const active = !overview && t._id === topicId;
                           const tdone = completed.has(t._id);
                           return (
                             <button key={t._id} className={`rlesson ${active ? 'active' : ''} ${tdone ? 'done' : ''}`} onClick={() => selectTopic({ topic: t, modId: m._id, chapId: c._id })} aria-current={active ? 'true' : undefined}>

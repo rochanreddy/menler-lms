@@ -807,6 +807,18 @@ a:focus-visible,
 .reader .md-quote { border-left-color: var(--lavender); background: var(--stage-2); color: #d8d5e8; }
 .reader .md a { color: var(--lavender); }
 .reader .md-hr { border-top-color: var(--stage-line); }
+/* The week-overview page uses the lesson's own head and body — same crumb,
+   same title, same measure — so it reads as one of them, not a second design.
+   Its head simply has no chips, since there is nothing attached to a week. */
+.reader-head-ov .reader-title { margin-bottom: 18px; }
+/* Nothing picked yet: the stage waits rather than choosing a lesson for you.
+   Centred, quiet, and it says what the syllabus beside it is for. */
+.reader-blank { flex: 1; min-height: 0; display: grid; place-items: center; padding: 24px 36px; text-align: center; }
+.reader-blank-inner { max-width: 46ch; }
+.reader-blank-eyebrow { font-size: 11px; text-transform: uppercase; letter-spacing: .13em; color: var(--lavender); font-weight: 700; margin: 0; }
+.reader-blank .reader-title { max-width: none; margin: 10px 0 0; }
+.reader-blank-hint { color: var(--lavender); font-size: 15px; line-height: 1.55; margin: 12px 0 0; }
+.reader-blank-cta { margin-top: 20px; display: inline-flex; align-items: center; gap: 8px; }
 /* Footer: three columns so "Mark complete" is truly centred whatever the
    width of Next, which names the lesson it goes to. */
 .reader-foot { flex: none; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px; padding: 12px 24px; border-top: 1px solid var(--stage-line); }

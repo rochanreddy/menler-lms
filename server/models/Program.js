@@ -27,7 +27,14 @@ const chapterSchema = new mongoose.Schema(
 );
 
 const moduleSchema = new mongoose.Schema(
-  { title: { type: String, required: true }, order: { type: Number, default: 0 }, chapters: { type: [chapterSchema], default: [] } },
+  {
+    title: { type: String, required: true },
+    // Markdown shown in the reader when the module itself is opened — the
+    // week's objective and outcome, say — rather than as lessons of its own.
+    description: { type: String, default: '' },
+    order: { type: Number, default: 0 },
+    chapters: { type: [chapterSchema], default: [] },
+  },
   { _id: true },
 );
 

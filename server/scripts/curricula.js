@@ -703,22 +703,20 @@ export function kickstarterModules() {
 
 export function generalistModules() {
   return GENERALIST_WEEKS.map((w, wi) => {
+    // A week's overview (objective · identity shift · Claude features ·
+    // outcome) is the module's description, not a chapter of lessons. As
+    // lessons they were the same three or four rows repeated at the top of
+    // every week, pushing the actual sessions down the syllabus; as a page
+    // the reader shows them, headed, the moment the week is opened.
+    const description = [
+      ['Weekly objective', w.objective],
+      ['Identity shift', w.identityShift],
+      ['Claude features applied this week', w.claudeFeatures],
+      ['Week outcome', w.outcome],
+    ].filter(([, body]) => body).map(([h, body]) => `## ${h}\n\n${body}`).join('\n\n');
     const chapters = [
-      {
-        title: 'Week overview',
-        order: 0,
-        topics: [
-          { title: 'Weekly objective', contentType: 'text', body: w.objective, order: 0 },
-          { title: 'Identity shift', contentType: 'text', body: w.identityShift, order: 1 },
-          ...(w.claudeFeatures
-            ? [{ title: 'Claude features applied this week', contentType: 'text', body: w.claudeFeatures, order: 2 }]
-            : []),
-          { title: 'Week outcome', contentType: 'text', body: w.outcome, order: w.claudeFeatures ? 3 : 2 },
-        ],
-      },
-      ...w.sessions.map((s, si) => ({
+      ...w.sessions.map((s) => ({
         title: `${s.code} · Week ${w.week}: ${s.title}`,
-        order: si + 1,
         topics: [
           { title: 'Carries forward', contentType: 'text', body: s.carries, order: 0 },
           { title: 'Key topics covered', contentType: 'text', body: bullets(s.topics), order: 1 },
@@ -729,13 +727,14 @@ export function generalistModules() {
       })),
       {
         title: `Weekly Assignment: ${w.assignment.name}`,
-        order: w.sessions.length + 1,
         topics: [
           { title: 'Brief', contentType: 'text', body: w.assignment.brief, order: 0 },
           {
             title: 'Submission',
             contentType: 'text',
-            body: `Submit as: ${w.assignment.submitAs}\nTime estimate: ${w.assignment.time}\nFeeds into: ${w.assignment.feedsInto}`,
+            body: `Submit as: ${w.assignment.submitAs}
+Time estimate: ${w.assignment.time}
+Feeds into: ${w.assignment.feedsInto}`,
             order: 1,
           },
         ],
@@ -745,9 +744,10 @@ export function generalistModules() {
       const m = w.milestone;
       chapters.push({
         title: `Milestone Project ${m.n} · ${m.name}`,
-        order: chapters.length,
         topics: [
-          { title: 'Objective', contentType: 'text', body: `${m.tagline}\n\n${m.objective}`, order: 0 },
+          { title: 'Objective', contentType: 'text', body: `${m.tagline}
+
+${m.objective}`, order: 0 },
           { title: 'What to build', contentType: 'text', body: m.whatToBuild, order: 1 },
           { title: 'Tools', contentType: 'text', body: m.tools, order: 2 },
           { title: 'Success criteria', contentType: 'text', body: m.success, order: 3 },
@@ -755,7 +755,8 @@ export function generalistModules() {
         ],
       });
     }
-    return { title: `WEEK ${w.week} · ${w.title}`, order: wi, chapters };
+    // Chapter order is positional, so dropping the overview leaves no gap.
+    return { title: `WEEK ${w.week} · ${w.title}`, description, order: wi, chapters: chapters.map((ch, i) => ({ ...ch, order: i })) };
   });
 }
 
