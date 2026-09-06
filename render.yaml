@@ -1,0 +1,64 @@
+# Render Blueprint for the LMS API.
+#
+# This exists so the one setting that cannot be changed later — the region — is
+# committed rather than clicked. The original service was created in a US region
+# while every student and the Atlas cluster (AWS ap-south-1, Mumbai) are in
+# India, which cost ~335ms on the wire for each of the seven calls the student
+# home page fires. Render cannot move a service between regions, so the fix is a
+# new service in Singapore (~95ms from India, ~65ms on to Mumbai) and a DNS-level
+# switch of the frontend.
+#
+# The client stays on Vercel and is not described here.
+services:
+  - type: web
+    name: menler-lms-sg
+    runtime: node
+    plan: standard
+    region: singapore
+    branch: main
+    # Two independent npm projects live in this repo; only server/ is deployed.
+    rootDir: server
+    buildCommand: npm ci
+    startCommand: npm start
+    # The app does not listen until Atlas connects (~10s), so this check is what
+    # holds traffic off a deploy until it can actually serve. /health reports
+    # mongoose.readyState, not just process liveness.
+    healthCheckPath: /health
+    autoDeploy: true
+
+    envVars:
+      - key: NODE_ENV
+        value: production
+
+      # Read twice: it joins the CORS allowlist, and password/enrollment mail
+      # links point at it. app.menler.in is also hardcoded in the allowlist, so a
+      # wrong value here breaks email links before it breaks the browser.
+      - key: LMS_APP_URL
+        value: https://app.menler.in
+
+      # sync:false = Render prompts for the value instead of storing it in git.
+      # Copy each from the old service's Environment tab, unchanged.
+      #
+      # JWT_SECRET especially: a different value here invalidates every token and
+      # device-session row in flight, logging every user out at the cutover.
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: MAIL_FROM
+        sync: false
+      - key: SMTP_FROM
+        sync: false
+      - key: GOOGLE_DRIVE_API_KEY
+        sync: false
+      - key: VDOCIPHER_API_SECRET
+        sync: false
+
+      # Deliberately absent:
+      #   PORT   — Render injects it; index.js reads process.env.PORT and only
+      #            falls back to 4100 for local dev. Setting it here fights the
+      #            platform's port detection.
+      #   SMTP_* — mail goes out over Resend; the SMTP fallback is unconfigured.
+      #   LMS_SINGLE_SESSION — unset means "warn", the intended production mode.

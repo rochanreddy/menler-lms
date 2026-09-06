@@ -44,10 +44,15 @@ the API rejects unknown/retired roles at login and on every request
 - `GET /api/lms/programs` · `GET /api/lms/programs/:id` · `POST|PATCH` (admin only)
 
 ## Deploy
-- **Backend** → Render (new Web Service, root `server/`, start `npm start`). Env: `MONGODB_URI`,
-  `JWT_SECRET`, `LMS_APP_URL=https://app.menler.in`.
-- **Frontend** → Vercel (root `client/`). Env: `VITE_API_URL=https://<render-lms>/api/lms`.
-  Point `app.menler.in` at it.
+- **Backend** → Render, from [render.yaml](render.yaml) (Blueprint: root `server/`, start
+  `npm start`, health check `/health`, **region Singapore**). It prompts for the secrets;
+  `LMS_APP_URL=https://app.menler.in`. Never set `PORT` — Render injects it.
+- **Frontend** → Vercel (root `client/`). Env: `VITE_API_URL=https://<render-lms>/api/lms`
+  — the `/api/lms` suffix is required, and Vite bakes it in at build time, so changing it
+  needs a redeploy. Point `app.menler.in` at it.
+- The region is load-bearing: students and the Atlas cluster are both in India, and Render
+  cannot move a service after creation. See
+  [docs/RENDER-SINGAPORE-MIGRATION.md](docs/RENDER-SINGAPORE-MIGRATION.md).
 
 ## Data isolation rule
 This service must only ever read/write `lms_*` collections. Never touch the marketing
