@@ -54,6 +54,11 @@ the API rejects unknown/retired roles at login and on every request
 - The region is load-bearing: students and the Atlas cluster are both in India, and Render
   cannot move a service after creation. See
   [docs/RENDER-SINGAPORE-MIGRATION.md](docs/RENDER-SINGAPORE-MIGRATION.md).
+- Optional backend env, per feature: `RESEND_API_KEY`/`MAIL_FROM` (account emails),
+  `VDOCIPHER_API_SECRET` (lesson video), `OPENROUTER_API_KEY` (AI grading),
+  `GOOGLE_DRIVE_API_KEY` (submission checks).
+- Allow Render's outbound IPs in MongoDB Atlas (or `0.0.0.0/0`), or the backend cannot
+  reach the database.
 
 ## Data isolation rule
 This service must only ever read/write `lms_*` collections. Never touch the marketing

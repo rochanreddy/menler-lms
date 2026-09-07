@@ -84,11 +84,13 @@ app.use((_req, res, next) => {
   next();
 });
 
-// CORS allowlist — the LMS frontend (app.menler.in / localhost:5174) calls this
-// API cross-origin. Bearer tokens (no cookies) keep this simple.
+// CORS allowlist — the LMS frontend (lms.menler.in / localhost:5174) calls this
+// API cross-origin. Bearer tokens (no cookies) keep this simple. LMS_APP_URL
+// takes a comma-separated list, so a preview deployment can be allowed without
+// editing this file.
 const normalizeOrigin = (s) => (s || '').trim().replace(/\/+$/, '');
 const allowedOrigins = new Set(
-  [process.env.LMS_APP_URL, 'http://localhost:5174', 'https://app.menler.in']
+  [process.env.LMS_APP_URL, 'http://localhost:5174', 'https://lms.menler.in', 'https://app.menler.in']
     .flatMap((v) => (v ? v.split(',') : []))
     .map(normalizeOrigin)
     .filter(Boolean),
