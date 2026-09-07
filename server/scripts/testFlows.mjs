@@ -280,6 +280,22 @@ async function run() {
     ok('mentor answers the doubt', commented.status === 200 || commented.status === 201, `got ${commented.status}`);
   }
 
+  // The forum's other board. Both live in one collection under a `kind`, so the
+  // first thing worth proving is that neither board serves the other's posts.
+  const sharesBefore = await call(`/forum/doubts?batchId=${bK.id}&kind=share`, { token: sK.token });
+  const seededShares = (sharesBefore.json.doubts || []).filter((d) => !d.text.startsWith(FLOW));
+  ok('student reads shared learnings', seededShares.length === 4, `got ${seededShares.length}`);
+  const doubtIds = new Set(seededDoubts.map((d) => d.id));
+  ok('the two boards do not mix', !seededShares.some((d) => doubtIds.has(d.id)));
+  const sharePosted = await call('/forum/doubts', { token: sK.token, method: 'POST', body: { batchId: bK.id, kind: 'share', text: `${FLOW} share, does this post?` } });
+  ok('student shares a learning', sharePosted.status === 201 || sharePosted.status === 200, `got ${sharePosted.status}`);
+  // A mentor passing on a resource is the point of the board; a mentor "asking
+  // a doubt" is not, and that asymmetry is the only rule the two boards differ by.
+  const mentorShare = await call('/forum/doubts', { token: mentorAll.token, method: 'POST', body: { batchId: bK.id, kind: 'share', text: `${FLOW} mentor share.` } });
+  ok('mentor may share a learning', mentorShare.status === 201 || mentorShare.status === 200, `got ${mentorShare.status}`);
+  const mentorDoubt = await call('/forum/doubts', { token: mentorAll.token, method: 'POST', body: { batchId: bK.id, text: `${FLOW} mentor doubt, should be refused.` } });
+  ok('…but still cannot post a doubt', mentorDoubt.status === 403, `got ${mentorDoubt.status}`);
+
   // Submission round trip on the flow-test assignment.
   const flowAssign = mine.find((a) => a.title === 'Flow-test assignment');
   if (flowAssign) {

@@ -337,7 +337,7 @@ async function run() {
     await m.doc.save();
   }
 
-  const counts = { sessions: 0, attendance: 0, assignments: 0, submissions: 0, graded: 0, quizzes: 0, attempts: 0, doubts: 0, notifs: 0 };
+  const counts = { sessions: 0, attendance: 0, assignments: 0, submissions: 0, graded: 0, quizzes: 0, attempts: 0, doubts: 0, shares: 0, notifs: 0 };
 
   for (const B of Object.values(batches)) {
     const { doc: batch, students: cohort, mentors: staff, program } = B;
@@ -521,6 +521,32 @@ async function run() {
       counts.doubts++;
     }
 
+    // ── Shared learnings ──
+    // The other board of the forum. One of these is posted by a mentor, because
+    // the share board — unlike doubts — accepts them, and a fixture that only
+    // ever shows student posts would never exercise that.
+    const shares = [
+      'Putting the rubric in the prompt before the draft, not after, cut my rewrites in half. It stops guessing what "good" means.',
+      'If a model keeps padding, ask it for the answer and the word count in the same breath. It self-trims.',
+      'Kept a running file of prompts that worked and why. Four weeks in it is the most useful thing I own.',
+      'Read your own transcript out loud before you submit the walkthrough. Every filler sentence announces itself.',
+    ];
+    for (let i = 0; i < shares.length; i++) {
+      // Last one is the mentor's.
+      const poster = i === shares.length - 1 ? staff[0].doc : cohort[(i + 2) % cohort.length].doc;
+      await Doubt.create({
+        batchId: batch._id,
+        kind: 'share',
+        authorId: poster._id,
+        text: shares[i],
+        likes: cohort.filter(() => chance(0.5)).map((s) => s.doc._id),
+        comments: chance(0.6)
+          ? [{ authorId: cohort[(i + 3) % cohort.length].doc._id, text: pick(['Trying this today.', 'This is the tip I needed three weeks ago.', 'Same, works with the longer briefs too.']) }]
+          : [],
+      });
+      counts.shares++;
+    }
+
     // ── Progress: mid-cohort, so roughly the first half is done ──
     const topicIds = topicIdsOf(program);
     for (let si = 0; si < cohort.length; si++) {
@@ -565,6 +591,7 @@ async function run() {
   console.log(`✓ submissions     ${counts.submissions}  of which ${counts.graded} graded & locked`);
   console.log(`✓ quizzes         ${counts.quizzes}  · ${counts.attempts} attempts`);
   console.log(`✓ doubts          ${counts.doubts} threads with likes and mentor answers`);
+  console.log(`✓ shares          ${counts.shares} shared learnings on the forum's other board`);
   console.log(`✓ notifications   ${counts.notifs}`);
   console.log('✓ library         5 items');
 

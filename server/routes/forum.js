@@ -31,7 +31,17 @@ router.post('/chat', requireAuth, async (req, res) => {
   res.status(201).json({ message: { id: m._id, text: m.text, at: m.createdAt, author: author(m.authorId) } });
 });
 
-// ── Doubts board ──
+// ── Boards ──
+//
+// Two boards, one collection: `kind` is 'doubt' (a question) or 'share'
+// (something worth passing on). Everything else — likes, comments, batch
+// access — is identical, so it is one set of routes with a filter, not two.
+
+// A board query always names its kind. Rows written before the share board
+// existed have no `kind` field, and a missing field is what `null` matches in
+// Mongo — which is why the doubts filter is an $in and not an equality.
+const kindOf = (v) => (v === 'share' ? 'share' : 'doubt');
+const kindFilter = (kind) => (kind === 'share' ? 'share' : { $in: ['doubt', null] });
 
 // Reads a lean object as happily as a hydrated document: `likes`/`comments`
 // are guarded because a plain object from .lean() carries no schema defaults.
@@ -47,7 +57,7 @@ const shapeDoubt = (d, meId, people) => ({
   })),
 });
 
-// GET /api/lms/forum/doubts?batchId=..
+// GET /api/lms/forum/doubts?batchId=..&kind=doubt|share
 // The board polls this every few seconds from every open tab, so it is the most
 // frequently served query in the app AND the one whose cost grows on its own as
 // a batch accumulates doubts. Hence the two things it did not used to have:
@@ -58,7 +68,7 @@ const shapeDoubt = (d, meId, people) => ({
 router.get('/doubts', requireAuth, async (req, res) => {
   const { batchId } = req.query;
   if (!batchId || !(await canAccessBatch(req.user, batchId))) return res.status(403).json({ error: 'Forbidden.' });
-  const rows = await Doubt.find({ batchId }).sort({ createdAt: -1 }).limit(200).lean();
+  const rows = await Doubt.find({ batchId, kind: kindFilter(kindOf(req.query.kind)) }).sort({ createdAt: -1 }).limit(200).lean();
 
   // Resolve every author in ONE query rather than two populates. Mongoose issues
   // each populate as its own round trip, so the board used to cost three trips
@@ -78,13 +88,17 @@ router.get('/doubts', requireAuth, async (req, res) => {
   res.json({ doubts: rows.map((d) => shapeDoubt(d, req.user._id.toString(), people)) });
 });
 
-// POST /api/lms/forum/doubts { batchId, text } — only students ask doubts.
+// POST /api/lms/forum/doubts { batchId, text, kind? }
+// Only students ask doubts — a mentor with a question is not what this board is
+// for. A share is open to mentors as well: a mentor passing on a good article is
+// the same act as a student doing it, and the board is poorer without them.
 router.post('/doubts', requireAuth, async (req, res) => {
-  if (req.user.role !== 'student') return res.status(403).json({ error: 'Only students can post doubts. Mentors answer them.' });
   const { batchId, text } = req.body || {};
+  const kind = kindOf(req.body?.kind);
+  if (kind === 'doubt' && req.user.role !== 'student') return res.status(403).json({ error: 'Only students can post doubts. Mentors answer them.' });
   if (!batchId || !text?.trim()) return res.status(400).json({ error: 'batchId and text are required.' });
   if (!(await canAccessBatch(req.user, batchId))) return res.status(403).json({ error: 'Forbidden.' });
-  await Doubt.create({ batchId, authorId: req.user._id, text: text.trim() });
+  await Doubt.create({ batchId, kind, authorId: req.user._id, text: text.trim() });
   res.status(201).json({ ok: true });
 });
 
@@ -109,9 +123,13 @@ router.post('/doubts/:id/comments', requireAuth, async (req, res) => {
   if (!(await canAccessBatch(req.user, d.batchId))) return res.status(403).json({ error: 'Forbidden.' });
   d.comments.push({ authorId: req.user._id, text: text.trim() });
   await d.save();
-  // Notify the doubt's author (unless they're replying to themselves).
+  // Notify the post's author (unless they're replying to themselves). The link
+  // carries the tab, or answering a share drops the reader on the doubts board.
   if (d.authorId.toString() !== req.user._id.toString()) {
-    notify(d.authorId, { type: 'doubt', text: `${req.user.fullName || 'Someone'} answered your doubt.`, link: '/app/forum' });
+    const who = req.user.fullName || 'Someone';
+    notify(d.authorId, d.kind === 'share'
+      ? { type: 'doubt', text: `${who} replied to what you shared.`, link: '/app/forum?tab=shares' }
+      : { type: 'doubt', text: `${who} answered your doubt.`, link: '/app/forum' });
   }
   res.status(201).json({ ok: true });
 });

@@ -722,6 +722,10 @@ a:focus-visible,
 /* When the picker rides in the page header it is a control beside the title,
    not a stacked block pushing the content down. */
 .page-head .learn-select { margin-bottom: 0; flex: none; }
+/* Forum's head carries two controls on its right — the batch picker and the
+   board switcher — so they get a row of their own that wraps as one unit. */
+.forum-head-controls { display: flex; align-items: flex-end; gap: 12px 16px; flex-wrap: wrap; }
+.forum-head-controls .learn-tabs { margin-bottom: 3px; }
 
 /* ── THE CLASSROOM ──────────────────────────────────────────────────────────
    Its own page, sized to the viewport so the page never scrolls. The READER
@@ -1776,6 +1780,11 @@ h1.md-h { font-size: 22px; } h2.md-h { font-size: 19px; } h3.md-h { font-size: 1
   .qc-actions .btn { width: 100%; justify-content: center; }
   .learn-tabs { width: 100%; }
   .learn-tabs .tab { flex: 1; padding: 7px 6px; font-size: 13px; white-space: nowrap; }
+  /* The head stacks here, so the forum's controls take the full width with it —
+     otherwise the switcher shrinks to its text and stops looking like a switch. */
+  .forum-head-controls { width: 100%; align-items: stretch; flex-direction: column; }
+  .forum-head-controls .learn-tabs { margin-bottom: 0; }
+  .forum-head-controls .learn-select select { min-width: 0; width: 100%; }
   .cls-ws { grid-template-columns: minmax(0, 1fr); gap: 0; --cls-bottom: 92px; min-height: 480px; }
   .cls.rail-min .cls-ws { grid-template-columns: minmax(0, 1fr); }
   .reader { grid-column: 1; }
