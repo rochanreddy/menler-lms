@@ -1203,6 +1203,7 @@ h1.md-h { font-size: 22px; } h2.md-h { font-size: 19px; } h3.md-h { font-size: 1
 .gt-kind { font-size: 11.5px; padding: 2px 8px; border-radius: 999px; background: var(--violet-soft); color: var(--brand); font-weight: 600; }
 .gt-kind.gt-exam { background: var(--danger-soft); color: var(--danger); }
 .gt-kind.gt-quiz { background: var(--ok-soft); color: var(--ok-ink); }
+.gt-kind.gt-project { background: var(--info-soft); color: var(--info-ink); }
 .gt-status { font-size: 11.5px; text-transform: capitalize; color: var(--muted); }
 .gt-status.gt-graded { color: var(--ok-ink); font-weight: 600; }
 .gt-status.gt-submitted { color: var(--warn-ink); }
