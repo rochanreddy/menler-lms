@@ -107,18 +107,19 @@ router.post('/', requireAuth, requireRole('admin'), async (req, res) => {
 });
 
 // POST /api/lms/sessions/bulk — admin schedules a whole cohort in one go.
-//   { batchId, joinUrl, zoomMeetingId, sessions: [{ title, startsAt, endsAt }] }
+//   { batchId, joinUrl, zoomMeetingId, sessions: [{ title, startsAt, endsAt, joinUrl?, zoomMeetingId? }] }
 // The client works out the dates, because only it knows the admin's timezone:
-// "every Saturday at 7 pm" is an IST fact, and the server runs in UTC. One Zoom
-// link for all of them is the normal case — a recurring meeting — which is
-// what the Zoom webhook now tells apart by time.
+// "every Saturday at 7 pm" is an IST fact, and the server runs in UTC.
+// Each class usually has its own Zoom meeting, so a row's own link wins; the
+// top-level link is the fallback for a course run on one recurring meeting
+// (which the Zoom webhook tells apart by time). A row may also have no link
+// yet — Zoom links are often made week by week and added with Edit later.
 router.post('/bulk', requireAuth, requireRole('admin'), async (req, res) => {
   const { batchId, joinUrl = '', zoomMeetingId = '', sessions } = req.body || {};
   if (!batchId || !(await Batch.exists({ _id: batchId }))) return res.status(400).json({ error: 'Pick a batch.' });
   if (!Array.isArray(sessions) || !sessions.length) return res.status(400).json({ error: 'No sessions to schedule.' });
   if (sessions.length > 60) return res.status(400).json({ error: 'At most 60 sessions at once.' });
 
-  const meetingId = meetingIdFrom(zoomMeetingId, joinUrl);
   const docs = [];
   for (const [i, s] of sessions.entries()) {
     const title = String(s?.title || '').trim();
@@ -127,7 +128,11 @@ router.post('/bulk', requireAuth, requireRole('admin'), async (req, res) => {
     if (!title) return res.status(400).json({ error: `Session ${i + 1} needs a title.` });
     if (Number.isNaN(+start)) return res.status(400).json({ error: `Session ${i + 1} has no valid start time.` });
     if (end && (Number.isNaN(+end) || end <= start)) return res.status(400).json({ error: `Session ${i + 1} ends before it starts.` });
-    docs.push({ batchId, title, startsAt: start, endsAt: end, joinUrl: String(joinUrl).trim(), zoomMeetingId: meetingId });
+    // Never pair a row's own link with the shared meeting id — different meetings.
+    const ownUrl = String(s?.joinUrl || '').trim();
+    const url = ownUrl || String(joinUrl).trim();
+    const meetingId = ownUrl ? meetingIdFrom(s?.zoomMeetingId, ownUrl) : meetingIdFrom(zoomMeetingId, joinUrl);
+    docs.push({ batchId, title, startsAt: start, endsAt: end, joinUrl: url, zoomMeetingId: meetingId });
   }
   const created = await Session.insertMany(docs);
   res.status(201).json({ sessions: created });
@@ -140,7 +145,18 @@ router.patch('/:id', requireAuth, requireRole('admin'), async (req, res) => {
   const allowed = (({ title, startsAt, endsAt, joinUrl, recordingUrl, zoomMeetingId }) => ({ title, startsAt, endsAt, joinUrl, recordingUrl, zoomMeetingId }))(req.body || {});
   Object.keys(allowed).forEach((k) => allowed[k] === undefined && delete allowed[k]);
   if (allowed.zoomMeetingId !== undefined) allowed.zoomMeetingId = normMeetingId(allowed.zoomMeetingId);
-  if (allowed.joinUrl && allowed.zoomMeetingId === undefined && !session.zoomMeetingId) allowed.zoomMeetingId = extractMeetingId(allowed.joinUrl);
+  // A new link is a new meeting: re-derive the id from it, unless a DIFFERENT
+  // id was typed alongside. An edit form echoing the old id back with the new
+  // link would otherwise leave attendance matching the old meeting.
+  const linkChanged = allowed.joinUrl !== undefined && allowed.joinUrl !== session.joinUrl;
+  if (linkChanged && (!allowed.zoomMeetingId || allowed.zoomMeetingId === session.zoomMeetingId)) {
+    allowed.zoomMeetingId = extractMeetingId(allowed.joinUrl);
+  }
+  // Moved in time → the class has not "happened" yet as far as the absence
+  // sweep knows; let it look again after the new end.
+  const moved = (allowed.startsAt && +new Date(allowed.startsAt) !== +session.startsAt)
+    || (allowed.endsAt !== undefined && +new Date(allowed.endsAt || 0) !== +(session.endsAt || 0));
+  if (moved) allowed.absenceSweptAt = null;
   Object.assign(session, allowed);
   await session.save();
   res.json({ session });
