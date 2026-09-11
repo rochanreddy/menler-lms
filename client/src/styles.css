@@ -1242,6 +1242,9 @@ h1.md-h { font-size: 22px; } h2.md-h { font-size: 19px; } h3.md-h { font-size: 1
 .session-list { display: flex; flex-direction: column; gap: 10px; margin-top: 18px; }
 .session-row { display: flex; align-items: center; gap: 16px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); }
 .session-row:hover { border-color: var(--line-strong); }
+/* An open edit form takes its own full-width line under the row. */
+.session-row:has(.session-edit) { flex-wrap: wrap; }
+.session-edit { flex-basis: 100%; border-top: 1px solid var(--line-soft); padding-top: 4px; }
 .session-date { flex: none; width: 52px; height: 52px; border-radius: 10px; background: var(--brand-soft); display: flex; flex-direction: column; align-items: center; justify-content: center; }
 .session-date-d { font-family: var(--display); font-weight: 700; font-size: 19px; color: var(--brand); line-height: 1; }
 .session-date-m { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--brand); font-weight: 600; margin-top: 2px; }

@@ -4,7 +4,7 @@ import { api, downloadFile, mailNote } from '../api.js';
 import LineIcon from './LineIcon.jsx';
 import Markdown from './Markdown.jsx';
 import Empty from './Empty.jsx';
-import { AnnouncementForm, SessionForm, BulkSessionForm, QuizBuilder, AssignmentForm, DRIVE_TYPES } from './BatchForms.jsx';
+import { AnnouncementForm, SessionForm, BulkSessionForm, SessionEditForm, QuizBuilder, AssignmentForm, DRIVE_TYPES } from './BatchForms.jsx';
 import { QuizResults, Attendance, Submissions } from './BatchGrading.jsx';
 
 // Re-exported from its new home in BatchForms.jsx so this module's public
@@ -50,6 +50,8 @@ export default function BatchWorkspace({ batchId, mode }) {
     if (mode !== 'admin') return;
     api(`/sessions/outline?batchId=${batchId}`).then((d) => setOutline(d.titles || [])).catch(() => setOutline([]));
   }, [mode, batchId]);
+
+  const [editingId, setEditingId] = useState(''); // session whose edit form is open
 
   async function removeSession(s) {
     if (!window.confirm(`Remove "${s.title}"? Any attendance recorded for it is removed too.`)) return;
@@ -270,8 +272,18 @@ export default function BatchWorkspace({ batchId, mode }) {
                   </div>
                 </div>
                 <Attendance session={s} students={batch.studentIds} onDone={() => flash('Attendance saved')} />
-                {mode === 'admin' && (
-                  <button type="button" className="btn sm ghost" title="Remove this session" onClick={() => removeSession(s)}>Remove</button>
+                {mode === 'admin' && editingId !== s._id && (
+                  <>
+                    <button type="button" className="btn sm ghost" onClick={() => setEditingId(s._id)}>{s.joinUrl ? 'Edit' : 'Add link'}</button>
+                    <button type="button" className="btn sm ghost" title="Remove this session" onClick={() => removeSession(s)}>Remove</button>
+                  </>
+                )}
+                {mode === 'admin' && editingId === s._id && (
+                  <SessionEditForm
+                    session={s}
+                    onCancel={() => setEditingId('')}
+                    onSave={(body) => api(`/sessions/${s._id}`, { method: 'PATCH', body }).then(() => { setEditingId(''); loadSessions(); flash('Session updated'); })}
+                  />
                 )}
               </div>
             );

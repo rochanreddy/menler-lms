@@ -195,9 +195,12 @@ dates because "Saturdays 7 pm" is a local-timezone fact.
 [utils/sessionTime.js](server/utils/sessionTime.js) defines when a class is
 "on" — 15 min before start to 1 h after end, 4 h assumed when there is no end
 — and all three sources of **present** use it: the LMS Join button, the Zoom
-webhook, the mentor's register. A cohort normally runs every class on one
-recurring Zoom meeting, so the webhook matches a join to the session on at
-`join_time` in a batch the student is in, not to the meeting id alone.
+webhook, the mentor's register. Each class usually has its own Zoom link (set
+per row in the bulk form, or later with **Edit** on the session), but a course
+can also run on one recurring meeting — so the webhook matches a join to the
+session on at `join_time` in a batch the student is in, never to the meeting
+id alone. Changing a session's link re-derives its meeting id, even if the
+form echoes the old one back.
 
 Attendance % is present ÷ records, so a no-show with no record would not count
 against anyone. [utils/attendanceSweep.js](server/utils/attendanceSweep.js)

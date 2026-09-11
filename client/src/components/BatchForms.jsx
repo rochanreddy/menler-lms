@@ -41,10 +41,11 @@ export function SessionForm({ onAdd }) {
 
 // Admin: schedule a whole cohort at once — the way classes are actually
 // planned, all six weeks up front. Pick the first class, the weekdays it
-// repeats on, a length and one Zoom link; the dates are worked out HERE, in the
-// admin's own timezone ("Saturdays 7 pm" is a local fact the UTC server can't
-// know), and titled from the programme's curriculum. Every row is previewed,
-// and titles are editable, before anything is created.
+// repeats on and a length; the dates are worked out HERE, in the admin's own
+// timezone ("Saturdays 7 pm" is a local fact the UTC server can't know), and
+// titled from the programme's curriculum. Every row is previewed, with its
+// title and its own Zoom link editable, before anything is created. Each class
+// normally has its own Zoom meeting; a link left blank is added later with Edit.
 const WEEK = [['Mon', 1], ['Tue', 2], ['Wed', 3], ['Thu', 4], ['Fri', 5], ['Sat', 6], ['Sun', 0]];
 const LENGTHS = [60, 90, 120, 150, 180];
 function parseLocal(v) {
@@ -62,6 +63,7 @@ export function BulkSessionForm({ outline = [], onCreate }) {
   const [joinUrl, setJoinUrl] = useState('');
   const [zoomMeetingId, setZoomMeetingId] = useState('');
   const [edited, setEdited] = useState({}); // row index → title the admin typed
+  const [links, setLinks] = useState({}); // row index → that session's own Zoom link
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
 
@@ -102,9 +104,9 @@ export function BulkSessionForm({ outline = [], onCreate }) {
     try {
       await onCreate({
         joinUrl, zoomMeetingId,
-        sessions: plan.map((r) => ({ title: r.title.trim(), startsAt: r.startsAt.toISOString(), endsAt: r.endsAt.toISOString() })),
+        sessions: plan.map((r, i) => ({ title: r.title.trim(), startsAt: r.startsAt.toISOString(), endsAt: r.endsAt.toISOString(), joinUrl: (links[i] || '').trim() })),
       });
-      setOpen(false); setFirst(''); setDays([]); setEdited({}); setJoinUrl(''); setZoomMeetingId('');
+      setOpen(false); setFirst(''); setDays([]); setEdited({}); setLinks({}); setJoinUrl(''); setZoomMeetingId('');
     } catch (e2) { setErr(e2.message); }
     finally { setBusy(false); }
   }
@@ -113,7 +115,7 @@ export function BulkSessionForm({ outline = [], onCreate }) {
     return (
       <div className="inline-form">
         <button type="button" className="btn sm ghost" onClick={() => setOpen(true)}>Schedule the whole course…</button>
-        <span className="muted" style={{ fontSize: 12 }}>All {outline.length || ''} sessions at once, one Zoom link.</span>
+        <span className="muted" style={{ fontSize: 12 }}>All {outline.length || ''} sessions at once — add each Zoom link now or later.</span>
       </div>
     );
   }
@@ -138,25 +140,34 @@ export function BulkSessionForm({ outline = [], onCreate }) {
           <button key={n} type="button" className={`btn sm ${days.includes(n) ? '' : 'ghost'}`} aria-pressed={days.includes(n)} onClick={() => toggleDay(n)}>{label}</button>
         ))}
       </div>
-      <div className="inline-form">
-        <input placeholder="Zoom link for every session (https://…)" value={joinUrl} onChange={(e) => setJoinUrl(e.target.value)} style={{ flex: 1, minWidth: 260 }} />
-        <input placeholder="Zoom meeting ID (optional)" value={zoomMeetingId} onChange={(e) => setZoomMeetingId(e.target.value)} />
-      </div>
-      <p className="muted" style={{ fontSize: 12, marginTop: 4 }}>
-        One recurring Zoom meeting for the whole course is fine — attendance is matched to whichever session is on when a student joins.
+      <p className="muted" style={{ fontSize: 12, marginTop: 8 }}>
+        Paste each session&rsquo;s own Zoom link in the table below, or leave any blank and add it later with <strong>Edit</strong>.
+        Running the whole course on one recurring meeting instead? Put that link here and leave the table&rsquo;s links empty:
       </p>
+      <div className="inline-form" style={{ marginTop: 4 }}>
+        <input placeholder="Same Zoom link for every session (optional)" value={joinUrl} onChange={(e) => setJoinUrl(e.target.value)} style={{ flex: 1, minWidth: 260 }} />
+        <input placeholder="Its meeting ID (optional)" value={zoomMeetingId} onChange={(e) => setZoomMeetingId(e.target.value)} />
+      </div>
 
       {plan.length > 0 && (
         <div className="table-wrap">
           <table className="grade-table">
-            <thead><tr><th>#</th><th>When</th><th>Title</th></tr></thead>
+            <thead><tr><th>#</th><th>When</th><th>Title</th><th>Zoom link</th></tr></thead>
             <tbody>
               {plan.map((r, i) => (
                 <tr key={i}>
                   <td>{i + 1}</td>
                   <td>{whenLabel(r.startsAt)}{r.startsAt < new Date() && <span className="badge badge-muted" style={{ marginLeft: 6 }}>past</span>}</td>
-                  <td style={{ width: '100%' }}>
-                    <input value={r.title} onChange={(e) => setEdited((m) => ({ ...m, [i]: e.target.value }))} style={{ width: '100%', minWidth: 240 }} />
+                  <td style={{ width: '60%' }}>
+                    <input value={r.title} onChange={(e) => setEdited((m) => ({ ...m, [i]: e.target.value }))} style={{ width: '100%', minWidth: 220 }} />
+                  </td>
+                  <td style={{ width: '40%' }}>
+                    <input
+                      placeholder={joinUrl.trim() ? 'Same as above' : 'Add later'}
+                      value={links[i] || ''}
+                      onChange={(e) => setLinks((m) => ({ ...m, [i]: e.target.value }))}
+                      style={{ width: '100%', minWidth: 180 }}
+                    />
                   </td>
                 </tr>
               ))}
@@ -175,6 +186,60 @@ export function BulkSessionForm({ outline = [], onCreate }) {
           {busy ? 'Scheduling…' : plan.length ? `Create ${plan.length} session${plan.length === 1 ? '' : 's'}` : 'Pick a first class and days'}
         </button>
         <button type="button" className="btn sm ghost" onClick={() => setOpen(false)}>Cancel</button>
+      </div>
+    </form>
+  );
+}
+
+// Admin: change one scheduled session — most often to paste its Zoom link once
+// Zoom has made it, or to add the recording afterwards. Moving the start moves
+// the end with it, so the class keeps its length.
+const pad2 = (n) => String(n).padStart(2, '0');
+const toLocalValue = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+const idFromLink = (url) => (String(url || '').match(/\/j\/(\d{9,12})/) || [])[1] || '';
+
+export function SessionEditForm({ session, onSave, onCancel }) {
+  const [title, setTitle] = useState(session.title || '');
+  const [startsAt, setStartsAt] = useState(toLocalValue(new Date(session.startsAt)));
+  const [joinUrl, setJoinUrl] = useState(session.joinUrl || '');
+  const [zoomMeetingId, setZoomMeetingId] = useState(session.zoomMeetingId || '');
+  const [recordingUrl, setRecordingUrl] = useState(session.recordingUrl || '');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+
+  // A new link is a new meeting: follow it, or attendance would match the old one.
+  function changeLink(v) { setJoinUrl(v); setZoomMeetingId(idFromLink(v)); }
+
+  async function submit(e) {
+    e.preventDefault();
+    const start = parseLocal(startsAt);
+    if (!title.trim() || !start) { setErr('A title and a start time are needed.'); return; }
+    const body = { title: title.trim(), startsAt: start.toISOString(), joinUrl: joinUrl.trim(), zoomMeetingId, recordingUrl: recordingUrl.trim() };
+    if (session.endsAt) {
+      const length = new Date(session.endsAt) - new Date(session.startsAt);
+      body.endsAt = new Date(start.getTime() + length).toISOString();
+    }
+    setErr(''); setBusy(true);
+    try { await onSave(body); } catch (e2) { setErr(e2.message); setBusy(false); }
+  }
+
+  return (
+    <form className="session-edit" onSubmit={submit}>
+      <div className="inline-form">
+        <input placeholder="Session title" value={title} onChange={(e) => setTitle(e.target.value)} style={{ flex: 1, minWidth: 240 }} />
+        <DateTimePicker value={startsAt} onChange={setStartsAt} placeholder="Starts at" />
+      </div>
+      <div className="inline-form">
+        <input placeholder="Zoom link (https://…)" value={joinUrl} onChange={(e) => changeLink(e.target.value)} style={{ flex: 1, minWidth: 240 }} />
+        <input placeholder="Zoom meeting ID" value={zoomMeetingId} onChange={(e) => setZoomMeetingId(e.target.value)} />
+      </div>
+      <div className="inline-form">
+        <input placeholder="Recording link, after the class (optional)" value={recordingUrl} onChange={(e) => setRecordingUrl(e.target.value)} style={{ flex: 1, minWidth: 240 }} />
+      </div>
+      {err && <span className="error" role="alert">{err}</span>}
+      <div className="inline-form">
+        <button className={`btn sm ${busy ? 'is-busy' : ''}`} disabled={busy}>{busy ? 'Saving…' : 'Save'}</button>
+        <button type="button" className="btn sm ghost" onClick={onCancel}>Cancel</button>
       </div>
     </form>
   );
