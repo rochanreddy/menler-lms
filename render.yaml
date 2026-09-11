@@ -56,6 +56,15 @@ services:
       - key: VDOCIPHER_API_SECRET
         sync: false
 
+      # The "Secret Token" from the Zoom app (Marketplace → menler-admin →
+      # Feature → Event Subscriptions). Zoom signs every event with it and
+      # routes/zoom.js verifies that signature, so without this value set here
+      # the endpoint rejects every event — including Zoom's own URL validation,
+      # which is what makes the subscription impossible to save in the first
+      # place. Its absence is why Zoom attendance was never live.
+      - key: ZOOM_WEBHOOK_SECRET_TOKEN
+        sync: false
+
       # Deliberately absent:
       #   PORT   — Render injects it; index.js reads process.env.PORT and only
       #            falls back to 4100 for local dev. Setting it here fights the

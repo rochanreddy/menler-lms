@@ -19,6 +19,10 @@ router.post('/join/:sessionId', requireAuth, async (req, res) => {
   // 15 min before → 1 h after the end; the same window Zoom joins and the
   // absence sweep use (utils/sessionTime.js).
   if (!isWithinWindow(session)) return res.json({ ok: true, marked: false, reason: 'outside session window' });
+  // Clicking Join is a claim, not evidence of staying — so it marks present the
+  // way it always has, but does not set markedBy, leaving Zoom's own record of
+  // the room to decide. A row Zoom never touches keeps this present: there is
+  // no basis to take it away.
   await Attendance.updateOne(
     { sessionId: session._id, studentId: req.user._id },
     { $set: { status: 'present', batchId: session.batchId } },
@@ -60,7 +64,15 @@ router.post('/session/:sessionId', requireAuth, async (req, res) => {
   await Promise.all(records.map((r) =>
     Attendance.updateOne(
       { sessionId: session._id, studentId: r.studentId },
-      { $set: { status: r.status === 'present' ? 'present' : 'absent', batchId: session.batchId } },
+      {
+        // 'mentor' exempts the row from the 45% rule for good: whoever taught
+        // the class saw who was in it, and that outranks what Zoom reported.
+        $set: {
+          status: r.status === 'present' ? 'present' : 'absent',
+          batchId: session.batchId,
+          markedBy: 'mentor',
+        },
+      },
       { upsert: true },
     ),
   ));
