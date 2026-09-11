@@ -182,7 +182,30 @@ from sessions on purpose: two tabs share one session, and relaxing the takeover
 rule must not unlock the video.
 
 Anything that invalidates an account (password reset or change, an admin block)
-closes its sessions and drops its lease. `npm run test:flows` covers the
+closes its sessions and drops its lease.
+
+### Classes and attendance
+
+Admins schedule classes per batch — one at a time, or a whole cohort through
+**Schedule the whole course** (`POST /sessions/bulk`), which titles them from
+the curriculum (`GET /sessions/outline`: a Kickstarter module is a session, a
+Generalist week's `S1 · Week N` chapters are its two). The client computes the
+dates because "Saturdays 7 pm" is a local-timezone fact.
+
+[utils/sessionTime.js](server/utils/sessionTime.js) defines when a class is
+"on" — 15 min before start to 1 h after end, 4 h assumed when there is no end
+— and all three sources of **present** use it: the LMS Join button, the Zoom
+webhook, the mentor's register. A cohort normally runs every class on one
+recurring Zoom meeting, so the webhook matches a join to the session on at
+`join_time` in a batch the student is in, not to the meeting id alone.
+
+Attendance % is present ÷ records, so a no-show with no record would not count
+against anyone. [utils/attendanceSweep.js](server/utils/attendanceSweep.js)
+runs at boot and every 5 min: once a class's window closes it writes `absent`
+(`$setOnInsert`, never overwriting) for every enrolled student without a
+record, then stamps `absenceSweptAt`. It skips students whose account postdates
+the class, and a class **entered after it ended** marks nobody — nobody could
+have joined it through the LMS. Removing a session removes its attendance. `npm run test:flows` covers the
 takeover, the revoked refresh, and the lease; it signs in with `force: true`
 because an automated client taking the account over should say so.
 
