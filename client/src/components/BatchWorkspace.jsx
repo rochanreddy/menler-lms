@@ -4,7 +4,7 @@ import { api, downloadFile, mailNote } from '../api.js';
 import LineIcon from './LineIcon.jsx';
 import Markdown from './Markdown.jsx';
 import Empty from './Empty.jsx';
-import { AnnouncementForm, SessionForm, QuizBuilder, AssignmentForm, DRIVE_TYPES } from './BatchForms.jsx';
+import { AnnouncementForm, SessionForm, BulkSessionForm, QuizBuilder, AssignmentForm, DRIVE_TYPES } from './BatchForms.jsx';
 import { QuizResults, Attendance, Submissions } from './BatchGrading.jsx';
 
 // Re-exported from its new home in BatchForms.jsx so this module's public
@@ -43,6 +43,18 @@ export default function BatchWorkspace({ batchId, mode }) {
   const loadGradebook = () => api(`/grades/batch/${batchId}`).then(setGradebook).catch(() => setGradebook(null));
   useEffect(() => { loadBatch(); loadSessions(); loadAssignments(); loadQuizzes(); loadAnnouncements(); loadGradebook(); }, [batchId]);
   useEffect(() => { if (mode === 'admin') loadPeople(); }, [mode]);
+
+  // The programme's session titles, to prefill the bulk scheduler (admin only).
+  const [outline, setOutline] = useState([]);
+  useEffect(() => {
+    if (mode !== 'admin') return;
+    api(`/sessions/outline?batchId=${batchId}`).then((d) => setOutline(d.titles || [])).catch(() => setOutline([]));
+  }, [mode, batchId]);
+
+  async function removeSession(s) {
+    if (!window.confirm(`Remove "${s.title}"? Any attendance recorded for it is removed too.`)) return;
+    await act(() => api(`/sessions/${s._id}`, { method: 'DELETE' }).then(loadSessions), 'Session removed');
+  }
 
   const flash = (m) => { setMsg(m); setTimeout(() => setMsg(''), 2500); };
   async function act(fn, okMsg) { try { await fn(); flash(okMsg); } catch (e) { flash(e.message); } }
@@ -230,7 +242,14 @@ export default function BatchWorkspace({ batchId, mode }) {
       <section className="panel">
         <h3>Sessions & Zoom links</h3>
         {mode === 'admin' && (
-          <SessionForm onAdd={(body) => act(() => api('/sessions', { method: 'POST', body: { batchId, ...body } }).then(loadSessions), 'Session scheduled')} />
+          <>
+            <SessionForm onAdd={(body) => act(() => api('/sessions', { method: 'POST', body: { batchId, ...body } }).then(loadSessions), 'Session scheduled')} />
+            {/* Throws on failure so the form can keep the admin's input and show why. */}
+            <BulkSessionForm
+              outline={outline}
+              onCreate={(body) => api('/sessions/bulk', { method: 'POST', body: { batchId, ...body } }).then((r) => { loadSessions(); flash(`${r.sessions.length} sessions scheduled`); })}
+            />
+          </>
         )}
         <div className="session-list">
           {sessions.map((s) => {
@@ -251,6 +270,9 @@ export default function BatchWorkspace({ batchId, mode }) {
                   </div>
                 </div>
                 <Attendance session={s} students={batch.studentIds} onDone={() => flash('Attendance saved')} />
+                {mode === 'admin' && (
+                  <button type="button" className="btn sm ghost" title="Remove this session" onClick={() => removeSession(s)}>Remove</button>
+                )}
               </div>
             );
           })}

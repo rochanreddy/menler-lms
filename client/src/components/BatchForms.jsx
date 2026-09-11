@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import DateTimePicker from './DateTimePicker.jsx';
 
 // The four authoring forms a mentor uses inside a batch: post an announcement,
@@ -36,6 +36,147 @@ export function SessionForm({ onAdd }) {
       </form>
       <p className="muted" style={{ fontSize: 12, marginTop: 4 }}>Meeting ID auto-fills from a zoom.us/j/… link. For a registration link, paste the numeric Meeting ID so Zoom-join attendance can be matched.</p>
     </>
+  );
+}
+
+// Admin: schedule a whole cohort at once — the way classes are actually
+// planned, all six weeks up front. Pick the first class, the weekdays it
+// repeats on, a length and one Zoom link; the dates are worked out HERE, in the
+// admin's own timezone ("Saturdays 7 pm" is a local fact the UTC server can't
+// know), and titled from the programme's curriculum. Every row is previewed,
+// and titles are editable, before anything is created.
+const WEEK = [['Mon', 1], ['Tue', 2], ['Wed', 3], ['Thu', 4], ['Fri', 5], ['Sat', 6], ['Sun', 0]];
+const LENGTHS = [60, 90, 120, 150, 180];
+function parseLocal(v) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(v || '');
+  return m ? new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]) : null;
+}
+const whenLabel = (d) => d.toLocaleString([], { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
+
+export function BulkSessionForm({ outline = [], onCreate }) {
+  const [open, setOpen] = useState(false);
+  const [first, setFirst] = useState('');
+  const [days, setDays] = useState([]);
+  const [minutes, setMinutes] = useState(120);
+  const [count, setCount] = useState(outline.length || 4);
+  const [joinUrl, setJoinUrl] = useState('');
+  const [zoomMeetingId, setZoomMeetingId] = useState('');
+  const [edited, setEdited] = useState({}); // row index → title the admin typed
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+
+  // The curriculum arrives after the form mounts; its length is the default count.
+  useEffect(() => { if (outline.length) setCount(outline.length); }, [outline.length]);
+
+  // The first class's weekday is always one of the class days.
+  function pickFirst(v) {
+    setFirst(v);
+    const d = parseLocal(v);
+    if (d) setDays((ds) => (ds.includes(d.getDay()) ? ds : [...ds, d.getDay()]));
+  }
+  const toggleDay = (n) => setDays((ds) => (ds.includes(n) ? ds.filter((x) => x !== n) : [...ds, n]));
+
+  const plan = useMemo(() => {
+    const start = parseLocal(first);
+    if (!start || !days.length || !(count > 0)) return [];
+    const rows = [];
+    const cur = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+    // 400 days is far past any real course; it only stops a runaway loop.
+    for (let i = 0; rows.length < count && i < 400; i += 1) {
+      if (days.includes(cur.getDay())) {
+        const s = new Date(cur.getFullYear(), cur.getMonth(), cur.getDate(), start.getHours(), start.getMinutes());
+        rows.push({ startsAt: s, endsAt: new Date(s.getTime() + minutes * 60000) });
+      }
+      cur.setDate(cur.getDate() + 1);
+    }
+    return rows.map((r, i) => ({ ...r, title: edited[i] ?? outline[i] ?? `Session ${i + 1}` }));
+  }, [first, days, count, minutes, outline, edited]);
+
+  const past = plan.filter((r) => r.startsAt < new Date()).length;
+
+  async function submit(e) {
+    e.preventDefault();
+    if (busy || !plan.length) return;
+    if (plan.some((r) => !r.title.trim())) { setErr('Every session needs a title.'); return; }
+    setErr(''); setBusy(true);
+    try {
+      await onCreate({
+        joinUrl, zoomMeetingId,
+        sessions: plan.map((r) => ({ title: r.title.trim(), startsAt: r.startsAt.toISOString(), endsAt: r.endsAt.toISOString() })),
+      });
+      setOpen(false); setFirst(''); setDays([]); setEdited({}); setJoinUrl(''); setZoomMeetingId('');
+    } catch (e2) { setErr(e2.message); }
+    finally { setBusy(false); }
+  }
+
+  if (!open) {
+    return (
+      <div className="inline-form">
+        <button type="button" className="btn sm ghost" onClick={() => setOpen(true)}>Schedule the whole course…</button>
+        <span className="muted" style={{ fontSize: 12 }}>All {outline.length || ''} sessions at once, one Zoom link.</span>
+      </div>
+    );
+  }
+
+  return (
+    <form className="panel" style={{ marginTop: 'var(--space-3)' }} onSubmit={submit}>
+      <h4 className="h-flush">Schedule the whole course</h4>
+      <div className="inline-form">
+        <DateTimePicker value={first} onChange={pickFirst} placeholder="First class — date & time" />
+        <label className="muted">Length{' '}
+          <select value={minutes} onChange={(e) => setMinutes(+e.target.value)}>
+            {LENGTHS.map((m) => <option key={m} value={m}>{m >= 60 && m % 60 === 0 ? `${m / 60} h` : `${Math.floor(m / 60)} h ${m % 60} min`}</option>)}
+          </select>
+        </label>
+        <label className="muted">Sessions{' '}
+          <input type="number" min={1} max={60} value={count} onChange={(e) => setCount(Math.max(0, Math.min(60, +e.target.value || 0)))} style={{ width: 70 }} />
+        </label>
+      </div>
+      <div className="inline-form">
+        <span className="muted">Repeats on</span>
+        {WEEK.map(([label, n]) => (
+          <button key={n} type="button" className={`btn sm ${days.includes(n) ? '' : 'ghost'}`} aria-pressed={days.includes(n)} onClick={() => toggleDay(n)}>{label}</button>
+        ))}
+      </div>
+      <div className="inline-form">
+        <input placeholder="Zoom link for every session (https://…)" value={joinUrl} onChange={(e) => setJoinUrl(e.target.value)} style={{ flex: 1, minWidth: 260 }} />
+        <input placeholder="Zoom meeting ID (optional)" value={zoomMeetingId} onChange={(e) => setZoomMeetingId(e.target.value)} />
+      </div>
+      <p className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+        One recurring Zoom meeting for the whole course is fine — attendance is matched to whichever session is on when a student joins.
+      </p>
+
+      {plan.length > 0 && (
+        <div className="table-wrap">
+          <table className="grade-table">
+            <thead><tr><th>#</th><th>When</th><th>Title</th></tr></thead>
+            <tbody>
+              {plan.map((r, i) => (
+                <tr key={i}>
+                  <td>{i + 1}</td>
+                  <td>{whenLabel(r.startsAt)}{r.startsAt < new Date() && <span className="badge badge-muted" style={{ marginLeft: 6 }}>past</span>}</td>
+                  <td style={{ width: '100%' }}>
+                    <input value={r.title} onChange={(e) => setEdited((m) => ({ ...m, [i]: e.target.value }))} style={{ width: '100%', minWidth: 240 }} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {past > 0 && (
+        <p className="muted" style={{ fontSize: 12, marginTop: 6 }}>
+          {past} of these {past === 1 ? 'is' : 'are'} already in the past. Nobody is marked absent automatically for a class added after it happened — record those registers by hand.
+        </p>
+      )}
+      {err && <span className="error" role="alert">{err}</span>}
+      <div className="inline-form">
+        <button className={`btn sm ${busy ? 'is-busy' : ''}`} disabled={busy || !plan.length}>
+          {busy ? 'Scheduling…' : plan.length ? `Create ${plan.length} session${plan.length === 1 ? '' : 's'}` : 'Pick a first class and days'}
+        </button>
+        <button type="button" className="btn sm ghost" onClick={() => setOpen(false)}>Cancel</button>
+      </div>
+    </form>
   );
 }
 
