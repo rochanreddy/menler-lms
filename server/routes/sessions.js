@@ -1,7 +1,10 @@
 import { Router } from 'express';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { Session } from '../models/Session.js';
+import { Batch } from '../models/Batch.js';
+import { Attendance } from '../models/Attendance.js';
 import { canAccessBatch, myBatchIds } from '../utils/access.js';
+import { normMeetingId } from '../utils/sessionTime.js';
 
 const router = Router();
 
@@ -11,6 +14,24 @@ function extractMeetingId(url) {
   const s = String(url || '');
   const m = s.match(/\/j\/(\d{9,12})/) || s.match(/(\d{9,12})/);
   return m ? m[1] : '';
+}
+
+const meetingIdFrom = (zoomMeetingId, joinUrl) => normMeetingId(zoomMeetingId) || extractMeetingId(joinUrl);
+
+// The live classes a programme is built from, in order, for titling a
+// bulk-scheduled cohort. The two curricula are shaped differently: a
+// Kickstarter module IS a session ("S01 · AI Foundations…"), while a
+// Generalist module is a week whose "S1 · Week 1: …" chapters are its two
+// sessions (its other chapters are the week's assignment and project).
+const byOrder = (a, b) => (a.order ?? 0) - (b.order ?? 0);
+function sessionOutline(program) {
+  const out = [];
+  for (const m of [...(program?.modules || [])].sort(byOrder)) {
+    const sessions = [...(m.chapters || [])].filter((c) => /^S\d+\s*·/.test(c.title || '')).sort(byOrder);
+    if (sessions.length) sessions.forEach((c) => out.push(c.title));
+    else out.push(m.title);
+  }
+  return out;
 }
 
 // GET /api/lms/sessions?batchId=..  OR  ?scope=upcoming|past
@@ -69,13 +90,47 @@ router.get('/live', requireAuth, async (req, res) => {
   });
 });
 
+// GET /api/lms/sessions/outline?batchId= — admin: the session titles of the
+// batch's programme, in order, to prefill the bulk scheduler.
+router.get('/outline', requireAuth, requireRole('admin'), async (req, res) => {
+  const batch = await Batch.findById(req.query.batchId).populate('programId', 'title modules');
+  if (!batch) return res.status(404).json({ error: 'Batch not found.' });
+  res.json({ program: batch.programId?.title || '', titles: sessionOutline(batch.programId) });
+});
+
 // POST /api/lms/sessions — admin schedules a class (only admins create Zoom sessions).
 router.post('/', requireAuth, requireRole('admin'), async (req, res) => {
   const { batchId, title, startsAt, endsAt, joinUrl, zoomMeetingId } = req.body || {};
   if (!batchId || !title || !startsAt) return res.status(400).json({ error: 'batchId, title and startsAt are required.' });
-  const meetingId = String(zoomMeetingId || '').trim() || extractMeetingId(joinUrl);
-  const session = await Session.create({ batchId, title, startsAt, endsAt: endsAt || null, joinUrl: joinUrl || '', zoomMeetingId: meetingId });
+  const session = await Session.create({ batchId, title, startsAt, endsAt: endsAt || null, joinUrl: joinUrl || '', zoomMeetingId: meetingIdFrom(zoomMeetingId, joinUrl) });
   res.status(201).json({ session });
+});
+
+// POST /api/lms/sessions/bulk — admin schedules a whole cohort in one go.
+//   { batchId, joinUrl, zoomMeetingId, sessions: [{ title, startsAt, endsAt }] }
+// The client works out the dates, because only it knows the admin's timezone:
+// "every Saturday at 7 pm" is an IST fact, and the server runs in UTC. One Zoom
+// link for all of them is the normal case — a recurring meeting — which is
+// what the Zoom webhook now tells apart by time.
+router.post('/bulk', requireAuth, requireRole('admin'), async (req, res) => {
+  const { batchId, joinUrl = '', zoomMeetingId = '', sessions } = req.body || {};
+  if (!batchId || !(await Batch.exists({ _id: batchId }))) return res.status(400).json({ error: 'Pick a batch.' });
+  if (!Array.isArray(sessions) || !sessions.length) return res.status(400).json({ error: 'No sessions to schedule.' });
+  if (sessions.length > 60) return res.status(400).json({ error: 'At most 60 sessions at once.' });
+
+  const meetingId = meetingIdFrom(zoomMeetingId, joinUrl);
+  const docs = [];
+  for (const [i, s] of sessions.entries()) {
+    const title = String(s?.title || '').trim();
+    const start = new Date(s?.startsAt);
+    const end = s?.endsAt ? new Date(s.endsAt) : null;
+    if (!title) return res.status(400).json({ error: `Session ${i + 1} needs a title.` });
+    if (Number.isNaN(+start)) return res.status(400).json({ error: `Session ${i + 1} has no valid start time.` });
+    if (end && (Number.isNaN(+end) || end <= start)) return res.status(400).json({ error: `Session ${i + 1} ends before it starts.` });
+    docs.push({ batchId, title, startsAt: start, endsAt: end, joinUrl: String(joinUrl).trim(), zoomMeetingId: meetingId });
+  }
+  const created = await Session.insertMany(docs);
+  res.status(201).json({ sessions: created });
 });
 
 // PATCH /api/lms/sessions/:id — admin edits (e.g. add recordingUrl).
@@ -84,10 +139,22 @@ router.patch('/:id', requireAuth, requireRole('admin'), async (req, res) => {
   if (!session) return res.status(404).json({ error: 'Session not found.' });
   const allowed = (({ title, startsAt, endsAt, joinUrl, recordingUrl, zoomMeetingId }) => ({ title, startsAt, endsAt, joinUrl, recordingUrl, zoomMeetingId }))(req.body || {});
   Object.keys(allowed).forEach((k) => allowed[k] === undefined && delete allowed[k]);
+  if (allowed.zoomMeetingId !== undefined) allowed.zoomMeetingId = normMeetingId(allowed.zoomMeetingId);
   if (allowed.joinUrl && allowed.zoomMeetingId === undefined && !session.zoomMeetingId) allowed.zoomMeetingId = extractMeetingId(allowed.joinUrl);
   Object.assign(session, allowed);
   await session.save();
   res.json({ session });
+});
+
+// DELETE /api/lms/sessions/:id — admin removes a class (cancelled, or a bulk
+// schedule got a date wrong). Its attendance goes with it: left behind, those
+// rows would still count toward every student's percentage for a class that
+// no longer exists.
+router.delete('/:id', requireAuth, requireRole('admin'), async (req, res) => {
+  const session = await Session.findByIdAndDelete(req.params.id);
+  if (!session) return res.status(404).json({ error: 'Session not found.' });
+  const { deletedCount } = await Attendance.deleteMany({ sessionId: session._id });
+  res.json({ ok: true, attendanceRemoved: deletedCount });
 });
 
 export default router;
