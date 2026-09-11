@@ -86,9 +86,10 @@ const FOOTER = `<tr><td bgcolor="#211B4C" class="px" style="background-color:#21
   </tr></table>
 </td></tr>`;
 
-// One shell, two bodies. `body` is the paragraphs between "Dear …" and the
-// button; `cta` the button label + href; `why` the permission-bar line.
-function shell({ preview, greeting, body, cta, why, title }) {
+// One shell, several bodies. `body` is the paragraphs between "Dear …" and the
+// button; `cta` the button label + href; `why` the permission-bar line;
+// `closing` the line above the signature — "See you in class!" is a student's.
+function shell({ preview, greeting, body, cta, why, title, closing = 'See you in class!' }) {
   return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en">
 <head>
@@ -142,7 +143,7 @@ function shell({ preview, greeting, body, cta, why, title }) {
 
         <tr><td class="px" style="padding:32px 40px 44px;">
           ${P(`If anything about signing in does not work, write to ${mailtoLink()}.`, 0)}
-          ${P('See you in class!', 24)}
+          ${P(esc(closing), 24)}
           ${P('<strong style="font-weight:700;">Menler</strong><br />Your turning point in the AI era', 24)}
         </td></tr>
 
@@ -183,6 +184,11 @@ const ROLE_LINE = {
 
 const SIGN_OFF = 'Menler — Your turning point in the AI era';
 
+const CLOSING = { student: 'See you in class!', mentor: 'Glad to have you on board!', admin: 'Welcome aboard!' };
+const closingFor = (role) => CLOSING[role] || CLOSING.student;
+
+const TEMP_NOTE = 'This is a temporary password. The first time you sign in you will be asked to choose your own — please do that straight away, and do not forward this email.';
+
 // An admin just created the account. `programme` is optional — set when the
 // account was made by enrolling into a batch, so the mail can say which.
 export function accountCreatedEmail({ fullName, email, password, role = 'student', loginUrl, programme }) {
@@ -192,7 +198,9 @@ export function accountCreatedEmail({ fullName, email, password, role = 'student
   const opener = programme
     ? `Welcome to ${programme}. Your Menler LMS account is ready.`
     : 'Your Menler LMS account is ready.';
-  const tempNote = 'This is a temporary password. The first time you sign in you will be asked to choose your own — please do that straight away, and do not forward this email.';
+  // The prerequisites folder is the student course pack — an admin account
+  // made through this path has no use for it.
+  const isStudent = role === 'student';
 
   const html = shell({
     title: subject,
@@ -202,14 +210,15 @@ export function accountCreatedEmail({ fullName, email, password, role = 'student
       P(programme ? `Welcome to <strong>${esc(programme)}</strong>. Your Menler LMS account is ready.` : opener),
       P(roleLine),
       credentials(email, password),
-      P(tempNote),
+      P(TEMP_NOTE),
       // Linked words, not the bare URL: the Drive link is long enough to wrap
       // badly in a 620px column. The plain-text part spells it out in full.
-      P(`Before your first session, please go through the <a href="${PREREQUISITES_URL}" style="color:#534AB7; text-decoration:underline;">prerequisites folder</a>.`),
+      isStudent ? P(`Before your first session, please go through the <a href="${PREREQUISITES_URL}" style="color:#534AB7; text-decoration:underline;">prerequisites folder</a>.`) : '',
       P('Sign in through the link below:'),
-    ].join('\n'),
+    ].filter(Boolean).join('\n'),
     cta: { label: 'Sign in', href: loginUrl },
     why: `You're receiving this because a Menler account was created for ${esc(email)}. If that wasn't you, write to ${mailtoLink('#8E82F5')}.`,
+    closing: closingFor(role),
   });
 
   const text = [
@@ -217,10 +226,63 @@ export function accountCreatedEmail({ fullName, email, password, role = 'student
     opener, roleLine, '',
     `Email:    ${email}`,
     `Password: ${password}`, '',
-    tempNote, '',
-    `Prerequisites: ${PREREQUISITES_URL}`, '',
+    TEMP_NOTE, '',
+    ...(isStudent ? [`Prerequisites: ${PREREQUISITES_URL}`, ''] : []),
     `Sign in: ${loginUrl}`, '',
     `If anything about signing in does not work, write to ${SUPPORT_EMAIL}.`, '',
+    closingFor(role), '',
+    SIGN_OFF,
+  ].join('\n');
+
+  return { subject, text, html };
+}
+
+// A mentor's welcome. Not the student mail with the role line swapped: a
+// mentor has no course pack to read and no class to attend — they run one.
+// `batches` is the batch names they are assigned to right now; an admin
+// usually creates the account first and assigns later, which is why the
+// "Send login email" button exists — resent after assigning, it names them.
+export function mentorWelcomeEmail({ fullName, email, password, loginUrl, batches = [] }) {
+  const first = firstNameOf(fullName, email);
+  const subject = 'Welcome to the Menler mentor team — your LMS login';
+  const opener = 'Welcome to the Menler mentor team. Your mentor account on the Menler LMS is ready.';
+  const duties = 'From your mentor dashboard you run your batches: schedule sessions and share class links, take attendance, grade assignments and projects, post announcements, and answer your students’ doubts.';
+  const names = batches.filter(Boolean);
+  const assignedText = names.length
+    ? `You are assigned to: ${names.join(', ')}.`
+    : 'You are not assigned to a batch yet — once the team assigns you one, it appears on your dashboard.';
+  const assignedHtml = names.length
+    ? `You are assigned to ${names.map((n) => `<strong>${esc(n)}</strong>`).join(', ')}.`
+    : esc(assignedText);
+
+  const html = shell({
+    title: subject,
+    preview: 'Your mentor account is ready — here is how to sign in.',
+    greeting: first,
+    body: [
+      P(esc(opener)),
+      P(esc(duties)),
+      P(assignedHtml),
+      credentials(email, password),
+      P(TEMP_NOTE),
+      P('Sign in through the link below:'),
+    ].join('\n'),
+    cta: { label: 'Open mentor dashboard', href: loginUrl },
+    why: `You're receiving this because a Menler mentor account was created for ${esc(email)}. If that wasn't you, write to ${mailtoLink('#8E82F5')}.`,
+    closing: closingFor('mentor'),
+  });
+
+  const text = [
+    `Dear ${first},`, '',
+    opener, '',
+    duties, '',
+    assignedText, '',
+    `Email:    ${email}`,
+    `Password: ${password}`, '',
+    TEMP_NOTE, '',
+    `Sign in: ${loginUrl}`, '',
+    `If anything about signing in does not work, write to ${SUPPORT_EMAIL}.`, '',
+    closingFor('mentor'), '',
     SIGN_OFF,
   ].join('\n');
 
@@ -228,7 +290,7 @@ export function accountCreatedEmail({ fullName, email, password, role = 'student
 }
 
 // An admin reset the password. Same shell, shorter body.
-export function passwordResetByAdminEmail({ fullName, email, password, loginUrl }) {
+export function passwordResetByAdminEmail({ fullName, email, password, loginUrl, role = 'student' }) {
   const first = firstNameOf(fullName, email);
   const subject = 'Your Menler LMS password was reset';
   const opener = 'Your Menler LMS password has been reset by the team. Any device that was signed in has been signed out.';
@@ -241,6 +303,7 @@ export function passwordResetByAdminEmail({ fullName, email, password, loginUrl 
     body: [P(opener), credentials(email, password), P(tempNote), P('Sign in through the link below:')].join('\n'),
     cta: { label: 'Sign in', href: loginUrl },
     why: `You're receiving this because the password for ${esc(email)} was reset. If you didn't ask for this, write to ${mailtoLink('#8E82F5')}.`,
+    closing: closingFor(role),
   });
 
   const text = [
