@@ -3,7 +3,7 @@ import { useOutletContext } from 'react-router-dom';
 import { api } from '../../api.js';
 import AtRiskPanel from '../../components/AtRiskPanel.jsx';
 import Empty from '../../components/Empty.jsx';
-import LineIcon from '../../components/LineIcon.jsx';
+import LiveClassCard from '../../components/LiveClassCard.jsx';
 
 // Mentor board — stat cards + an attendance-by-batch bar chart, wired to live data.
 export default function MentorHome() {
@@ -33,19 +33,20 @@ export default function MentorHome() {
   ];
   const chart = overview.filter((o) => o.total > 0);
 
-  // Same rule as the student home: a session on TODAY's date wins ("Join
-  // Today's Live Class"); otherwise the newest past one shows as a replay.
-  // Mentors don't mark their own attendance, so this is a plain join link —
-  // no attendance call on click.
+  // Same rule as the student home (GET /sessions/live): a session on TODAY's
+  // date wins; otherwise the next one coming up; only when none are left, the
+  // newest past one with its recording. Mentors don't mark their own
+  // attendance, so this is a plain join link — no attendance call on click.
   const liveClass = useMemo(() => {
     const isToday = (d) => {
       const a = new Date(d), b = new Date();
       return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
     };
     const today = sessions.find((s) => isToday(s.startsAt)) || pastSessions.find((s) => isToday(s.startsAt));
-    const session = today || pastSessions[0];
+    const next = today ? null : sessions[0]; // upcoming, soonest first
+    const session = today || next || pastSessions[0];
     if (!session) return null;
-    return { session, today: Boolean(today), url: session.joinUrl || (!today && session.recordingUrl) || '' };
+    return { session, today: !!today, upcoming: !!next, url: today ? session.joinUrl || '' : next ? '' : session.recordingUrl || '' };
   }, [sessions, pastSessions]);
 
   return (
@@ -58,31 +59,7 @@ export default function MentorHome() {
         </div>
       </div>
 
-      {liveClass && (
-        <div className={`live-cta ${liveClass.today ? 'is-live' : 'is-replay'}`}>
-          <span className="live-cta-mark">
-            {liveClass.today ? <span className="path-live-pulse" /> : <LineIcon name="video" size={18} />}
-          </span>
-          <div className="live-cta-copy">
-            <div className="live-cta-eyebrow">{liveClass.today ? 'Live class today' : 'No live class today'}</div>
-            <div className="live-cta-title">{liveClass.session.title}</div>
-            <div className="live-cta-time">
-              {new Date(liveClass.session.startsAt).toLocaleString([], {
-                weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
-              })}
-              {liveClass.session.batchId?.name ? ` · ${liveClass.session.batchId.name.replace(/^Demo[^A-Za-z0-9]+/, '')}` : ''}
-            </div>
-          </div>
-          {liveClass.url ? (
-            <a className="btn" href={liveClass.url} target="_blank" rel="noreferrer">
-              <LineIcon name="video" size={17} />
-              {liveClass.today ? "Join Today's Live Class" : 'Watch Previous Live Class'}
-            </a>
-          ) : (
-            <span className="live-cta-time" style={{ marginLeft: 'auto' }}>Link coming soon</span>
-          )}
-        </div>
-      )}
+      {liveClass && <LiveClassCard liveClass={liveClass} />}
 
       <div className="stats">
         {stats.map((s) => (

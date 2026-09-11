@@ -3,6 +3,7 @@ import { useNavigate, useOutletContext } from 'react-router-dom';
 import { api } from '../api.js';
 import Empty from '../components/Empty.jsx';
 import LineIcon from '../components/LineIcon.jsx';
+import LiveClassCard from '../components/LiveClassCard.jsx';
 import { loadLearning } from '../nav.jsx';
 
 // This device's local calendar day as absolute UTC instants, sent to
@@ -95,7 +96,7 @@ export default function StudentHome() {
   function fetchLiveClass() {
     const { dayStart, dayEnd } = localDayBounds();
     return api(`/sessions/live?dayStart=${encodeURIComponent(dayStart)}&dayEnd=${encodeURIComponent(dayEnd)}`)
-      .then((d) => ({ liveClass: d.session ? { session: d.session, today: d.today, url: d.url } : null, failed: false }))
+      .then((d) => ({ liveClass: d.session ? { session: d.session, today: d.today, upcoming: !!d.upcoming, url: d.url } : null, failed: false }))
       .catch(() => ({ liveClass: null, failed: true }));
   }
 
@@ -241,31 +242,7 @@ export default function StudentHome() {
             student is most likely to have opened this page for. Gated on its
             own one-request fetch, not the rest of the dashboard, so a slow
             assignments/announcements/attendance response never holds it back. */}
-        {!liveClassLoading && liveClass && (
-          <div className={`live-cta ${liveClass.today ? 'is-live' : 'is-replay'}`}>
-            <span className="live-cta-mark">
-              {liveClass.today ? <span className="path-live-pulse" /> : <LineIcon name="video" size={18} />}
-            </span>
-            <div className="live-cta-copy">
-              <div className="live-cta-eyebrow">{liveClass.today ? 'Live class today' : 'No live class today'}</div>
-              <div className="live-cta-title">{liveClass.session.title}</div>
-              <div className="live-cta-time">
-                {new Date(liveClass.session.startsAt).toLocaleString([], {
-                  weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
-                })}
-                {liveClass.session.batchId?.name ? ` · ${liveClass.session.batchId.name.replace(/^Demo[^A-Za-z0-9]+/, '')}` : ''}
-              </div>
-            </div>
-            {liveClass.url ? (
-              <a className="btn" href={liveClass.url} target="_blank" rel="noreferrer" onClick={openLiveClass}>
-                <LineIcon name="video" size={17} />
-                {liveClass.today ? "Join Today's Live Class" : 'Watch Previous Live Class'}
-              </a>
-            ) : (
-              <span className="live-cta-time" style={{ marginLeft: 'auto' }}>Link coming soon</span>
-            )}
-          </div>
-        )}
+        {!liveClassLoading && liveClass && <LiveClassCard liveClass={liveClass} onOpen={openLiveClass} />}
 
         {!liveClassLoading && !liveClass && liveClassFailed && (
           <div className="live-cta is-replay">
