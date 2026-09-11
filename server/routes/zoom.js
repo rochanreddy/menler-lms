@@ -4,6 +4,7 @@ import { Session } from '../models/Session.js';
 import { Batch } from '../models/Batch.js';
 import { User } from '../models/User.js';
 import { Attendance } from '../models/Attendance.js';
+import { isWithinWindow, sessionStart, normMeetingId } from '../utils/sessionTime.js';
 
 // Zoom webhook — marks a student present when they ACTUALLY join the meeting.
 // Zoom pushes a `meeting.participant_joined` event; we match it to a session by
@@ -46,16 +47,25 @@ router.post('/webhook', async (req, res) => {
   // 3) A participant joined → credit attendance.
   if (body.event === 'meeting.participant_joined') {
     try {
-      const meetingId = String(body.payload?.object?.id || '').trim();
+      const meetingId = normMeetingId(body.payload?.object?.id);
       const p = body.payload?.object?.participant || {};
       const email = String(p.email || '').toLowerCase().trim();
-      if (meetingId && email) {
-        const session = await Session.findOne({ zoomMeetingId: meetingId });
-        const student = await User.findOne({ email, role: 'student' });
-        if (session && student) {
-          const batch = await Batch.findById(session.batchId).select('studentIds');
-          const enrolled = batch && batch.studentIds.some((id) => id.toString() === student._id.toString());
-          if (enrolled) {
+      // When they joined, by Zoom's clock — not when the event reached us,
+      // which can lag or be a retry.
+      const joinedAt = Date.parse(p.join_time) || Number(body.event_ts) || Date.now();
+      const student = meetingId && email ? await User.findOne({ email, role: 'student' }).select('_id') : null;
+      if (student) {
+        // A cohort usually runs every class on ONE recurring Zoom meeting, so
+        // the meeting id alone names a dozen sessions. The one that counts is
+        // the one on at the moment they joined, and in a batch they are in —
+        // matching by id alone used to credit every join to the first class.
+        const onNow = (await Session.find({ zoomMeetingId: meetingId })).filter((s) => isWithinWindow(s, joinedAt));
+        if (onNow.length) {
+          const mine = new Set((await Batch.find({ _id: { $in: onNow.map((s) => s.batchId) }, studentIds: student._id }).select('_id')).map((b) => String(b._id)));
+          const session = onNow
+            .filter((s) => mine.has(String(s.batchId)))
+            .sort((a, b) => Math.abs(sessionStart(a) - joinedAt) - Math.abs(sessionStart(b) - joinedAt))[0];
+          if (session) {
             await Attendance.updateOne(
               { sessionId: session._id, studentId: student._id },
               { $set: { status: 'present', batchId: session.batchId } },

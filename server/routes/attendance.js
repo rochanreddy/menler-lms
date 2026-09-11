@@ -4,6 +4,7 @@ import { Attendance } from '../models/Attendance.js';
 import { Session } from '../models/Session.js';
 import { Batch } from '../models/Batch.js';
 import { isMentorOfBatch, myBatchIds, canAccessBatch } from '../utils/access.js';
+import { isWithinWindow } from '../utils/sessionTime.js';
 
 const router = Router();
 
@@ -15,11 +16,9 @@ router.post('/join/:sessionId', requireAuth, async (req, res) => {
   if (!session) return res.status(404).json({ error: 'Session not found.' });
   if (!(await canAccessBatch(req.user, session.batchId))) return res.status(403).json({ error: 'Forbidden.' });
   if (req.user.role !== 'student') return res.json({ ok: true, marked: false }); // mentors/admins don't self-mark
-  const now = Date.now();
-  const start = new Date(session.startsAt).getTime();
-  const end = session.endsAt ? new Date(session.endsAt).getTime() : start + 4 * 60 * 60 * 1000;
-  const within = now >= start - 15 * 60 * 1000 && now <= end + 60 * 60 * 1000; // 15 min before → 1 h after end
-  if (!within) return res.json({ ok: true, marked: false, reason: 'outside session window' });
+  // 15 min before → 1 h after the end; the same window Zoom joins and the
+  // absence sweep use (utils/sessionTime.js).
+  if (!isWithinWindow(session)) return res.json({ ok: true, marked: false, reason: 'outside session window' });
   await Attendance.updateOne(
     { sessionId: session._id, studentId: req.user._id },
     { $set: { status: 'present', batchId: session.batchId } },
