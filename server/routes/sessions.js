@@ -23,15 +23,21 @@ const meetingIdFrom = (zoomMeetingId, joinUrl) => normMeetingId(zoomMeetingId) |
 // Kickstarter module IS a session ("S01 · AI Foundations…"), while a
 // Generalist module is a week whose "S1 · Week 1: …" chapters are its two
 // sessions (its other chapters are the week's assignment and project).
+//
+// `weeks` is one title per module, for cohorts that teach a whole module in
+// one sitting — the Generalist runs both of a week's sessions in a single
+// four-hour Sunday class, so it schedules six classes, not twelve.
 const byOrder = (a, b) => (a.order ?? 0) - (b.order ?? 0);
 function sessionOutline(program) {
-  const out = [];
+  const titles = [];
+  const weeks = [];
   for (const m of [...(program?.modules || [])].sort(byOrder)) {
     const sessions = [...(m.chapters || [])].filter((c) => /^S\d+\s*·/.test(c.title || '')).sort(byOrder);
-    if (sessions.length) sessions.forEach((c) => out.push(c.title));
-    else out.push(m.title);
+    if (sessions.length) sessions.forEach((c) => titles.push(c.title));
+    else titles.push(m.title);
+    weeks.push(m.title);
   }
-  return out;
+  return { titles, weeks };
 }
 
 // GET /api/lms/sessions?batchId=..  OR  ?scope=upcoming|past
@@ -71,21 +77,26 @@ router.get('/live', requireAuth, async (req, res) => {
   const dayStart = validRange ? reqStart : new Date(new Date().toISOString().slice(0, 10));
   const dayEnd = validRange ? reqEnd : new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
 
-  const today = await Session.findOne({ batchId: { $in: batchIds }, startsAt: { $gte: dayStart, $lt: dayEnd } })
-    .populate('batchId', 'name')
-    .sort({ startsAt: 1 });
-  const session = today || await Session.findOne({ batchId: { $in: batchIds }, startsAt: { $lt: dayStart } })
-    .populate('batchId', 'name')
-    .sort({ startsAt: -1 });
+  // Today's class first; failing that the NEXT one, so a cohort scheduled
+  // ahead of time shows its first class before it happens instead of an empty
+  // Home; only once nothing is left to come does the latest past class show.
+  const mine = { batchId: { $in: batchIds } };
+  const today = await Session.findOne({ ...mine, startsAt: { $gte: dayStart, $lt: dayEnd } }).populate('batchId', 'name').sort({ startsAt: 1 });
+  const next = today ? null : await Session.findOne({ ...mine, startsAt: { $gte: dayEnd } }).populate('batchId', 'name').sort({ startsAt: 1 });
+  const session = today || next || await Session.findOne({ ...mine, startsAt: { $lt: dayStart } }).populate('batchId', 'name').sort({ startsAt: -1 });
 
-  if (!session) return res.json({ session: null, today: false, url: '' });
+  if (!session) return res.json({ session: null, today: false, upcoming: false, url: '' });
 
-  const isToday = !!today;
   res.json({
     session: { _id: session._id, title: session.title, startsAt: session.startsAt, batchId: session.batchId },
-    today: isToday,
-    // A finished class may only have a recording — better than a dead button.
-    url: session.joinUrl || (!isToday && session.recordingUrl) || '',
+    today: !!today,
+    upcoming: !!next,
+    // Today → the Zoom link. A future class → no link yet: the Join button
+    // appears on the day, so an early click can't open an empty room and
+    // leave the student wondering why they weren't marked present. A past
+    // class → its recording only; with a recurring meeting its Zoom link is
+    // just the room the next class will use.
+    url: today ? session.joinUrl || '' : next ? '' : session.recordingUrl || '',
     updatedAt: session.updatedAt,
   });
 });
@@ -95,7 +106,7 @@ router.get('/live', requireAuth, async (req, res) => {
 router.get('/outline', requireAuth, requireRole('admin'), async (req, res) => {
   const batch = await Batch.findById(req.query.batchId).populate('programId', 'title modules');
   if (!batch) return res.status(404).json({ error: 'Batch not found.' });
-  res.json({ program: batch.programId?.title || '', titles: sessionOutline(batch.programId) });
+  res.json({ program: batch.programId?.title || '', ...sessionOutline(batch.programId) });
 });
 
 // POST /api/lms/sessions — admin schedules a class (only admins create Zoom sessions).
