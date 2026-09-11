@@ -19,9 +19,25 @@ import { PlaybackLease } from '../models/PlaybackLease.js';
 import { FileAsset } from '../models/FileAsset.js';
 import { hashPassword, DEFAULT_TEMP_PASSWORD } from '../utils/password.js';
 import { trySendMail } from '../utils/email.js';
-import { accountCreatedEmail, passwordResetByAdminEmail, loginUrl } from '../utils/emailTemplates.js';
+import { accountCreatedEmail, mentorWelcomeEmail, passwordResetByAdminEmail, loginUrl } from '../utils/emailTemplates.js';
 
 const router = Router();
+
+// The welcome mail for whoever this account is. A mentor's names the batches
+// they run *now*, so a resend after assignment is more useful than the first
+// send; a student's names the programme of their first batch, as enrolment does.
+async function welcomeMailFor(user, password) {
+  const base = { fullName: user.fullName, email: user.email, password, loginUrl: loginUrl() };
+  if (user.role === 'mentor') {
+    const runs = await Batch.find({ mentorIds: user._id }).select('name').sort({ name: 1 });
+    return mentorWelcomeEmail({ ...base, batches: runs.map((b) => b.name) });
+  }
+  if (user.role === 'student' && user.batchIds?.length) {
+    const b = await Batch.findById(user.batchIds[0]).populate('programId', 'title');
+    return accountCreatedEmail({ ...base, role: 'student', programme: b?.programId?.title || b?.name });
+  }
+  return accountCreatedEmail({ ...base, role: user.role });
+}
 
 // Same escaping search.js already applies to its regex search — an
 // unescaped search string is a ReDoS vector (e.g. "(a+)+$").
@@ -61,8 +77,32 @@ router.post('/', requireAuth, requireRole('admin'), async (req, res) => {
   });
   // The credentials go out by email too. `emailed` tells the admin whether
   // that happened so they know if they still have to pass the password on.
-  const mail = await trySendMail({ to: clean, ...accountCreatedEmail({ fullName, email: clean, password: temp, role, loginUrl: loginUrl() }) });
+  const mail = await trySendMail({ to: clean, ...(await welcomeMailFor(user, temp)) });
   res.status(201).json({ user: user.toPublic(), tempPassword: temp, custom: !!password, ...mail });
+});
+
+// POST /api/lms/users/:id/send-login — admin (re)sends the welcome mail with a
+// working sign-in. For someone who never got in: the first mail went to spam,
+// or a mentor was created before being given batches.
+//
+// The mail has to state a password and a hash cannot be read back, so this
+// sets the temp password afresh. That is only harmless while the user has
+// never chosen their own — once they have, it would silently lock them out of
+// a password they know, which is Reset password's job and says so.
+router.post('/:id/send-login', requireAuth, requireRole('admin'), async (req, res) => {
+  const user = await User.findById(req.params.id);
+  if (!user) return res.status(404).json({ error: 'User not found.' });
+  if (!user.mustChangePassword) {
+    return res.status(409).json({ error: `${user.fullName || user.email} has already signed in and set their own password. Use Reset password to issue a new one.` });
+  }
+  if (user.blocked?.lms) return res.status(409).json({ error: 'This account is blocked from the LMS. Unblock it before sending a login.' });
+  user.passwordHash = await hashPassword(DEFAULT_TEMP_PASSWORD);
+  user.resetTokenHash = '';
+  user.resetExpires = null;
+  await user.save();
+  invalidateUser(user._id);
+  const mail = await trySendMail({ to: user.email, ...(await welcomeMailFor(user, DEFAULT_TEMP_PASSWORD)) });
+  res.json({ ok: true, tempPassword: DEFAULT_TEMP_PASSWORD, ...mail });
 });
 
 // POST /api/lms/users/:id/reset-password — admin resets a user's password and
@@ -78,7 +118,7 @@ router.post('/:id/reset-password', requireAuth, requireRole('admin'), async (req
   user.mustChangePassword = true; // force a fresh password on next login
   await user.save();
   invalidateUser(user._id);
-  const mail = await trySendMail({ to: user.email, ...passwordResetByAdminEmail({ fullName: user.fullName, email: user.email, password: temp, loginUrl: loginUrl() }) });
+  const mail = await trySendMail({ to: user.email, ...passwordResetByAdminEmail({ fullName: user.fullName, email: user.email, password: temp, loginUrl: loginUrl(), role: user.role }) });
   res.json({ ok: true, tempPassword: temp, custom: !!password, ...mail });
 });
 
