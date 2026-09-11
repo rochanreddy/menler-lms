@@ -11,6 +11,8 @@ const sessionSchema = new mongoose.Schema(
     joinUrl: { type: String, default: '' },
     zoomMeetingId: { type: String, default: '', index: true }, // matches Zoom webhook events → attendance
     recordingUrl: { type: String, default: '' },
+    // Set once the no-shows have been marked absent (utils/attendanceSweep.js).
+    absenceSweptAt: { type: Date, default: null, index: true },
   },
   { timestamps: true },
 );
