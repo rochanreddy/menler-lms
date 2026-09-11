@@ -50,6 +50,19 @@ export default function MentorDetail() {
     } catch (e2) { setErr(e2.message); }
   }
 
+  const [sending, setSending] = useState(false);
+  async function sendLogin() {
+    if (sending) return;
+    setErr('');
+    setSending(true);
+    try {
+      const r = await api(`/users/${id}/send-login`, { method: 'POST' });
+      if (r.emailed) flash('Login email sent');
+      else window.alert(`Login for ${data.user.email} is ready (temp password ${r.tempPassword}), but the email did not go out.\n${mailNote(r)}`);
+    } catch (e) { setErr(e.message); }
+    finally { setSending(false); }
+  }
+
   async function resetPassword() {
     if (!window.confirm(`Reset password for ${data.user.email}?`)) return;
     try {
@@ -78,6 +91,11 @@ export default function MentorDetail() {
         </div>
         <div className="row">
           {msg && <span className="ws-flash">{msg}</span>}
+          {u.must_change_password && !lmsBlocked && (
+            <button className={`btn sm ${sending ? 'is-busy' : ''}`} disabled={sending} onClick={sendLogin} title="Email them their sign-in and the batches they run">
+              {sending ? 'Sending…' : 'Send login email'}
+            </button>
+          )}
           <button className="btn sm ghost" onClick={resetPassword}>Reset password</button>
           <button className={`btn sm ${lmsBlocked ? '' : 'danger'}`} onClick={toggleLms}>
             {lmsBlocked ? 'Unblock LMS access' : 'Block LMS access'}

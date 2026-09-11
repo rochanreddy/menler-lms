@@ -16,6 +16,8 @@ export default function AdminMentors() {
   const [form, setForm] = useState({ email: '', fullName: '', password: '' });
   const [temp, setTemp] = useState(null);
   const [reset, setReset] = useState(null); // { email, password } after a reset
+  const [sent, setSent] = useState(null); // { email, emailed, error } after Send login email
+  const [sending, setSending] = useState(''); // id of the mentor whose mail is in flight
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -40,7 +42,7 @@ export default function AdminMentors() {
   async function create(e) {
     e.preventDefault();
     if (busy) return;
-    setErr(''); setTemp(null); setReset(null);
+    setErr(''); setTemp(null); setReset(null); setSent(null);
     setBusy(true);
     try {
       const res = await api('/users', { method: 'POST', body: { ...form, role: 'mentor' } });
@@ -51,8 +53,21 @@ export default function AdminMentors() {
     finally { setBusy(false); }
   }
 
+  // Only offered while the mentor has never set their own password — the
+  // server refuses otherwise, since the mail has to re-issue the temp one.
+  async function sendLogin(m) {
+    if (sending) return;
+    setErr(''); setTemp(null); setReset(null); setSent(null);
+    setSending(m.id);
+    try {
+      const res = await api(`/users/${m.id}/send-login`, { method: 'POST' });
+      setSent({ email: m.email, password: res.tempPassword, emailed: res.emailed, error: res.error });
+    } catch (e2) { setErr(e2.message); }
+    finally { setSending(''); }
+  }
+
   async function resetPassword(m) {
-    setErr(''); setTemp(null); setReset(null);
+    setErr(''); setTemp(null); setReset(null); setSent(null);
     if (!window.confirm(`Reset password for ${m.email}? Their current password stops working.`)) return;
     try {
       const res = await api(`/users/${m.id}/reset-password`, { method: 'POST' });
@@ -95,6 +110,13 @@ export default function AdminMentors() {
         </div>
       )}
 
+      {sent && (
+        <div className="tempbox">
+          <div className="tempbox-line"><span className="tempbox-ic"><LineIcon name="check" size={16} /></span><span>{sent.emailed ? <>Login email sent to <strong>{sent.email}</strong>.</> : <>Login for <strong>{sent.email}</strong> is ready, but the email did not go out: {mailNote(sent)}</>} Temp password: <code>{sent.password}</code></span></div>
+          <div className="muted">It lists the batches they run right now, so send it again after assigning new ones.</div>
+        </div>
+      )}
+
       {batches.length > 0 && (
         <div className="inline-form" style={{ marginTop: 'var(--space-5)' }}>
           <label>Filter by batch{' '}
@@ -120,6 +142,11 @@ export default function AdminMentors() {
                 </div>
                 <div className="row">
                   <span className="badge badge-mentor">mentor</span>
+                  {m.must_change_password && !m.blocked?.lms && (
+                    <button className={`btn sm ${sending === m.id ? 'is-busy' : ''}`} disabled={!!sending} onClick={() => sendLogin(m)} title="Email them their sign-in and the batches they run">
+                      {sending === m.id ? 'Sending…' : 'Send login email'}
+                    </button>
+                  )}
                   <button className="btn sm ghost" onClick={() => resetPassword(m)}>Reset password</button>
                   <Link className="btn sm" to={`/app/mentors/${m.id}`}>Open</Link>
                 </div>
