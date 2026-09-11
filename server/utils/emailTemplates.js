@@ -246,7 +246,7 @@ export function mentorWelcomeEmail({ fullName, email, password, loginUrl, batche
   const first = firstNameOf(fullName, email);
   const subject = 'Welcome to the Menler mentor team — your LMS login';
   const opener = 'Welcome to the Menler mentor team. Your mentor account on the Menler LMS is ready.';
-  const duties = 'From your mentor dashboard you run your batches: schedule sessions and share class links, take attendance, grade assignments and projects, post announcements, and answer your students’ doubts.';
+  const duties = 'You’ll guide our learners through the programme — running sessions, reviewing their work and helping them whenever they get stuck.';
   const names = batches.filter(Boolean);
   const assignedText = names.length
     ? `You are assigned to: ${names.join(', ')}.`
