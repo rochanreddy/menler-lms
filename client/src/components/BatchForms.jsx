@@ -227,6 +227,16 @@ export function SessionEditForm({ session, onSave, onCancel }) {
   const [joinUrl, setJoinUrl] = useState(session.joinUrl || '');
   const [zoomMeetingId, setZoomMeetingId] = useState(session.zoomMeetingId || '');
   const [recordingUrl, setRecordingUrl] = useState(session.recordingUrl || '');
+  // How long the class runs, in minutes. Attendance needs it: the rule that
+  // marks a student present asks whether they sat through 45% of the class, and
+  // without a length there is no share to take 45% of — that class is skipped.
+  // Scheduling a whole course sets this; a session added one at a time had no
+  // way to until this field existed.
+  const [minutes, setMinutes] = useState(
+    session.endsAt
+      ? String(Math.round((new Date(session.endsAt) - new Date(session.startsAt)) / 60000))
+      : '',
+  );
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
 
@@ -237,11 +247,14 @@ export function SessionEditForm({ session, onSave, onCancel }) {
     e.preventDefault();
     const start = parseLocal(startsAt);
     if (!title.trim() || !start) { setErr('A title and a start time are needed.'); return; }
-    const body = { title: title.trim(), startsAt: start.toISOString(), joinUrl: joinUrl.trim(), zoomMeetingId, recordingUrl: recordingUrl.trim() };
-    if (session.endsAt) {
-      const length = new Date(session.endsAt) - new Date(session.startsAt);
-      body.endsAt = new Date(start.getTime() + length).toISOString();
+    const mins = Number(minutes);
+    if (minutes !== '' && (!Number.isFinite(mins) || mins <= 0)) {
+      setErr('Length must be a number of minutes.'); return;
     }
+    const body = { title: title.trim(), startsAt: start.toISOString(), joinUrl: joinUrl.trim(), zoomMeetingId, recordingUrl: recordingUrl.trim() };
+    // Left blank, the end time is not sent at all, so a class that never had
+    // one keeps not having one rather than being given a made-up length.
+    if (minutes !== '') body.endsAt = new Date(start.getTime() + mins * 60000).toISOString();
     setErr(''); setBusy(true);
     try { await onSave(body); } catch (e2) { setErr(e2.message); setBusy(false); }
   }
@@ -251,6 +264,16 @@ export function SessionEditForm({ session, onSave, onCancel }) {
       <div className="inline-form">
         <input placeholder="Session title" value={title} onChange={(e) => setTitle(e.target.value)} style={{ flex: 1, minWidth: 240 }} />
         <DateTimePicker value={startsAt} onChange={setStartsAt} placeholder="Starts at" />
+        <input
+          type="number"
+          min="1"
+          step="5"
+          placeholder="Length (min)"
+          title="How long the class runs. Attendance needs this: a student is present if they were in the meeting for 45% of it."
+          value={minutes}
+          onChange={(e) => setMinutes(e.target.value)}
+          style={{ width: 130 }}
+        />
       </div>
       <div className="inline-form">
         <input placeholder="Zoom link (https://…)" value={joinUrl} onChange={(e) => changeLink(e.target.value)} style={{ flex: 1, minWidth: 240 }} />
