@@ -189,8 +189,15 @@ closes its sessions and drops its lease.
 Admins schedule classes per batch — one at a time, or a whole cohort through
 **Schedule the whole course** (`POST /sessions/bulk`), which titles them from
 the curriculum (`GET /sessions/outline`: a Kickstarter module is a session, a
-Generalist week's `S1 · Week N` chapters are its two). The client computes the
-dates because "Saturdays 7 pm" is a local-timezone fact.
+Generalist week's `S1 · Week N` chapters are its two). `weeks` in the same
+response is one title per module, for the Generalist's single four-hour class
+per week (6 classes, not 12). The client computes the dates because "Saturdays
+7 pm" is a local-timezone fact.
+
+The Home live-class card (`GET /sessions/live`, mirrored client-side on the
+mentor Home) shows today's class with its Zoom link, else the next class with
+no link until its day, else the last class with its **recording** only — never
+a past class's Zoom link, which on a recurring meeting is the next class's room.
 
 [utils/sessionTime.js](server/utils/sessionTime.js) defines when a class is
 "on" — 15 min before start to 1 h after end, 4 h assumed when there is no end

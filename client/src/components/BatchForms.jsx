@@ -47,18 +47,26 @@ export function SessionForm({ onAdd }) {
 // title and its own Zoom link editable, before anything is created. Each class
 // normally has its own Zoom meeting; a link left blank is added later with Edit.
 const WEEK = [['Mon', 1], ['Tue', 2], ['Wed', 3], ['Thu', 4], ['Fri', 5], ['Sat', 6], ['Sun', 0]];
-const LENGTHS = [60, 90, 120, 150, 180];
+const LENGTHS = [60, 90, 120, 150, 180, 210, 240];
 function parseLocal(v) {
   const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(v || '');
   return m ? new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]) : null;
 }
 const whenLabel = (d) => d.toLocaleString([], { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
 
-export function BulkSessionForm({ outline = [], onCreate }) {
+// `outline` has one title per curriculum session; `weeks` one per module. They
+// differ only for a programme whose modules hold several sessions (the
+// Generalist: 6 weeks × 2 sessions), and there the admin picks whether a class
+// covers one session or a whole week — the Generalist teaches both of a
+// week's sessions in one four-hour Sunday, so it wants 6 classes, not 12.
+export function BulkSessionForm({ outline = [], weeks = [], onCreate }) {
   const [open, setOpen] = useState(false);
   const [first, setFirst] = useState('');
   const [days, setDays] = useState([]);
   const [minutes, setMinutes] = useState(120);
+  const [per, setPer] = useState('session'); // what one class covers
+  const canGroup = weeks.length > 0 && weeks.length !== outline.length;
+  const source = per === 'week' && canGroup ? weeks : outline;
   const [count, setCount] = useState(outline.length || 4);
   const [joinUrl, setJoinUrl] = useState('');
   const [zoomMeetingId, setZoomMeetingId] = useState('');
@@ -67,8 +75,12 @@ export function BulkSessionForm({ outline = [], onCreate }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
 
-  // The curriculum arrives after the form mounts; its length is the default count.
-  useEffect(() => { if (outline.length) setCount(outline.length); }, [outline.length]);
+  // The curriculum arrives after the form mounts, and switching session/week
+  // changes the list: either way the class count and titles follow it.
+  // Keyed on the titles themselves, not the array: a parent re-render passing
+  // an equal but new array must not wipe the admin's edits.
+  const sourceKey = source.join('');
+  useEffect(() => { if (source.length) setCount(source.length); setEdited({}); }, [sourceKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // The first class's weekday is always one of the class days.
   function pickFirst(v) {
@@ -91,8 +103,8 @@ export function BulkSessionForm({ outline = [], onCreate }) {
       }
       cur.setDate(cur.getDate() + 1);
     }
-    return rows.map((r, i) => ({ ...r, title: edited[i] ?? outline[i] ?? `Session ${i + 1}` }));
-  }, [first, days, count, minutes, outline, edited]);
+    return rows.map((r, i) => ({ ...r, title: edited[i] ?? source[i] ?? `Session ${i + 1}` }));
+  }, [first, days, count, minutes, source, edited]);
 
   const past = plan.filter((r) => r.startsAt < new Date()).length;
 
@@ -134,6 +146,17 @@ export function BulkSessionForm({ outline = [], onCreate }) {
           <input type="number" min={1} max={60} value={count} onChange={(e) => setCount(Math.max(0, Math.min(60, +e.target.value || 0)))} style={{ width: 70 }} />
         </label>
       </div>
+      {canGroup && (
+        <div className="inline-form">
+          <span className="muted">One class covers</span>
+          <button type="button" className={`btn sm ${per === 'session' ? '' : 'ghost'}`} aria-pressed={per === 'session'} onClick={() => setPer('session')}>
+            One session ({outline.length} classes)
+          </button>
+          <button type="button" className={`btn sm ${per === 'week' ? '' : 'ghost'}`} aria-pressed={per === 'week'} onClick={() => setPer('week')}>
+            A whole week ({weeks.length} classes)
+          </button>
+        </div>
+      )}
       <div className="inline-form">
         <span className="muted">Repeats on</span>
         {WEEK.map(([label, n]) => (

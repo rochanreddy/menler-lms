@@ -44,11 +44,13 @@ export default function BatchWorkspace({ batchId, mode }) {
   useEffect(() => { loadBatch(); loadSessions(); loadAssignments(); loadQuizzes(); loadAnnouncements(); loadGradebook(); }, [batchId]);
   useEffect(() => { if (mode === 'admin') loadPeople(); }, [mode]);
 
-  // The programme's session titles, to prefill the bulk scheduler (admin only).
-  const [outline, setOutline] = useState([]);
+  // The programme's session and week titles, to prefill the bulk scheduler (admin only).
+  const [outline, setOutline] = useState({ titles: [], weeks: [] });
   useEffect(() => {
     if (mode !== 'admin') return;
-    api(`/sessions/outline?batchId=${batchId}`).then((d) => setOutline(d.titles || [])).catch(() => setOutline([]));
+    api(`/sessions/outline?batchId=${batchId}`)
+      .then((d) => setOutline({ titles: d.titles || [], weeks: d.weeks || [] }))
+      .catch(() => setOutline({ titles: [], weeks: [] }));
   }, [mode, batchId]);
 
   const [editingId, setEditingId] = useState(''); // session whose edit form is open
@@ -248,7 +250,8 @@ export default function BatchWorkspace({ batchId, mode }) {
             <SessionForm onAdd={(body) => act(() => api('/sessions', { method: 'POST', body: { batchId, ...body } }).then(loadSessions), 'Session scheduled')} />
             {/* Throws on failure so the form can keep the admin's input and show why. */}
             <BulkSessionForm
-              outline={outline}
+              outline={outline.titles}
+              weeks={outline.weeks}
               onCreate={(body) => api('/sessions/bulk', { method: 'POST', body: { batchId, ...body } }).then((r) => { loadSessions(); flash(`${r.sessions.length} sessions scheduled`); })}
             />
           </>
