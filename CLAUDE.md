@@ -189,6 +189,10 @@ would quietly undo itself within eight hours. Tokens minted before this existed
 carry no `sid`: they are honoured and adopted into a session on their next
 refresh, so shipping it was not a mass logout.
 
+**The watch lock is dormant.** It is claimed where the VdoCipher OTP is minted,
+and VdoCipher is currently switched off (see below), so nothing claims a lease
+today. All of it still works and comes back with the flag.
+
 **The watch lock.** `lms_playback_leases` holds one row per user with the user
 id AS the `_id`, so "only one watcher" rests on primary-key uniqueness rather
 than a read-then-decide race. It is claimed where the VdoCipher OTP is minted —
@@ -200,6 +204,32 @@ rule must not unlock the video.
 
 Anything that invalidates an account (password reset or change, an admin block)
 closes its sessions and drops its lease.
+
+### Lesson video: Drive links, not VdoCipher
+
+`VDOCIPHER_ENABLED` in [client/src/features.js](client/src/features.js) is
+**false**. Nothing is deleted — the player, the library picker, the per-batch
+`BatchLessonVideo` mapping, the OTP endpoint and the watch lock are all still
+there and all still tested — because "we're on Drive for now" is a commercial
+decision that can reverse, and deleting a working integration to get it off the
+screen means rebuilding it from git history later. `VITE_VDOCIPHER_ENABLED=true`
+brings it back.
+
+While it is off, a lesson's video is a link a mentor pastes: the lesson's own
+**Lesson video** field, or the **Class link** (the recording of the live
+session). The student's video chip lights for either, because nobody cares
+which box it was typed into, and opens it in a new tab.
+
+A Drive share link is an HTML page, not a media file, so it must never reach a
+`<video src>` — that renders a black box and a decode error.
+`isDirectVideoFile()` is what decides: real media files (`.mp4`, `.webm`, …)
+play inline, everything on Drive/YouTube/Loom/Dropbox gets a hand-off card that
+says where it is about to send you. Drive is deliberately not iframed either;
+that breaks the moment the folder's sharing changes.
+
+The failure mode to know about: a Drive link works for the admin who uploaded
+it and silently shows everyone else a request-access screen. The sharing has to
+be **Anyone with the link → Viewer**, which the editor says next to the field.
 
 ### Forgotten passwords
 
