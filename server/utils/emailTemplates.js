@@ -89,7 +89,9 @@ const FOOTER = `<tr><td bgcolor="#211B4C" class="px" style="background-color:#21
 // One shell, several bodies. `body` is the paragraphs between "Dear …" and the
 // button; `cta` the button label + href; `why` the permission-bar line;
 // `closing` the line above the signature — "See you in class!" is a student's.
-function shell({ preview, greeting, body, cta, why, title, closing = 'See you in class!' }) {
+// `cta` is optional: a password-reset code has no button on purpose, and a
+// mail that asks you to click nothing cannot train its readers to click.
+function shell({ preview, greeting, body, cta = null, why, title, closing = 'See you in class!' }) {
   return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en">
 <head>
@@ -133,13 +135,13 @@ function shell({ preview, greeting, body, cta, why, title, closing = 'See you in
           ${body}
         </td></tr>
 
-        <tr><td align="center" class="px" style="padding:30px 40px 6px;">
+        ${cta ? `<tr><td align="center" class="px" style="padding:30px 40px 6px;">
           <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center"><tr>
             <td bgcolor="#211B4C" style="border-radius:6px;">
               <a href="${esc(cta.href)}" style="display:inline-block; padding:15px 42px; font-family:'DM Sans',Arial,sans-serif; font-size:15px; font-weight:700; color:#ffffff; text-decoration:none; border-radius:6px;">${esc(cta.label)}</a>
             </td>
           </tr></table>
-        </td></tr>
+        </td></tr>` : ''}
 
         <tr><td class="px" style="padding:32px 40px 44px;">
           ${P(`If anything about signing in does not work, write to ${mailtoLink()}.`, 0)}
@@ -314,6 +316,54 @@ export function passwordResetByAdminEmail({ fullName, email, password, loginUrl,
     tempNote, '',
     `Sign in: ${loginUrl}`, '',
     `If anything about signing in does not work, write to ${SUPPORT_EMAIL}.`, '',
+    SIGN_OFF,
+  ].join('\n');
+
+  return { subject, text, html };
+}
+
+// A one-time code for resetting a forgotten password.
+//
+// The code is the whole message, so it is set large and monospaced and given
+// its own block — most people read it off a phone notification and type it
+// into another window, and a six-digit number buried in a paragraph is the
+// version of this that gets misread.
+//
+// No link and no button on purpose: a password-reset mail is the single most
+// impersonated email there is, and one that never asks you to click anything
+// cannot teach its readers to click. The code is typed into the tab they
+// already have open.
+export function passwordOtpEmail({ fullName, email, code, minutes = 10 }) {
+  const first = firstNameOf(fullName, email);
+  const subject = `${code} is your Menler password reset code`;
+  const opener = 'Someone asked to reset the password for your Menler LMS account. Enter this code in the tab you started from:';
+
+  const codeBlock = `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:22px; background:#F6F5FB; border:1px solid #E6E4F2; border-radius:8px;">
+    <tr><td align="center" style="padding:22px 16px 6px; font-size:11px; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:#534AB7;">Your reset code</td></tr>
+    <tr><td align="center" style="padding:0 16px 22px; font-size:34px; font-weight:700; letter-spacing:.22em; color:#1F2430; font-family:Consolas,Menlo,monospace;">${esc(code)}</td></tr>
+  </table>`;
+
+  const html = shell({
+    title: subject,
+    preview: `${code} — expires in ${minutes} minutes.`,
+    greeting: first,
+    body: [
+      P(opener),
+      codeBlock,
+      P(`The code expires in ${minutes} minutes and can be used once.`),
+      P('If you did not ask for this, you can ignore this email — your password stays as it is. Nobody can change it without the code above.'),
+    ].join('\n'),
+    why: `You're receiving this because a password reset was requested for ${esc(email)}. If that wasn't you, write to ${mailtoLink('#8E82F5')}.`,
+    closing: 'See you in class!',
+  });
+
+  const text = [
+    `Dear ${first},`, '',
+    opener, '',
+    `    ${code}`, '',
+    `The code expires in ${minutes} minutes and can be used once.`, '',
+    'If you did not ask for this, you can ignore this email — your password stays as it is.', '',
+    `Questions? Write to ${SUPPORT_EMAIL}.`, '',
     SIGN_OFF,
   ].join('\n');
 

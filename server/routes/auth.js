@@ -5,6 +5,7 @@ import bcrypt from 'bcryptjs';
 import { User, ROLES } from '../models/User.js';
 import { signAccessToken, signRefreshToken, verifyToken } from '../utils/token.js';
 import { isMailConfigured, sendMail } from '../utils/email.js';
+import { passwordOtpEmail } from '../utils/emailTemplates.js';
 import { invalidateUser, requireAuth } from '../middleware/auth.js';
 import { hashPassword, needsRehash } from '../utils/password.js';
 import { rateLimit } from '../utils/rateLimit.js';
@@ -25,7 +26,6 @@ const router = Router();
 // Rate limiting is shared across instances via the database — see utils/rateLimit.js.
 
 const hashToken = (t) => crypto.createHash('sha256').update(String(t)).digest('hex');
-const APP_URL = () => (process.env.LMS_APP_URL || 'http://localhost:5174').replace(/\/+$/, '');
 
 // POST /api/lms/auth/register — self-signup is forced to role=student.
 router.post('/register', async (req, res) => {
@@ -203,25 +203,109 @@ router.post('/refresh', async (req, res) => {
   });
 });
 
+// ── Forgotten password: code by email, then a new password ──────────────────
+//
+// Three steps, because they fail differently and a user should learn which one
+// went wrong: /forgot sends a six-digit code, /verify-otp trades a correct code
+// for a one-time ticket, /reset spends the ticket on a new password.
+//
+// The code is emailed; the ticket never is. That split is the point. A short
+// code is what a person can retype from their phone, but six digits is a small
+// enough space that it is only safe while it is short-lived and guess-limited —
+// so it buys one thing only: a proper 256-bit token, which is what actually
+// authorises the password change.
+const OTP_MINUTES = 10;
+const OTP_MAX_ATTEMPTS = 5;
+// Codes are compared as hashes, so a database dump is not a list of live codes.
+const hashOtp = (email, code) => crypto.createHash('sha256').update(`${email}:${code}`).digest('hex');
+
 // POST /api/lms/auth/forgot — always returns success (no account enumeration).
 router.post('/forgot', async (req, res) => {
   try {
     if (!(await rateLimit(`forgot:${req.ip}`, 5, 60_000))) return res.status(429).json({ error: 'Too many attempts. Try again shortly.' });
     const email = String(req.body?.email || '').toLowerCase().trim();
+    // Also per address: without it, one IP is limited but a botnet could still
+    // use us to mail-bomb one person five messages at a time.
+    if (email && !(await rateLimit(`forgot-to:${email}`, 5, 15 * 60_000))) return res.json({ ok: true });
+
     const user = await User.findOne({ email });
-    if (user) {
-      const raw = crypto.randomBytes(32).toString('hex');
-      user.resetTokenHash = hashToken(raw);
-      user.resetExpires = new Date(Date.now() + 1000 * 60 * 30);
+    // A blocked account cannot sign in, so letting it reset a password would
+    // only waste the person's time — silently, to keep the reply uniform.
+    if (user && !(user.role !== 'admin' && user.blocked?.lms)) {
+      // randomInt, not Math.random: this is a credential.
+      const code = String(crypto.randomInt(0, 1_000_000)).padStart(6, '0');
+      user.resetOtpHash = hashOtp(email, code);
+      user.resetOtpExpires = new Date(Date.now() + OTP_MINUTES * 60_000);
+      user.resetOtpAttempts = 0;
+      // Asking for a new code invalidates any ticket already issued, so an
+      // abandoned half-finished reset cannot be completed later.
+      user.resetTokenHash = '';
+      user.resetExpires = null;
       await user.save();
-      const link = `${APP_URL()}/reset?token=${raw}&email=${encodeURIComponent(email)}`;
-      if (isMailConfigured()) await sendMail({ to: email, subject: 'Reset your Menler LMS password', text: `Reset your password:\n\n${link}\n\nExpires in 30 minutes.` });
-      else console.log('[forgot] mail off, reset link:', link);
+
+      const mail = passwordOtpEmail({ fullName: user.fullName, email, code, minutes: OTP_MINUTES });
+      if (isMailConfigured()) await sendMail({ to: email, ...mail });
+      else console.log(`[forgot] mail off — reset code for ${email}: ${code}`);
     }
-    return res.json({ ok: true });
+    return res.json({ ok: true, minutes: OTP_MINUTES });
   } catch (err) {
     console.error('forgot error:', err);
-    return res.json({ ok: true });
+    return res.json({ ok: true, minutes: OTP_MINUTES });
+  }
+});
+
+// POST /api/lms/auth/verify-otp { email, code } → { token }
+//
+// The reply is the same for a wrong code and for an address with no account:
+// this endpoint must not become the account-enumeration oracle that /forgot
+// deliberately isn't.
+router.post('/verify-otp', async (req, res) => {
+  const bad = { error: 'That code is wrong or has expired. Request a new one.' };
+  try {
+    if (!(await rateLimit(`otp:${req.ip}`, 20, 60_000))) return res.status(429).json({ error: 'Too many attempts. Try again shortly.' });
+    const email = String(req.body?.email || '').toLowerCase().trim();
+    const code = String(req.body?.code || '').replace(/\D/g, '');
+    if (!email || code.length !== 6) return res.status(400).json(bad);
+
+    const user = await User.findOne({ email });
+    if (!user || !user.resetOtpHash || !user.resetOtpExpires || user.resetOtpExpires < new Date()) return res.status(400).json(bad);
+
+    // Burn the code once the guesses run out, so the attempt ceiling cannot be
+    // reset by simply carrying on.
+    if ((user.resetOtpAttempts || 0) >= OTP_MAX_ATTEMPTS) {
+      user.resetOtpHash = '';
+      user.resetOtpExpires = null;
+      await user.save();
+      return res.status(400).json(bad);
+    }
+
+    const given = Buffer.from(hashOtp(email, code));
+    const want = Buffer.from(user.resetOtpHash);
+    // Equal lengths always (both sha256 hex), so this is a constant-time
+    // compare rather than one that leaks the matching prefix.
+    if (given.length !== want.length || !crypto.timingSafeEqual(given, want)) {
+      user.resetOtpAttempts = (user.resetOtpAttempts || 0) + 1;
+      await user.save();
+      const left = OTP_MAX_ATTEMPTS - user.resetOtpAttempts;
+      return res.status(400).json({
+        error: left > 0
+          ? `That code is wrong. ${left} attempt${left === 1 ? '' : 's'} left.`
+          : 'Too many wrong codes. Request a new one.',
+      });
+    }
+
+    // Correct. The code is spent, and a real token takes over from here.
+    const raw = crypto.randomBytes(32).toString('hex');
+    user.resetTokenHash = hashToken(raw);
+    user.resetExpires = new Date(Date.now() + OTP_MINUTES * 60_000);
+    user.resetOtpHash = '';
+    user.resetOtpExpires = null;
+    user.resetOtpAttempts = 0;
+    await user.save();
+    return res.json({ ok: true, token: raw });
+  } catch (err) {
+    console.error('verify-otp error:', err);
+    return res.status(500).json({ error: 'Could not check that code.' });
   }
 });
 
@@ -242,6 +326,14 @@ router.post('/reset', async (req, res) => {
     user.passwordHash = await hashPassword(password);
     user.resetTokenHash = '';
     user.resetExpires = null;
+    user.resetOtpHash = '';
+    user.resetOtpExpires = null;
+    user.resetOtpAttempts = 0;
+    // They have just chosen their own password, which is exactly what the
+    // forced-change flag was waiting for. Leaving it set would send an
+    // admin-provisioned user straight back to the change-password wall with
+    // the password they just picked.
+    user.mustChangePassword = false;
     // The whole point of a reset is to lock out anyone holding an
     // already-issued token — bump the version so theirs stop verifying.
     user.tokenVersion = (user.tokenVersion || 0) + 1;

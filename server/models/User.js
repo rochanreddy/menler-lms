@@ -27,8 +27,20 @@ const userSchema = new mongoose.Schema(
     lastActiveAt: { type: Date, default: null },
 
     emailVerified: { type: Boolean, default: false },
+    // The high-entropy ticket that actually authorises a password change. It is
+    // never emailed: /auth/verify-otp mints it once the code below checks out,
+    // and /auth/reset spends it.
     resetTokenHash: { type: String, default: '' },
     resetExpires: { type: Date, default: null },
+
+    // The six-digit code that IS emailed. Separate from the ticket because a
+    // six-digit secret is only safe while it is short-lived and guess-limited:
+    // `resetOtpAttempts` is what stops someone walking the million possible
+    // codes, and it is stored per-code rather than per-IP so a distributed
+    // attempt is counted the same as a local one.
+    resetOtpHash: { type: String, default: '' },
+    resetOtpExpires: { type: Date, default: null },
+    resetOtpAttempts: { type: Number, default: 0 },
 
     // Set when an admin provisions/resets the account: the user must set their
     // own password before they can use the app.
