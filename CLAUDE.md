@@ -154,6 +154,23 @@ across all three roles.
   images and no links to the marketing site — the LMS is a separate deployment
   and its mail must not depend on menler.in being up.
 
+### The class review
+
+After a class ends, the next time a student opens the LMS they meet
+[ClassReviewGate](client/src/components/ClassReviewGate.jsx) — a full-screen
+form (rating 1–5, pace, optional comment) over the whole app, cleared only by
+answering. Every student in the batch is asked, not only those marked present:
+the point is a complete picture, and the row records `attended` at the moment
+of writing so an opinion from someone who watched the recording reads as one.
+
+`GET /reviews/pending` picks the oldest class whose join window has closed and
+which started *after* the account was created, so a student enrolled mid-course
+is not met by a wall of forms for classes they never saw.
+
+**Mentors never see reviews** — that is what makes them honest. They live under
+the admin's **Feedback** tab, filtered by batch
+([routes/reviews.js](server/routes/reviews.js) is `requireRole('admin')`).
+
 ### One account, one device
 
 A seat is one person's, and that is enforced in two independent places.

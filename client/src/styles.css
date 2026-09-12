@@ -1248,9 +1248,11 @@ h1.md-h { font-size: 22px; } h2.md-h { font-size: 19px; } h3.md-h { font-size: 1
 .review-field { margin-top: 22px; }
 .review-label { display: block; font-size: 13.5px; font-weight: 600; color: var(--ink); margin-bottom: 8px; }
 .review-stars { display: flex; align-items: center; gap: 6px; }
-.review-star { background: none; border: 0; cursor: pointer; font-size: 30px; line-height: 1; padding: 0 2px; color: var(--line-strong); transition: color .12s, transform .12s; }
+.review-star { background: none; border: 0; cursor: pointer; font-size: 30px; line-height: 1; padding: 0 2px; color: var(--star-off); transition: color .12s, transform .12s; }
 .review-star:hover { transform: scale(1.08); }
-.review-star.on { color: #E8B004; }
+.review-star.on { color: var(--star); }
+/* The same rating, read back: a row of filled and hollow stars. */
+.rating-stars { color: var(--star); font-size: var(--text-lg); letter-spacing: .06em; white-space: nowrap; }
 .review-star-word { margin-left: 10px; font-size: 13.5px; }
 .review-comment { width: 100%; resize: vertical; font: inherit; font-size: 14px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); color: var(--ink); }
 .review-comment:focus-visible { outline: 2px solid var(--violet); outline-offset: 1px; }

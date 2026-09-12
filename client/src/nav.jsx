@@ -30,6 +30,7 @@ const AdminHome = lazy(() => import('./pages/admin/Home.jsx'));
 const AdminStudents = lazy(() => import('./pages/admin/Students.jsx'));
 const AdminStudentDetail = lazy(() => import('./pages/admin/StudentDetail.jsx'));
 const AdminMentorDetail = lazy(() => import('./pages/admin/MentorDetail.jsx'));
+const AdminFeedback = lazy(() => import('./pages/admin/Feedback.jsx'));
 
 // A placeholder page factory — renders the spec's sections for screens whose
 // backend is Phase 2.
@@ -86,6 +87,7 @@ export function navFor(role) {
         { label: 'Batches', path: 'batches', Component: AdminBatches },
         { label: 'Students', path: 'students', Component: AdminStudents },
         { label: 'Mentors', path: 'mentors', Component: AdminMentors },
+        { label: 'Feedback', path: 'feedback', Component: AdminFeedback },
         { label: 'Library', path: 'library', Component: Library },
         { label: 'Webinar', path: 'webinar', Component: Webinar },
         { label: 'Forum', path: 'forum', Component: ph('Forum', [

@@ -61,6 +61,12 @@
   --status-graded: #107253;        --status-graded-bg: #e3f5ef;
   --status-overdue: #a01345;       --status-overdue-bg: #fce9ef;
 
+  /* A filled rating star. Its own token, not a status colour: a five-star
+     class is not "graded" or "in progress", and the two must be free to
+     diverge. --star-off is the unfilled half of the same control. */
+  --star: #e8b004;
+  --star-off: #d5d1e6;
+
   /* ── Role ───────────────────────────────────────────────────────────────
      Identifies a PERSON, never their work. One value each, readable as text
      on --card or --background. Deliberately shares hues with the status
