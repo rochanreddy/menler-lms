@@ -14,10 +14,17 @@ const classReviewSchema = new mongoose.Schema(
     batchId: { type: mongoose.Schema.Types.ObjectId, ref: 'Batch', required: true, index: true },
     studentId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
 
-    /** Overall, 1–5. */
-    rating: { type: Number, required: true, min: 1, max: 5 },
-    /** How the class moved for them. */
-    pace: { type: String, enum: ['slow', 'right', 'fast'], required: true },
+    // Four scores, each 1 (low) to 5 (high). They are separate fields rather
+    // than one average because they fail apart: a class can be rated highly
+    // and still be understood by nobody, and that gap is the useful signal.
+    /** How would you rate today's session? */
+    overall: { type: Number, required: true, min: 1, max: 5 },
+    /** How useful was the session for you? */
+    useful: { type: Number, required: true, min: 1, max: 5 },
+    /** How well did you understand what was taught? */
+    understanding: { type: Number, required: true, min: 1, max: 5 },
+    /** How would you rate the instructor and session experience? */
+    instructor: { type: Number, required: true, min: 1, max: 5 },
     comment: { type: String, default: '', trim: true, maxlength: 2000 },
     attended: { type: Boolean, default: false },
   },

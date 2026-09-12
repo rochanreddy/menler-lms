@@ -6,18 +6,28 @@ import { Batch } from '../models/Batch.js';
 import { User } from '../models/User.js';
 import { Attendance } from '../models/Attendance.js';
 import { myBatchIds } from '../utils/access.js';
-import { joinWindow } from '../utils/sessionTime.js';
+import { sessionEnd } from '../utils/sessionTime.js';
 
 const router = Router();
+
+// The four scored questions, in the order they are asked. 1 is low, 5 is high.
+export const SCORE_KEYS = ['overall', 'useful', 'understanding', 'instructor'];
+const SCORE_LABEL = {
+  overall: 'how you rate the session',
+  useful: 'how useful it was',
+  understanding: 'how well you understood it',
+  instructor: 'the instructor and session experience',
+};
 
 /**
  * Classes this student still owes a review for, oldest first.
  *
- * Two bounds keep the gate from becoming a wall. A class only counts once its
- * join window has closed — reviewing a class that is still running asks for an
- * opinion nobody has yet. And only classes that started after the account was
- * created: someone enrolled into week four cannot review weeks one to three,
- * and should not have to dismiss three forms to reach the LMS.
+ * Two bounds keep the gate from becoming a wall. A class counts the moment it
+ * ENDS — a 7–9 class is reviewable at 9, not an hour later: the attendance
+ * window's hour of grace exists for stragglers still joining, which is the
+ * opposite of when an opinion is ready. And only classes that started after
+ * the account was created: someone enrolled into week four cannot review weeks
+ * one to three, and should not have to dismiss three forms to reach the LMS.
  */
 async function owed(user) {
   const batchIds = await myBatchIds(user);
@@ -27,7 +37,7 @@ async function owed(user) {
     startsAt: { $lt: new Date(), $gte: user.createdAt || new Date(0) },
   }).populate('batchId', 'name').sort({ startsAt: 1 });
 
-  const over = sessions.filter((s) => joinWindow(s).closes <= Date.now());
+  const over = sessions.filter((s) => sessionEnd(s) <= Date.now());
   if (!over.length) return [];
   const done = new Set(
     (await ClassReview.find({ studentId: user._id, sessionId: { $in: over.map((s) => s._id) } }).select('sessionId'))
@@ -48,18 +58,22 @@ router.get('/pending', requireAuth, async (req, res) => {
   });
 });
 
-// POST /api/lms/reviews/:sessionId { rating, pace, comment }
+// POST /api/lms/reviews/:sessionId { overall, useful, understanding, instructor, comment }
 router.post('/:sessionId', requireAuth, requireRole('student'), async (req, res) => {
   const session = await Session.findById(req.params.sessionId);
   if (!session) return res.status(404).json({ error: 'Class not found.' });
   const batchIds = (await myBatchIds(req.user)).map(String);
   if (!batchIds.includes(String(session.batchId))) return res.status(403).json({ error: 'Forbidden.' });
-  if (joinWindow(session).closes > Date.now()) return res.status(400).json({ error: 'That class is not over yet.' });
+  if (sessionEnd(session) > Date.now()) return res.status(400).json({ error: 'That class is not over yet.' });
 
-  const rating = Number(req.body?.rating);
-  const pace = String(req.body?.pace || '');
-  if (!(rating >= 1 && rating <= 5)) return res.status(400).json({ error: 'Pick a rating from 1 to 5.' });
-  if (!['slow', 'right', 'fast'].includes(pace)) return res.status(400).json({ error: 'Pick how the pace felt.' });
+  // Every score is answered or none are: a half-filled review is worse than no
+  // review, because it reads as a considered low score on the blank ones.
+  const scores = {};
+  for (const key of SCORE_KEYS) {
+    const n = Number(req.body?.[key]);
+    if (!(n >= 1 && n <= 5)) return res.status(400).json({ error: `Answer all five: ${SCORE_LABEL[key]}` });
+    scores[key] = Math.round(n);
+  }
 
   const attendance = await Attendance.findOne({ sessionId: session._id, studentId: req.user._id }).select('status');
   await ClassReview.updateOne(
@@ -67,8 +81,7 @@ router.post('/:sessionId', requireAuth, requireRole('student'), async (req, res)
     {
       $set: {
         batchId: session.batchId,
-        rating: Math.round(rating),
-        pace,
+        ...scores,
         comment: String(req.body?.comment || '').slice(0, 2000),
         attended: attendance?.status === 'present',
       },
@@ -85,6 +98,12 @@ router.post('/:sessionId', requireAuth, requireRole('student'), async (req, res)
 // taught it, and students answer differently when the mentor is reading.
 router.get('/', requireAuth, requireRole('admin'), async (req, res) => {
   const q = {};
+  // A programme is every batch that runs it — one today, several next intake.
+  // A named batch narrows further, so the two compose rather than conflict.
+  if (req.query.programId) {
+    const ids = (await Batch.find({ programId: req.query.programId }).select('_id')).map((b) => b._id);
+    q.batchId = { $in: ids };
+  }
   if (req.query.batchId) q.batchId = req.query.batchId;
   if (req.query.sessionId) q.sessionId = req.query.sessionId;
 
@@ -97,24 +116,34 @@ router.get('/', requireAuth, requireRole('admin'), async (req, res) => {
   const byId = (rows) => Object.fromEntries(rows.map((r) => [String(r._id), r]));
   const S = byId(students); const Z = byId(sessions); const B = byId(batches);
 
-  const pace = { slow: 0, right: 0, fast: 0 };
-  let sum = 0;
-  for (const r of reviews) { sum += r.rating; pace[r.pace] = (pace[r.pace] || 0) + 1; }
+  // An average per question, so a class that scored well but was understood by
+  // nobody shows the gap instead of hiding inside one number.
+  const averages = Object.fromEntries(SCORE_KEYS.map((k) => {
+    const sum = reviews.reduce((n, r) => n + (r[k] || 0), 0);
+    return [k, reviews.length ? Math.round((sum / reviews.length) * 10) / 10 : 0];
+  }));
 
   res.json({
-    // The filter list: every batch, so the page can offer Kickstarter and
-    // Generalist without a second request.
-    batches: batches.map((b) => ({ id: String(b._id), name: b.name, program: b.programId?.title || '' })),
-    summary: { count: reviews.length, avg: reviews.length ? Math.round((sum / reviews.length) * 10) / 10 : 0, pace },
+    // The filter tree: every batch with the programme it belongs to, so the
+    // page can offer programme tabs and the batches under each without a
+    // second request — and keep offering them while a filter is applied.
+    batches: batches.map((b) => ({
+      id: String(b._id),
+      name: b.name,
+      program: b.programId?.title || '',
+      programId: b.programId?._id ? String(b.programId._id) : '',
+    })),
+    summary: { count: reviews.length, averages },
     reviews: reviews.map((r) => ({
       id: String(r._id),
-      rating: r.rating,
-      pace: r.pace,
+      scores: Object.fromEntries(SCORE_KEYS.map((k) => [k, r[k] || 0])),
       comment: r.comment,
       attended: r.attended,
       createdAt: r.createdAt,
       student: { name: S[String(r.studentId)]?.fullName || '', email: S[String(r.studentId)]?.email || '' },
-      session: { title: Z[String(r.sessionId)]?.title || '', startsAt: Z[String(r.sessionId)]?.startsAt || null },
+      // The id travels so the page can group a class's reviews together —
+      // two classes can share a title across cohorts.
+      session: { id: String(r.sessionId), title: Z[String(r.sessionId)]?.title || '', startsAt: Z[String(r.sessionId)]?.startsAt || null },
       batch: B[String(r.batchId)]?.name || '',
     })),
   });
