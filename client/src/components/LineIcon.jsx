@@ -17,6 +17,7 @@ const ICONS = {
   menu: <><path d="M4 7h16" /><path d="M4 12h16" /><path d="M4 17h16" /></>,
   close: <><path d="m6 6 12 12" /><path d="m18 6-12 12" /></>,
   chat: <><path d="M21 11.5a8.38 8.38 0 0 1-8.5 8.5 8.5 8.5 0 0 1-3.8-.9L3 21l1.9-5.7A8.38 8.38 0 0 1 4 11.5 8.5 8.5 0 0 1 12.5 3 8.38 8.38 0 0 1 21 11.5z" /></>,
+  chevron: <><path d="m9 5 7 7-7 7" /></>,
 };
 
 export default function LineIcon({ name, size = 16, className = '' }) {

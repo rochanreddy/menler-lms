@@ -409,11 +409,30 @@ a:focus-visible,
 .notif-menu { position: absolute; top: 42px; right: 0; width: 320px; max-height: 420px; overflow-y: auto; background: #fff; border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); z-index: 50; }
 .notif-head { padding: 12px 16px; font-weight: 700; border-bottom: 1px solid var(--line); font-size: 14px; }
 .notif-empty { padding: 24px 16px; color: var(--muted); text-align: center; font-size: 14px; }
-.notif-item { display: block; width: 100%; text-align: left; background: none; border: 0; border-bottom: 1px solid var(--line-soft); padding: 11px 16px; cursor: pointer; font-family: var(--font); }
-.notif-item:hover { background: var(--line-soft); }
-.notif-item.unread { background: var(--violet-soft); }
-.notif-text { font-size: 13.5px; color: var(--ink); }
-.notif-time { font-size: 11px; color: var(--muted); margin-top: 3px; }
+/* A row is a destination, so it has to look like one: an icon to say what
+   kind of thing it is, and a chevron to say it goes somewhere. Only .is-link
+   gets the pointer and the chevron -- a notification with nowhere to go is a
+   plain row, because a row that looks clickable and isn't is worse than one
+   that never pretended. */
+.notif-item { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: start; gap: 10px;
+  width: 100%; text-align: left; background: none; border: 0; border-bottom: 1px solid var(--line-soft);
+  padding: 11px 14px; font-family: var(--font); }
+.notif-item.is-link { cursor: pointer; }
+.notif-item.is-link:hover { background: var(--violet-soft); }
+.notif-item.is-link:hover .notif-text { color: var(--violet); }
+.notif-item.is-link:hover .notif-go { color: var(--violet); transform: translateX(2px); }
+.notif-item.is-link:focus-visible { outline: 2px solid var(--violet); outline-offset: -2px; }
+.notif-mark { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%;
+  flex: none; margin-top: 1px; background: var(--line-soft); color: var(--muted); }
+.notif-item.unread .notif-mark { background: var(--violet-soft); color: var(--violet); }
+.notif-body { min-width: 0; display: block; }
+/* Unread is a left rule plus a weight change, never the tint alone -- the
+   violet wash disappears on a dim screen. */
+.notif-item.unread { background: var(--violet-soft); box-shadow: inset 2px 0 0 var(--violet); }
+.notif-item.unread .notif-text { font-weight: 600; }
+.notif-text { display: block; font-size: 13.5px; color: var(--ink); line-height: 1.4; }
+.notif-time { display: block; font-size: 11px; color: var(--muted); margin-top: 3px; }
+.notif-go { color: var(--line-strong); margin-top: 5px; transition: transform .15s ease, color .15s ease; }
 .who-name { font-size: 14px; font-weight: 500; }
 .avatar { width: 34px; height: 34px; border-radius: 50%; background: var(--indigo); color: var(--parchment); display: grid; place-items: center; font-weight: 700; font-family: var(--display); font-size: 14px; }
 /* Wide, but capped so long-form text keeps a readable measure. The deep bottom

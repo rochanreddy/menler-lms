@@ -2,8 +2,34 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api.js';
 import Empty from './Empty.jsx';
+import LineIcon from './LineIcon.jsx';
 
 // Live notification bell — polls, shows an unread badge, and a dropdown.
+//
+// A notification that goes somewhere has to LOOK like it goes somewhere. These
+// were plain paragraphs of text that happened to be buttons, so nobody clicked
+// them: they get an icon, a chevron and link-coloured text. One that has no
+// destination renders as a plain row instead — no pointer, no chevron — because
+// a row that looks clickable and does nothing is worse than one that doesn't.
+//
+// The glyph is drawn here rather than carried in the text. Notifications used
+// to be written with a leading emoji (📢, 🗓), which renders as a tofu box on
+// any machine missing that glyph — Windows shows several of them that way. The
+// stripper below also cleans the rows already stored with one.
+const ICON_FOR = {
+  doubt: 'chat',
+  announcement: 'megaphone',
+  assignment: 'upload',
+  quiz: 'slides',
+  grade: 'award',
+};
+
+/** Drop a leading emoji from text written before the icon existed. Escapes,
+ *  not the literal characters: a variation selector and a zero-width joiner
+ *  are invisible in source, and a regex nobody can read is a regex nobody can
+ *  safely change. */
+const clean = (text) => String(text || '').replace(/^[\p{Extended_Pictographic}\uFE0F\u200D\s]+/u, '');
+
 export default function NotificationBell() {
   const [items, setItems] = useState([]);
   const [unread, setUnread] = useState(0);
@@ -39,12 +65,25 @@ export default function NotificationBell() {
         <div className="notif-menu">
           <div className="notif-head">Notifications</div>
           {items.length === 0 && <div className="notif-empty"><Empty inline icon="forum" title="You’re all caught up." /></div>}
-          {items.map((n) => (
-            <button key={n._id} className={`notif-item ${n.read ? '' : 'unread'}`} onClick={() => go(n)}>
-              <div className="notif-text">{n.text}</div>
-              <div className="notif-time">{new Date(n.createdAt).toLocaleString()}</div>
-            </button>
-          ))}
+          {items.map((n) => {
+            const body = (
+              <>
+                <span className="notif-mark"><LineIcon name={ICON_FOR[n.type] || 'inbox'} size={15} /></span>
+                <span className="notif-body">
+                  <span className="notif-text">{clean(n.text)}</span>
+                  <span className="notif-time">{new Date(n.createdAt).toLocaleString()}</span>
+                </span>
+                {n.link && <span className="notif-go" aria-hidden="true"><LineIcon name="chevron" size={15} /></span>}
+              </>
+            );
+            return n.link ? (
+              <button key={n._id} className={`notif-item is-link ${n.read ? '' : 'unread'}`} onClick={() => go(n)}>
+                {body}
+              </button>
+            ) : (
+              <div key={n._id} className={`notif-item ${n.read ? '' : 'unread'}`}>{body}</div>
+            );
+          })}
         </div>
       )}
     </div>

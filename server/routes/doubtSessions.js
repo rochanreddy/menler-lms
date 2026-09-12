@@ -240,7 +240,9 @@ async function push(session) {
     : '';
   await notifyMany(students, {
     type: 'doubt',
-    text: `🗓 ${session.title}${when ? ` — ${when}` : ''}. Book your slot and tell us your doubts.`,
+    // No emoji in the text: the bell draws its own icon, and a glyph the
+    // reader's machine lacks renders as a tofu box.
+    text: `${session.title}${when ? ` — ${when}` : ''}. Book your slot and tell us your doubts.`,
     link: '/app/doubt-session',
   });
   await DoubtSession.updateOne(
