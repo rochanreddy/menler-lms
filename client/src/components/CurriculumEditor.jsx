@@ -4,6 +4,7 @@ import Empty from './Empty.jsx';
 import LessonIcon from './LessonIcon.jsx';
 import LineIcon from './LineIcon.jsx';
 import VdoCipherPicker from './VdoCipherPicker.jsx';
+import { VDOCIPHER_ENABLED } from '../features.js';
 import useMediaQuery, { MOBILE } from '../useMediaQuery.js';
 
 // Admin curriculum builder for one program. Upload a doc to auto-structure it,
@@ -187,31 +188,49 @@ export default function CurriculumEditor({ programId, batch, onClose }) {
                 </>
               )}
 
-              {selTopic.contentType === 'video' && (
-                batch ? (
-                  <LessonVideoPicker
-                    key={`${batch.id}-${selTopic._id || `${sel.mi}-${sel.ci}-${sel.ti}`}`}
-                    topic={selTopic}
-                    batch={batch}
+              {selTopic.contentType === 'video' && (!VDOCIPHER_ENABLED ? (
+                <>
+                  <label className="ce-label">
+                    Lesson video <span className="muted">(paste the Google Drive link — students open it in a new tab)</span>
+                  </label>
+                  <input
+                    className="ce-field"
+                    placeholder="https://drive.google.com/file/d/…/view or a folder link"
+                    value={selTopic.contentUrl || ''}
+                    onChange={(e) => setTopicField(sel.mi, sel.ci, sel.ti, { contentUrl: e.target.value })}
                   />
-                ) : (
-                  <>
-                    <label className="ce-label">Lesson video</label>
-                    <p className="muted">
-                      Videos are set per batch, so each cohort watches its own recording. Go back to
-                      Programs and open this lesson from a batch, “{program.title} · Sept 2026”, say,
-                      to attach one.
-                    </p>
-                  </>
-                )
-              )}
+                  {/* Said once, here: sharing is the step that actually decides
+                      whether a student can watch, and it is invisible from our
+                      side — a link that works for the admin who uploaded it
+                      fails silently for everyone else. */}
+                  <p className="muted">
+                    Set the file or folder to <strong>Anyone with the link → Viewer</strong> in Drive,
+                    or students will hit a request-access screen.
+                  </p>
+                </>
+              ) : batch ? (
+                <LessonVideoPicker
+                  key={`${batch.id}-${selTopic._id || `${sel.mi}-${sel.ci}-${sel.ti}`}`}
+                  topic={selTopic}
+                  batch={batch}
+                />
+              ) : (
+                <>
+                  <label className="ce-label">Lesson video</label>
+                  <p className="muted">
+                    Videos are set per batch, so each cohort watches its own recording. Go back to
+                    Programs and open this lesson from a batch, “{program.title} · Sept 2026”, say,
+                    to attach one.
+                  </p>
+                </>
+              ))}
 
               {/* Independent of content type — a reading lesson can still have
                   had a live class about it. */}
-              <label className="ce-label">Class link <span className="muted">(Zoom while it's live, YouTube once recorded. Leave empty and students see "Not available yet")</span></label>
+              <label className="ce-label">Class link <span className="muted">(Zoom while it's live, then the Google Drive or YouTube recording. Leave empty and students see "Video not available yet")</span></label>
               <input
                 className="ce-field"
-                placeholder="https://zoom.us/j/… or https://youtube.com/watch?v=…"
+                placeholder="https://zoom.us/j/… or https://drive.google.com/…"
                 value={selTopic.classLink || ''}
                 onChange={(e) => setTopicField(sel.mi, sel.ci, sel.ti, { classLink: e.target.value })}
               />

@@ -7,6 +7,7 @@ import LessonIcon from './LessonIcon.jsx';
 import LineIcon from './LineIcon.jsx';
 import Empty, { Loading } from './Empty.jsx';
 import VdoCipherPlayer from './VdoCipherPlayer.jsx';
+import { VDOCIPHER_ENABLED, isDirectVideoFile } from '../features.js';
 import Ring from './Ring.jsx';
 import useMediaQuery, { MOBILE } from '../useMediaQuery.js';
 
@@ -324,7 +325,12 @@ export default function Classroom() {
   // a student shouldn't have to work out which screen still offers the
   // reading. Only the very first landing screen has none, because nothing is
   // open yet for them to point at.
-  const toolsRow = ({ reading, notes, classLink, subtitle, done }) => (
+  // A lesson's video can be pasted in either of two places -- the class link
+  // (the recording of the live session) or the lesson's own video URL -- and a
+  // student does not care which box a mentor used. The chip lights for either.
+  const videoRow = ({ classLink, video }) => classLink || video || '';
+
+  const toolsRow = ({ reading, notes, classLink, video, subtitle, done }) => (
     <div className="reader-tools">
       <button className="rchip" disabled={!reading} title={reading ? undefined : 'Your mentor hasn’t attached the reading for this yet'} onClick={() => setViewer({ label: 'Reading Material', subtitle, url: reading })}>
         <LessonIcon type="pdf" size={14} /> {reading ? 'Reading material' : 'No reading yet'}
@@ -335,8 +341,8 @@ export default function Classroom() {
       {/* The class recording / live link. Kept as a chip even when there is
           nothing to open: a student who cannot see a video button assumes the
           video is missing; "not yet" tells them to come back. */}
-      {classLink ? (
-        <a className="rchip" href={classLink} target="_blank" rel="noreferrer"><LineIcon name="video" size={14} /> Watch class video</a>
+      {videoRow({ classLink, video }) ? (
+        <a className="rchip" href={videoRow({ classLink, video })} target="_blank" rel="noreferrer"><LineIcon name="video" size={14} /> Watch class video</a>
       ) : (
         <button className="rchip" disabled title="Your mentor hasn’t posted this class’s video yet"><LineIcon name="video" size={14} /> Video not available yet</button>
       )}
@@ -393,7 +399,7 @@ export default function Classroom() {
               </button>
             </div>
             <h1 className="reader-title">{page.title}</h1>
-            {toolsRow({ reading: fromLessons('readingUrl'), notes: fromLessons('notesUrl'), classLink: fromLessons('classLink'), subtitle: page.crumb })}
+            {toolsRow({ reading: fromLessons('readingUrl'), notes: fromLessons('notesUrl'), classLink: fromLessons('classLink'), video: fromLessons('contentUrl'), subtitle: page.crumb })}
             <div className="reader-read" aria-hidden="true"><span style={{ transform: `scaleX(${read})` }} /></div>
           </div>
         ) : (
@@ -412,7 +418,7 @@ export default function Classroom() {
             </button>
           </div>
           <h1 className="reader-title">{topic.title}</h1>
-          {toolsRow({ reading: readingUrl, notes: notesUrl, classLink: topic.classLink, subtitle: topic.title, done: isDone })}
+          {toolsRow({ reading: readingUrl, notes: notesUrl, classLink: topic.classLink, video: topic.contentType === 'video' ? topic.contentUrl : '', subtitle: topic.title, done: isDone })}
           {/* How far through the reading you are — fills as the body scrolls. */}
           <div className="reader-read" aria-hidden="true"><span style={{ transform: `scaleX(${read})` }} /></div>
         </div>
@@ -425,10 +431,14 @@ export default function Classroom() {
             </div>
           ) : (
           <div className="reader-inner">
-            {topic.contentType === 'video' && myVideo(topic._id) && (
+            {VDOCIPHER_ENABLED && topic.contentType === 'video' && myVideo(topic._id) && (
               <VdoCipherPlayer key={topic._id} fetchOtp={(takeover) => getLessonVideoOtp(myVideo(topic._id).batchId, topic._id, takeover)} />
             )}
-            {topic.contentType === 'video' && !myVideo(topic._id) && topic.contentUrl && <LessonVideo key={topic._id} url={topic.contentUrl} />}
+            {topic.contentType === 'video' && (!VDOCIPHER_ENABLED || !myVideo(topic._id)) && topic.contentUrl && (
+              isDirectVideoFile(topic.contentUrl)
+                ? <LessonVideo key={topic._id} url={topic.contentUrl} />
+                : <HostedVideo key={topic._id} url={topic.contentUrl} />
+            )}
             {topic.contentType === 'pdf' && topic.contentUrl && (
               <button type="button" className="btn" onClick={() => setViewer({ label: 'Lesson PDF', subtitle: topic.title, url: topic.contentUrl })}>📄 Open PDF</button>
             )}
@@ -568,6 +578,27 @@ export default function Classroom() {
 
 // Lesson video with a graceful failure path — a dead CDN link or an
 // unsupported codec should offer a retry and a direct link, not a black frame.
+// A video that lives somewhere else -- a Drive file or folder, YouTube, Loom.
+// It cannot be put in a <video> element (a Drive share link is an HTML page,
+// not a media file), and embedding Drive in an iframe breaks the moment the
+// folder's sharing changes. So this hands the student off to the source, and
+// says where it is going first -- an unlabelled new tab reads as a broken link.
+function HostedVideo({ url }) {
+  const drive = /drive\.google\.com|docs\.google\.com/i.test(url);
+  return (
+    <div className="panel lesson-video-link">
+      <div className="row" style={{ alignItems: 'center', gap: 'var(--space-3)' }}>
+        <LineIcon name="video" size={18} />
+        <div>
+          <strong>{drive ? 'This class’s video is on Google Drive' : 'Watch this class’s video'}</strong>
+          <div className="muted">Opens in a new tab{drive ? ', signed in with your own Google account' : ''}.</div>
+        </div>
+      </div>
+      <a className="btn" href={url} target="_blank" rel="noreferrer">Watch the video</a>
+    </div>
+  );
+}
+
 function LessonVideo({ url }) {
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
