@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { api } from '../../api.js';
 import AtRiskPanel from '../../components/AtRiskPanel.jsx';
@@ -13,6 +13,7 @@ export default function MentorHome() {
   const [pastSessions, setPastSessions] = useState([]);
   const [quizzes, setQuizzes] = useState([]);
   const [overview, setOverview] = useState([]);
+  const [liveClass, setLiveClass] = useState(null);
 
   useEffect(() => {
     api('/batches').then((d) => setBatches(d.batches || [])).catch(() => {});
@@ -22,6 +23,15 @@ export default function MentorHome() {
     api('/sessions?scope=past').then((d) => setPastSessions(d.sessions || [])).catch(() => {});
     api('/quizzes').then((d) => setQuizzes(d.quizzes || [])).catch(() => {});
     api('/attendance/overview').then((d) => setOverview(d.overview || [])).catch(() => {});
+    // The SAME endpoint the student home uses, rather than a second copy of
+    // the rule here. This page used to decide "is a class on" itself, with its
+    // own isToday() — which was fine while both meant "starts today", and
+    // wrong the moment the student side moved to a five-minute window. One
+    // definition, one place; a mentor and their students can no longer
+    // disagree about whether class is on.
+    api('/sessions/live')
+      .then((d) => setLiveClass(d.session ? { session: d.session, today: d.today, upcoming: !!d.upcoming, url: d.url, opensAt: d.opensAt, closesAt: d.closesAt } : null))
+      .catch(() => {});
   }, []);
 
   const students = batches.reduce((n, b) => n + (b.studentCount || 0), 0);
@@ -33,21 +43,6 @@ export default function MentorHome() {
   ];
   const chart = overview.filter((o) => o.total > 0);
 
-  // Same rule as the student home (GET /sessions/live): a session on TODAY's
-  // date wins; otherwise the next one coming up; only when none are left, the
-  // newest past one with its recording. Mentors don't mark their own
-  // attendance, so this is a plain join link — no attendance call on click.
-  const liveClass = useMemo(() => {
-    const isToday = (d) => {
-      const a = new Date(d), b = new Date();
-      return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
-    };
-    const today = sessions.find((s) => isToday(s.startsAt)) || pastSessions.find((s) => isToday(s.startsAt));
-    const next = today ? null : sessions[0]; // upcoming, soonest first
-    const session = today || next || pastSessions[0];
-    if (!session) return null;
-    return { session, today: !!today, upcoming: !!next, url: today ? session.joinUrl || '' : next ? '' : session.recordingUrl || '' };
-  }, [sessions, pastSessions]);
 
   return (
     <div>

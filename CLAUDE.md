@@ -346,14 +346,22 @@ response is one title per module, for the Generalist's single four-hour class
 per week (6 classes, not 12). The client computes the dates because "Saturdays
 7 pm" is a local-timezone fact.
 
-The Home live-class card (`GET /sessions/live`, mirrored client-side on the
-mentor Home) shows today's class with its Zoom link, else the next class with
-no link until its day, else the last class with its **recording** only — never
-a past class's Zoom link, which on a recurring meeting is the next class's room.
+The Home live-class card (`GET /sessions/live`, which the mentor Home now calls
+too rather than keeping a second copy of the rule) shows the class that is **on
+now** with its Zoom link, else the next class with no link until its window
+opens, else the last class with its **recording** only — never a past class's
+Zoom link, which on a recurring meeting is the next class's room.
+
+"Live" is a window, not a calendar day. It used to mean "starts today", so a
+7 pm class put a green Join button on Home from midnight and left it there
+until midnight again — a button that is live all day teaches students it means
+nothing in particular. The response carries `opensAt`/`closesAt` so the page
+flips at the boundary without a reload, and the localStorage cache is discarded
+once its window has passed.
 
 [utils/sessionTime.js](server/utils/sessionTime.js) defines when a class is
-"on" — 15 min before start to 1 h after end, 4 h assumed when there is no end
-— and all three sources of **present** use it: the LMS Join button, the Zoom
+"on" — **5 min before start to 5 min after end**, 4 h assumed when there is no
+end — and all three sources of **present** use it: the LMS Join button, the Zoom
 webhook, the mentor's register. Each class usually has its own Zoom link (set
 per row in the bulk form, or later with **Edit** on the session), but a course
 can also run on one recurring meeting — so the webhook matches a join to the

@@ -4,7 +4,7 @@ import { Session } from '../models/Session.js';
 import { Batch } from '../models/Batch.js';
 import { Attendance } from '../models/Attendance.js';
 import { canAccessBatch, myBatchIds } from '../utils/access.js';
-import { normMeetingId } from '../utils/sessionTime.js';
+import { EARLY_MS, isWithinWindow, joinWindow, normMeetingId } from '../utils/sessionTime.js';
 
 const router = Router();
 
@@ -71,32 +71,47 @@ router.get('/', requireAuth, async (req, res) => {
 // only if they're missing/invalid (defensive — every real caller sends them).
 router.get('/live', requireAuth, async (req, res) => {
   const batchIds = await myBatchIds(req.user);
-  const reqStart = new Date(req.query.dayStart);
-  const reqEnd = new Date(req.query.dayEnd);
-  const validRange = !Number.isNaN(+reqStart) && !Number.isNaN(+reqEnd) && reqEnd > reqStart;
-  const dayStart = validRange ? reqStart : new Date(new Date().toISOString().slice(0, 10));
-  const dayEnd = validRange ? reqEnd : new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
-
-  // Today's class first; failing that the NEXT one, so a cohort scheduled
-  // ahead of time shows its first class before it happens instead of an empty
-  // Home; only once nothing is left to come does the latest past class show.
+  const now = Date.now();
   const mine = { batchId: { $in: batchIds } };
-  const today = await Session.findOne({ ...mine, startsAt: { $gte: dayStart, $lt: dayEnd } }).populate('batchId', 'name').sort({ startsAt: 1 });
-  const next = today ? null : await Session.findOne({ ...mine, startsAt: { $gte: dayEnd } }).populate('batchId', 'name').sort({ startsAt: 1 });
-  const session = today || next || await Session.findOne({ ...mine, startsAt: { $lt: dayStart } }).populate('batchId', 'name').sort({ startsAt: -1 });
+
+  // "Live" is a WINDOW around the class, not a calendar day. It used to mean
+  // "starts today", which put a green Join button on Home from midnight and
+  // left it there until midnight again — so students joined an empty room
+  // hours early, and the one signal that should mean "your class is starting"
+  // meant nothing. Now it opens five minutes before and closes five minutes
+  // after the end (see utils/sessionTime.js).
+  //
+  // dayStart/dayEnd are still accepted from older clients and ignored: a
+  // window is an instant-to-instant fact, so it needs no timezone hint.
+  const near = await Session.find({
+    ...mine,
+    startsAt: { $gte: new Date(now - 24 * 60 * 60 * 1000), $lte: new Date(now + EARLY_MS) },
+  }).populate('batchId', 'name').sort({ startsAt: 1 });
+  const live = near.find((s) => isWithinWindow(s, now));
+
+  // Nothing on now → the next class (so a cohort scheduled ahead of time sees
+  // it coming), and only when there is nothing left, the last one for its
+  // recording.
+  const next = live ? null : await Session.findOne({ ...mine, startsAt: { $gt: new Date(now) } }).populate('batchId', 'name').sort({ startsAt: 1 });
+  const session = live || next || await Session.findOne({ ...mine, startsAt: { $lte: new Date(now) } }).populate('batchId', 'name').sort({ startsAt: -1 });
 
   if (!session) return res.json({ session: null, today: false, upcoming: false, url: '' });
 
+  const w = joinWindow(session);
   res.json({
-    session: { _id: session._id, title: session.title, startsAt: session.startsAt, batchId: session.batchId },
-    today: !!today,
+    session: { _id: session._id, title: session.title, startsAt: session.startsAt, endsAt: session.endsAt, batchId: session.batchId },
+    today: !!live,
     upcoming: !!next,
-    // Today → the Zoom link. A future class → no link yet: the Join button
-    // appears on the day, so an early click can't open an empty room and
-    // leave the student wondering why they weren't marked present. A past
-    // class → its recording only; with a recurring meeting its Zoom link is
-    // just the room the next class will use.
-    url: today ? session.joinUrl || '' : next ? '' : session.recordingUrl || '',
+    // Live → the Zoom link. A future class → no link yet: the Join button
+    // appears when the window opens, so an early click can't open an empty
+    // room and leave the student wondering why they weren't marked present. A
+    // past class → its recording only; with a recurring meeting its Zoom link
+    // is just the room the next class will use.
+    url: live ? session.joinUrl || '' : next ? '' : session.recordingUrl || '',
+    // When this answer stops being true. The client flips at the boundary on
+    // its own rather than showing a stale green bar until someone reloads.
+    opensAt: new Date(w.opens),
+    closesAt: new Date(w.closes),
     updatedAt: session.updatedAt,
   });
 });

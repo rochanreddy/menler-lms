@@ -7,8 +7,20 @@
 // the Join button already assumed before end times existed, kept so that
 // sessions scheduled before then behave exactly as they did.
 export const DEFAULT_LENGTH_MS = 4 * 60 * 60 * 1000;
-export const EARLY_MS = 15 * 60 * 1000; // doors open 15 min before the start
-export const LATE_MS = 60 * 60 * 1000; // …and stay open an hour past the end
+// Doors open 5 minutes before the start and shut 5 minutes after the end.
+//
+// This is deliberately tight. It used to be 15 minutes before and a full hour
+// after, and the Home card treated "starts today" as live — so a 7 pm class
+// put a green Join button on the page from midnight, and the room stayed
+// joinable until 11. A button that is live all day teaches students it means
+// nothing in particular; one that appears five minutes before the class is a
+// signal that the class is starting NOW.
+//
+// It is also the attendance window, so the same five minutes decide whether a
+// Zoom join belongs to this class. That is the intended trade: someone who
+// turns up more than five minutes after a class has ENDED did not attend it.
+export const EARLY_MS = 5 * 60 * 1000;
+export const LATE_MS = 5 * 60 * 1000;
 
 export const sessionStart = (s) => new Date(s.startsAt).getTime();
 export const sessionEnd = (s) => (s.endsAt ? new Date(s.endsAt).getTime() : sessionStart(s) + DEFAULT_LENGTH_MS);

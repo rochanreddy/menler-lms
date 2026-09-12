@@ -38,7 +38,15 @@ function readLiveCache(uid) {
     // over — the fresh fetch (already in flight) corrects it moments later,
     // but there's no reason to show a wrong label even that briefly.
     if (new Date(parsed.cachedAt).toDateString() !== new Date().toDateString()) return undefined;
-    return parsed.liveClass;
+    // A cached LIVE card is only good until its window shuts. Without this a
+    // student who had Home open at 8 pm sees a green "Join" bar on tomorrow
+    // morning's first paint, for a class that ended last night.
+    const lc = parsed.liveClass;
+    if (lc?.today && lc.closesAt && new Date(lc.closesAt).getTime() <= Date.now()) return undefined;
+    // …and a cached "next class" is stale the moment its window opens, or the
+    // student would be told to wait while the class is already running.
+    if (lc?.upcoming && lc.opensAt && new Date(lc.opensAt).getTime() <= Date.now()) return undefined;
+    return lc;
   } catch {
     return undefined;
   }
@@ -97,7 +105,7 @@ export default function StudentHome() {
   function fetchLiveClass() {
     const { dayStart, dayEnd } = localDayBounds();
     return api(`/sessions/live?dayStart=${encodeURIComponent(dayStart)}&dayEnd=${encodeURIComponent(dayEnd)}`)
-      .then((d) => ({ liveClass: d.session ? { session: d.session, today: d.today, upcoming: !!d.upcoming, url: d.url } : null, failed: false }))
+      .then((d) => ({ liveClass: d.session ? { session: d.session, today: d.today, upcoming: !!d.upcoming, url: d.url, opensAt: d.opensAt, closesAt: d.closesAt } : null, failed: false }))
       .catch(() => ({ liveClass: null, failed: true }));
   }
 
@@ -168,6 +176,31 @@ export default function StudentHome() {
 
     return () => { alive = false; };
   }, []);
+
+  // Flip at the window boundary without a reload. A student sitting on Home at
+  // 4:54 should watch the bar go green at 4:55, and watch it go at 9:05 —
+  // before this, the card was whatever it had been at page load, so the button
+  // either appeared late or lingered after the class was over. Re-asking the
+  // server at the boundary is more honest than ticking a local clock and
+  // hoping the two agree about when the class ended.
+  useEffect(() => {
+    if (!liveClass) return undefined;
+    const at = liveClass.today ? liveClass.closesAt : liveClass.upcoming ? liveClass.opensAt : null;
+    if (!at) return undefined;
+    const ms = new Date(at).getTime() - Date.now();
+    // A boundary further out than a day is not worth holding a timer for, and
+    // setTimeout saturates past ~24.8 days and would fire instantly.
+    if (ms <= 0 || ms > 24 * 60 * 60 * 1000) return undefined;
+    const timer = setTimeout(() => {
+      fetchLiveClass().then(({ liveClass: lc, failed }) => {
+        if (failed) return;
+        setLiveClass(lc);
+        writeLiveCache(user.id, lc);
+      });
+    }, ms + 1000); // a second past it, so the server agrees the boundary has passed
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveClass, user.id]);
 
   const done = useMemo(() => new Set(progress.completedTopics || []), [progress]);
 
