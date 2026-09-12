@@ -2471,3 +2471,50 @@ input:hover:not(:disabled):not(:focus), select:hover:not(:disabled):not(:focus),
 .device-row .muted { font-size: 12.5px; margin-top: 2px; }
 .device-tag { margin-left: 8px; padding: 2px 8px; border-radius: var(--pill); border: 1px solid var(--line);
   background: var(--line-soft); font-size: 11.5px; font-weight: 600; color: var(--muted); white-space: nowrap; }
+
+/* ── Doubt sessions ─────────────────────────────────────────────────────────
+   A slot grid, not a dropdown. What is left is the fact that decides whether
+   a student books at all, so it has to be visible without opening anything. */
+.slot-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(108px, 1fr));
+  gap: var(--space-2); margin-top: var(--space-3); }
+.slot { display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+  padding: var(--space-3); border: 1px solid var(--line); border-radius: var(--radius);
+  background: var(--card); font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.slot:hover:not(:disabled) { border-color: var(--violet); }
+.slot.on { border-color: var(--violet); background: var(--violet-soft); box-shadow: inset 0 0 0 1px var(--violet); }
+/* Taken and past both read as gone, and both carry their own word — the state
+   is never signalled by the dimming alone. */
+.slot.is-gone { opacity: .5; cursor: not-allowed; background: var(--line-soft); }
+.slot.is-mine { border-color: var(--green); background: var(--green-soft); }
+.slot-time { font-weight: 600; font-size: var(--text-base); }
+.slot-state { font-size: var(--text-xs); text-transform: uppercase; letter-spacing: .1em; color: var(--muted); }
+.slot.is-mine .slot-state { color: var(--green); }
+/* The admin's preview of a window they have not pushed yet: the same grid,
+   but nothing in it is clickable. */
+.slot-grid.is-preview .slot { cursor: default; }
+
+/* The Home strip while a session is open. */
+.live-cta.is-doubt { background: var(--card); color: var(--ink); border: 1px solid var(--violet-line); box-shadow: var(--shadow); }
+.live-cta.is-doubt .live-cta-mark { background: var(--violet-soft); color: var(--violet); }
+.live-cta.is-doubt .live-cta-eyebrow { color: var(--violet); }
+.live-cta.is-doubt.is-booked .live-cta-mark { background: var(--green-soft); color: var(--green); }
+.live-cta.is-doubt.is-booked .live-cta-eyebrow { color: var(--green); }
+
+/* The admin's booking sheet. */
+.ds-row { display: flex; flex-wrap: wrap; gap: var(--space-4); align-items: flex-end; }
+.ds-row > * { flex: 1 1 160px; min-width: 0; }
+.ds-batches { display: flex; flex-wrap: wrap; gap: var(--space-4); margin: var(--space-2) 0; }
+.ds-actions { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.ds-sheet { display: flex; flex-direction: column; }
+.ds-slot { display: grid; grid-template-columns: 5.5em minmax(0, 1fr); gap: var(--space-4);
+  padding: var(--space-3) 0; border-top: 1px solid var(--line-soft); }
+.ds-slot:first-child { border-top: 0; }
+.ds-slot-time { font-weight: 600; font-variant-numeric: tabular-nums; color: var(--muted); }
+.ds-slot.is-booked .ds-slot-time { color: var(--ink); }
+.ds-slot-body { min-width: 0; }
+.ds-slot-who { display: flex; align-items: baseline; gap: var(--space-2); flex-wrap: wrap; margin-bottom: var(--space-1); }
+.ds-slot-email { font-size: var(--text-sm); color: var(--muted); }
+
+@media (max-width: 720px) {
+  .ds-slot { grid-template-columns: 1fr; gap: var(--space-1); }
+}

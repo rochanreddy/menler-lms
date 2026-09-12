@@ -26,13 +26,15 @@ const PATHS = {
   account: <><circle cx="12" cy="8" r="4" /><path className="ico-draw" pathLength="1" d="M4 21c0-4 3.6-6 8-6s8 2 8 6" /></>,
   logout: <><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><path className="ico-draw" pathLength="1" d="M21 12H9" /><path className="ico-draw" pathLength="1" d="m16 17 5-5-5-5" /></>,
   grades: <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path className="ico-draw" pathLength="1" d="M14 2v6h6" /><path className="ico-draw" pathLength="1" d="m9 15 1.5 1.5L14 13" /></>,
+  // A question mark in a bubble — doubts are asked, not filed.
+  doubts: <><path d="M21 11.5a8.38 8.38 0 0 1-8.5 8.5 8.5 8.5 0 0 1-3.8-.9L3 21l1.9-5.7A8.38 8.38 0 0 1 4 11.5 8.5 8.5 0 0 1 12.5 3 8.38 8.38 0 0 1 21 11.5z" /><path className="ico-draw" pathLength="1" d="M10.3 9.3a2.2 2.2 0 0 1 4.2.8c0 1.5-2.2 2.2-2.2 2.2" /><path className="ico-draw" pathLength="1" d="M12.3 15.2h.01" /></>,
 };
 
 const ALIAS = {
   'Home': 'home', 'Learning': 'learning', 'Library': 'library', 'Forum': 'forum',
   'Profile': 'profile', 'Programs': 'programs', 'Batches': 'batches',
   'Mentors': 'mentors', 'Students': 'students', 'Webinar': 'webinar', 'Account': 'account', 'Grades': 'grades',
-  'Feedback': 'feedback',
+  'Feedback': 'feedback', 'Doubts': 'doubts',
 };
 
 export default function Icon({ name }) {

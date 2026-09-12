@@ -31,6 +31,8 @@ const AdminStudents = lazy(() => import('./pages/admin/Students.jsx'));
 const AdminStudentDetail = lazy(() => import('./pages/admin/StudentDetail.jsx'));
 const AdminMentorDetail = lazy(() => import('./pages/admin/MentorDetail.jsx'));
 const AdminFeedback = lazy(() => import('./pages/admin/Feedback.jsx'));
+const AdminDoubts = lazy(() => import('./pages/admin/Doubts.jsx'));
+const DoubtSession = lazy(() => import('./pages/DoubtSession.jsx'));
 
 // A placeholder page factory — renders the spec's sections for screens whose
 // backend is Phase 2.
@@ -54,7 +56,10 @@ export function extraRoutesFor(role) {
     return [{ path: 'students/:id', Component: AdminStudentDetail }, { path: 'profile', Component: Profile }];
   }
   if (role === 'student') {
-    return [{ path: 'profile', Component: Profile }];
+    // Not a dock tab: a doubt session is episodic, and a permanent tab that is
+    // empty most weeks teaches students to ignore it. It is reached from the
+    // notification and from the card on Home while one is open.
+    return [{ path: 'profile', Component: Profile }, { path: 'doubt-session', Component: DoubtSession }];
   }
   return [];
 }
@@ -88,6 +93,7 @@ export function navFor(role) {
         { label: 'Students', path: 'students', Component: AdminStudents },
         { label: 'Mentors', path: 'mentors', Component: AdminMentors },
         { label: 'Feedback', path: 'feedback', Component: AdminFeedback },
+        { label: 'Doubts', path: 'doubts', Component: AdminDoubts },
         { label: 'Library', path: 'library', Component: Library },
         { label: 'Webinar', path: 'webinar', Component: Webinar },
         { label: 'Forum', path: 'forum', Component: ph('Forum', [
