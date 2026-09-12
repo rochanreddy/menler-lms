@@ -28,13 +28,16 @@ const PATHS = {
   grades: <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path className="ico-draw" pathLength="1" d="M14 2v6h6" /><path className="ico-draw" pathLength="1" d="m9 15 1.5 1.5L14 13" /></>,
   // A question mark in a bubble — doubts are asked, not filed.
   doubts: <><path d="M21 11.5a8.38 8.38 0 0 1-8.5 8.5 8.5 8.5 0 0 1-3.8-.9L3 21l1.9-5.7A8.38 8.38 0 0 1 4 11.5 8.5 8.5 0 0 1 12.5 3 8.38 8.38 0 0 1 21 11.5z" /><path className="ico-draw" pathLength="1" d="M10.3 9.3a2.2 2.2 0 0 1 4.2.8c0 1.5-2.2 2.2-2.2 2.2" /><path className="ico-draw" pathLength="1" d="M12.3 15.2h.01" /></>,
+  // A life buoy: support is the thing you reach for when you are going under,
+  // and it is the one icon in the set nobody has to learn.
+  support: <><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="3.6" /><path className="ico-draw" pathLength="1" d="m5.6 5.6 3.9 3.9" /><path className="ico-draw" pathLength="1" d="m14.5 14.5 3.9 3.9" /><path className="ico-draw" pathLength="1" d="m18.4 5.6-3.9 3.9" /><path className="ico-draw" pathLength="1" d="m9.5 14.5-3.9 3.9" /></>,
 };
 
 const ALIAS = {
   'Home': 'home', 'Learning': 'learning', 'Library': 'library', 'Forum': 'forum',
   'Profile': 'profile', 'Programs': 'programs', 'Batches': 'batches',
   'Mentors': 'mentors', 'Students': 'students', 'Webinar': 'webinar', 'Account': 'account', 'Grades': 'grades',
-  'Feedback': 'feedback', 'Doubts': 'doubts',
+  'Feedback': 'feedback', 'Doubts': 'doubts', 'Support': 'support',
 };
 
 export default function Icon({ name }) {

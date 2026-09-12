@@ -69,6 +69,19 @@ export default function UserMenu({ user, logout }) {
             <span>Change password</span>
           </button>
 
+          {/* Students only: they are the ones who raise tickets, and this is
+              where people look for "help" when something has just broken. Not
+              a dock tab — see the note in nav.jsx. */}
+          {user.role === 'student' && (
+            <>
+              <div className="who-menu-sep" />
+              <button className="who-menu-item" role="menuitem" onClick={() => go('/app/support')}>
+                <Icon name="support" />
+                <span>Help &amp; support</span>
+              </button>
+            </>
+          )}
+
           <div className="who-menu-sep" />
 
           <button className="who-menu-item danger" role="menuitem" onClick={() => { setOpen(false); logout(); }}>

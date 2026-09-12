@@ -32,6 +32,7 @@ import { Announcement } from '../models/Announcement.js';
 import { Doubt } from '../models/Doubt.js';
 import { LibraryItem } from '../models/LibraryItem.js';
 import { Notification } from '../models/Notification.js';
+import { SupportTicket } from '../models/SupportTicket.js';
 import { hashPassword } from '../utils/password.js';
 import {
   kickstarterModules,
@@ -306,6 +307,7 @@ async function run() {
     console.log(`• cleared         ${oldIds.length} previous batch(es) and their content`);
   }
   await Progress.deleteMany({ studentId: { $in: students.map((s) => s.doc._id) } });
+  await SupportTicket.deleteMany({ studentId: { $in: students.map((s) => s.doc._id) } });
   await Notification.deleteMany({ userId: { $in: [...students, ...mentors].map((s) => s.doc._id) } });
 
   // ── Batches: eight weeks in, six to go ──
@@ -574,6 +576,71 @@ async function run() {
     counts.notifs += notifs.length;
   }
 
+  // ── Support desk: one ticket in each state ──
+  //
+  // Three, not thirty. The admin's desk needs to show what each state looks
+  // like — waiting, answered, closed — and a fixture that buries that under a
+  // wall of invented complaints teaches nothing about the screen.
+  const ticketFor = (student, batch, extra) => ({
+    studentId: student.doc._id,
+    batchId: batch._id,
+    ...extra,
+  });
+  const kCohort = batches.K.students;
+  const gStudent = batches.G.students[0];
+  const supportTickets = [
+    ticketFor(kCohort[2], batches.K.doc, {
+      category: 'classes',
+      subject: 'Saturday’s recording asks me for access',
+      status: 'open',
+      lastMessageAt: new Date(now - 6 * 3600_000),
+      messages: [{
+        authorId: kCohort[2].doc._id, authorRole: 'student',
+        text: 'The recording link on last Saturday’s class opens a “request access” page for me. I’m signed in with the same email I use here.',
+        createdAt: new Date(now - 6 * 3600_000),
+      }],
+    }),
+    ticketFor(kCohort[3], batches.K.doc, {
+      category: 'access',
+      subject: 'Signed out every time I open it on my phone',
+      status: 'answered',
+      lastMessageAt: new Date(now - 1 * DAY),
+      messages: [
+        {
+          authorId: kCohort[3].doc._id, authorRole: 'student',
+          text: 'Every time I open the LMS on my phone I have to log in again, and then my laptop logs out.',
+          createdAt: new Date(now - 2 * DAY),
+        },
+        {
+          authorId: admin._id, authorRole: 'admin',
+          text: 'That is the one-device rule doing its job — an account is meant to be signed in on one device at a time. Pick the device you study on and stay on it; switching is fine, it just signs the other one out.',
+          createdAt: new Date(now - 1 * DAY),
+        },
+      ],
+    }),
+    ticketFor(gStudent, batches.G.doc, {
+      category: 'payments',
+      subject: 'Fee receipt has last month’s date',
+      status: 'resolved',
+      lastMessageAt: new Date(now - 5 * DAY),
+      resolvedAt: new Date(now - 5 * DAY),
+      resolvedBy: admin._id,
+      messages: [
+        {
+          authorId: gStudent.doc._id, authorRole: 'student',
+          text: 'My receipt shows June but I paid in July. I need it right for reimbursement.',
+          createdAt: new Date(now - 6 * DAY),
+        },
+        {
+          authorId: admin._id, authorRole: 'admin',
+          text: 'Reissued with the correct date — it is on its way to your email. Sorry about that.',
+          createdAt: new Date(now - 5 * DAY),
+        },
+      ],
+    }),
+  ];
+  await SupportTicket.create(supportTickets);
+
   // ── Library (global) ──
   await LibraryItem.deleteMany({ title: /^\[seed\]/ });
   await LibraryItem.create([
@@ -593,6 +660,7 @@ async function run() {
   console.log(`✓ doubts          ${counts.doubts} threads with likes and mentor answers`);
   console.log(`✓ shares          ${counts.shares} shared learnings on the forum's other board`);
   console.log(`✓ notifications   ${counts.notifs}`);
+  console.log(`✓ support         ${supportTickets.length} tickets (one waiting · one answered · one resolved)`);
   console.log('✓ library         5 items');
 
   console.log('\n─────────── logins (all seeded accounts share one password) ───────────\n');

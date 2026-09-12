@@ -33,6 +33,8 @@ const AdminMentorDetail = lazy(() => import('./pages/admin/MentorDetail.jsx'));
 const AdminFeedback = lazy(() => import('./pages/admin/Feedback.jsx'));
 const AdminDoubts = lazy(() => import('./pages/admin/Doubts.jsx'));
 const DoubtSession = lazy(() => import('./pages/DoubtSession.jsx'));
+const Support = lazy(() => import('./pages/Support.jsx'));
+const AdminSupport = lazy(() => import('./pages/admin/Support.jsx'));
 
 // A placeholder page factory — renders the spec's sections for screens whose
 // backend is Phase 2.
@@ -56,10 +58,17 @@ export function extraRoutesFor(role) {
     return [{ path: 'students/:id', Component: AdminStudentDetail }, { path: 'profile', Component: Profile }];
   }
   if (role === 'student') {
-    // Not a dock tab: a doubt session is episodic, and a permanent tab that is
-    // empty most weeks teaches students to ignore it. It is reached from the
-    // notification and from the card on Home while one is open.
-    return [{ path: 'profile', Component: Profile }, { path: 'doubt-session', Component: DoubtSession }];
+    // Neither of these is a dock tab, for the same reason: both are episodic.
+    // A doubt session is empty most weeks, and support is where you go on the
+    // day something breaks — a permanent tab for either would crowd the six a
+    // student uses constantly and teach them to ignore the dock. The doubt
+    // session is reached from its notification and the Home card; support from
+    // the account menu, ⌘K, and the notification that a reply has landed.
+    return [
+      { path: 'profile', Component: Profile },
+      { path: 'doubt-session', Component: DoubtSession },
+      { path: 'support', Component: Support },
+    ];
   }
   return [];
 }
@@ -95,6 +104,7 @@ export function navFor(role) {
         { label: 'Mentors', path: 'mentors', Component: AdminMentors },
         { label: 'Feedback', path: 'feedback', Component: AdminFeedback },
         { label: 'Doubts', path: 'doubts', Component: AdminDoubts },
+        { label: 'Support', path: 'support', Component: AdminSupport },
         { label: 'Library', path: 'library', Component: Library },
         { label: 'Webinar', path: 'webinar', Component: Webinar },
         { label: 'Forum', path: 'forum', Component: ph('Forum', [

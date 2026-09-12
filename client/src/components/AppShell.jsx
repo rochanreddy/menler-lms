@@ -144,7 +144,7 @@ export default function AppShell({ user, setUser, logout }) {
         ))}
       </nav>
 
-      <CommandPalette open={cmdOpen} onClose={() => setCmdOpen(false)} tabs={tabs} onLogout={logout} />
+      <CommandPalette open={cmdOpen} onClose={() => setCmdOpen(false)} tabs={tabs} role={user.role} onLogout={logout} />
     </div>
   );
 }

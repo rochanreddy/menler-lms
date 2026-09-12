@@ -2556,3 +2556,48 @@ input:hover:not(:disabled):not(:focus), select:hover:not(:disabled):not(:focus),
 .lesson-video-link { display: flex; align-items: center; justify-content: space-between;
   gap: var(--space-4); flex-wrap: wrap; }
 .lesson-video-link .muted { font-size: 13px; margin-top: 2px; }
+
+/* ── Support ────────────────────────────────────────────────────────────────
+   The student help desk and the admin's side of it. Both render the same
+   thread, so the thread has one set of classes: what differs is only whose
+   messages sit on which side — .is-mine is always the reader's own.
+
+   The state pill borrows the work-state token pairs rather than minting new
+   colours. A ticket in the admin's queue IS a piece of work moving through a
+   lifecycle, which is exactly what that scale describes; it never labels a
+   person, so the rule the tokens set out is kept. */
+.sup-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); flex-wrap: wrap; }
+.sup-head-main { min-width: 0; flex: 1 1 240px; }
+/* The admin's title doubles as the disclosure control, so it is a real button —
+   keyboard-reachable and announced — wearing the heading's clothes. */
+.sup-head-btn { display: block; width: 100%; text-align: left; border: 0; background: none; padding: 0; cursor: pointer; font: inherit; color: inherit; }
+.sup-head-btn:hover h3 { color: var(--violet); }
+.sup-head-side { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+
+.sup-state { display: inline-flex; align-items: center; gap: 6px; flex: none;
+  padding: 4px 10px; border-radius: var(--pill); font-size: 12px; font-weight: 650; white-space: nowrap; }
+.sup-state::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.sup-state[data-state='open'] { color: var(--status-in-progress); background: var(--status-in-progress-bg); }
+.sup-state[data-state='answered'] { color: var(--status-submitted); background: var(--status-submitted-bg); }
+.sup-state[data-state='resolved'] { color: var(--status-graded); background: var(--status-graded-bg); }
+
+/* The first line of the ticket in the collapsed row: enough to recognise it,
+   never enough to read it here instead of opening it. */
+.sup-peek { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.5;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+.sup-thread { display: flex; flex-direction: column; gap: var(--space-3); }
+.sup-msg { max-width: min(46rem, 88%); padding: 10px 14px; border-radius: 14px; }
+.sup-msg.is-them { align-self: flex-start; background: var(--line-soft); border-bottom-left-radius: 5px; }
+.sup-msg.is-mine { align-self: flex-end; background: var(--violet-soft); border-bottom-right-radius: 5px; }
+.sup-msg-who { font-size: 11.5px; font-weight: 650; color: var(--muted); margin-bottom: 3px; }
+/* Typed text keeps the line breaks it was typed with — a support message is
+   often a numbered list of what the person tried. */
+.sup-msg-text { margin: 0; font-size: 14.5px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+.sup-actions { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.sup-filters { display: flex; flex-direction: column; gap: var(--space-3); }
+
+@media (max-width: 720px) {
+  .sup-msg { max-width: 100%; }
+}

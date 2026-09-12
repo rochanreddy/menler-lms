@@ -12,6 +12,7 @@ import { Assignment } from '../models/Assignment.js';
 import { Submission } from '../models/Submission.js';
 import { Doubt } from '../models/Doubt.js';
 import { Announcement } from '../models/Announcement.js';
+import { SupportTicket } from '../models/SupportTicket.js';
 import { generalistModules } from './curricula.js';
 
 const BASE = process.env.LMS_API || 'http://localhost:4100/api/lms';
@@ -358,6 +359,56 @@ async function run() {
   const adminOnMentor = await call(`/users/${(mentorsList.json.users || [])[0].id}/blocks`, { token: mentorAll.token, method: 'PATCH', body: { lms: true } });
   ok('a mentor cannot block anyone', adminOnMentor.status === 403, `got ${adminOnMentor.status}`);
 
+  // ────────────────────────────────── Support desk
+  // A student reports a problem, the admin answers it, the student sees the
+  // answer — and a mentor can see none of it, which is the point: a support
+  // ticket is between the student and the admin.
+  section('SUPPORT');
+  const rawTicket = await call('/support', {
+    token: sK.token,
+    method: 'POST',
+    body: { subject: `${FLOW} ticket`, category: 'access', message: `${FLOW} the recording will not open for me.` },
+  });
+  ok('student raises a support ticket', rawTicket.status === 201, `got ${rawTicket.status}`);
+  const ticketId = rawTicket.json?.ticket?._id;
+  ok('…and it starts waiting on the team', rawTicket.json?.ticket?.status === 'open', `status=${rawTicket.json?.ticket?.status}`);
+
+  const mineTickets = await call('/support/mine', { token: sK.token });
+  ok('student sees their own tickets', (mineTickets.json.tickets || []).some((t) => t._id === ticketId), `got ${(mineTickets.json.tickets || []).length}`);
+  const othersTickets = await call('/support/mine', { token: sBoth.token });
+  ok('…and another student does NOT see it', !(othersTickets.json.tickets || []).some((t) => t._id === ticketId));
+
+  const mentorDesk = await call('/support', { token: mentorAll.token });
+  ok('a mentor is refused the support desk', mentorDesk.status === 403, `got ${mentorDesk.status}`);
+  const studentDesk = await call('/support', { token: sK.token });
+  ok('a student is refused it too', studentDesk.status === 403, `got ${studentDesk.status}`);
+
+  const desk = await call('/support?status=open', { token: admin.token });
+  ok('admin sees the ticket on the desk', (desk.json.tickets || []).some((t) => t._id === ticketId), `got ${(desk.json.tickets || []).length} open`);
+  ok('…with the student named on it', (desk.json.tickets || []).find((t) => t._id === ticketId)?.student?.email === 'aarav.sharma@student.menler.in',
+    (desk.json.tickets || []).find((t) => t._id === ticketId)?.student?.email);
+
+  const otherStudentReply = await call(`/support/${ticketId}/reply`, { token: sBoth.token, method: 'POST', body: { text: 'not mine' } });
+  ok('another student cannot reply on it', otherStudentReply.status === 403, `got ${otherStudentReply.status}`);
+
+  const adminReply = await call(`/support/${ticketId}/reply`, { token: admin.token, method: 'POST', body: { text: `${FLOW} try it in Chrome — re-shared now.` } });
+  ok('admin replies', adminReply.status === 200, `got ${adminReply.status}`);
+  ok('…and the ball moves to the student', adminReply.json?.ticket?.status === 'answered', `status=${adminReply.json?.ticket?.status}`);
+
+  const afterReply = await call('/support/mine', { token: sK.token });
+  const seen = (afterReply.json.tickets || []).find((t) => t._id === ticketId);
+  ok('student sees the reply on their ticket', (seen?.messages || []).length === 2, `${seen?.messages?.length} messages`);
+  const notes = await call('/notifications', { token: sK.token });
+  ok('…and was notified about it', (notes.json.items || []).some((n) => n.type === 'support'));
+
+  const resolved = await call(`/support/${ticketId}`, { token: admin.token, method: 'PATCH', body: { status: 'resolved' } });
+  ok('admin resolves the ticket', resolved.json?.ticket?.status === 'resolved', `got ${resolved.status}`);
+  const reopened = await call(`/support/${ticketId}/reply`, { token: sK.token, method: 'POST', body: { text: `${FLOW} still broken.` } });
+  ok('a student reply reopens a resolved ticket', reopened.json?.ticket?.status === 'open', `status=${reopened.json?.ticket?.status}`);
+
+  const mentorResolves = await call(`/support/${ticketId}`, { token: mentorAll.token, method: 'PATCH', body: { status: 'resolved' } });
+  ok('a mentor cannot close a ticket', mentorResolves.status === 403, `got ${mentorResolves.status}`);
+
   // ────────────────────────────────── Single active session + watch lock
   section('SINGLE ACTIVE SESSION');
 
@@ -434,9 +485,10 @@ async function run() {
   const rmAssign = await Assignment.deleteMany({ _id: { $in: strayAssignments.map((a) => a._id) } });
   const rmDoubts = await Doubt.deleteMany({ text: new RegExp(`^${FLOW}`) });
   const rmAnns = await Announcement.deleteMany({ title: new RegExp(`^${FLOW}`) });
+  const rmTickets = await SupportTicket.deleteMany({ subject: new RegExp(`^${FLOW}`) });
   await mongoose.disconnect();
   ok('this run left nothing behind', true,
-    `${rmAssign.deletedCount} assignment · ${rmSubs.deletedCount} submission · ${rmDoubts.deletedCount} doubt · ${rmAnns.deletedCount} announcement removed`);
+    `${rmAssign.deletedCount} assignment · ${rmSubs.deletedCount} submission · ${rmDoubts.deletedCount} doubt · ${rmAnns.deletedCount} announcement · ${rmTickets.deletedCount} ticket removed`);
 
   // ────────────────────────────────── Summary
   console.log(`\n═══════════════════════════════════════`);

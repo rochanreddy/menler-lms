@@ -26,6 +26,7 @@ import searchRoutes from './search.js';
 import reportRoutes from './reports.js';
 import lessonVideoRoutes from './lessonVideos.js';
 import playbackRoutes from './playback.js';
+import supportRoutes from './support.js';
 
 const router = Router();
 
@@ -60,5 +61,6 @@ router.use('/search', searchRoutes); // universal ⌘K search across everything 
 router.use('/reports', reportRoutes); // admin CSV exports
 router.use('/lesson-videos', lessonVideoRoutes); // VdoCipher video ↔ lesson, per batch
 router.use('/playback', playbackRoutes); // the one-device-at-a-time watch lock
+router.use('/support', supportRoutes); // student help desk, answered by the admin
 
 export default router;

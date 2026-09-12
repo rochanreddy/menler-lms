@@ -18,6 +18,7 @@ const ICONS = {
   close: <><path d="m6 6 12 12" /><path d="m18 6-12 12" /></>,
   chat: <><path d="M21 11.5a8.38 8.38 0 0 1-8.5 8.5 8.5 8.5 0 0 1-3.8-.9L3 21l1.9-5.7A8.38 8.38 0 0 1 4 11.5 8.5 8.5 0 0 1 12.5 3 8.38 8.38 0 0 1 21 11.5z" /></>,
   chevron: <><path d="m9 5 7 7-7 7" /></>,
+  lifebuoy: <><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="3.6" /><path d="m5.6 5.6 3.9 3.9" /><path d="m14.5 14.5 3.9 3.9" /><path d="m18.4 5.6-3.9 3.9" /><path d="m9.5 14.5-3.9 3.9" /></>,
 };
 
 export default function LineIcon({ name, size = 16, className = '' }) {
