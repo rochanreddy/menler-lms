@@ -7,6 +7,8 @@ import MenlerWordmark from './MenlerWordmark.jsx';
 import CommandPalette from './CommandPalette.jsx';
 import UserMenu from './UserMenu.jsx';
 import ErrorBoundary from './ErrorBoundary.jsx';
+import ClassReviewGate from './ClassReviewGate.jsx';
+import { api } from '../api.js';
 
 // Dock items whose chunk is worth fetching on hover/focus rather than on click.
 // Only the two a student lands on constantly — prefetching every tab would just
@@ -53,6 +55,21 @@ export default function AppShell({ user, setUser, logout }) {
     return () => { document.body.style.overflow = ''; };
   }, [cmdOpen]);
 
+  // The review a student owes for their last class, asked over the whole app
+  // before anything else. Asked for once per load: the queue shrinks from the
+  // submit response, so no re-request is needed to know when they are through.
+  const [pendingReview, setPendingReview] = useState(null);
+  useEffect(() => {
+    if (user.role !== 'student') return undefined;
+    let alive = true;
+    // A failure here must never lock a student out of the LMS, so it leaves
+    // the gate closed and the review is asked for on the next load.
+    api('/reviews/pending')
+      .then((d) => { if (alive && d?.session) setPendingReview(d); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [user.role]);
+
   // Otherwise a new object every render (command palette toggles, the scroll
   // "stuck" flag) re-renders every one of the ten useOutletContext() readers
   // below, even though only user/logout ever actually change.
@@ -79,6 +96,21 @@ export default function AppShell({ user, setUser, logout }) {
 
         <UserMenu user={user} logout={logout} />
       </header>
+
+      {/* Over everything, including the dock: the review is the first thing a
+          student does after a class. Cleared only by answering. */}
+      {pendingReview && (
+        <ClassReviewGate
+          key={pendingReview.session._id}
+          pending={pendingReview}
+          onDone={(remaining) => {
+            if (!remaining) { setPendingReview(null); return; }
+            // More classes queued: ask the server which is next rather than
+            // guessing, so the gate always names the right class.
+            api('/reviews/pending').then((d) => setPendingReview(d?.session ? d : null)).catch(() => setPendingReview(null));
+          }}
+        />
+      )}
 
       {/* keyed on the route so each page fades in — movement between sections
           reads as a change of place rather than a flicker. */}

@@ -1241,6 +1241,20 @@ h1.md-h { font-size: 22px; } h2.md-h { font-size: 19px; } h3.md-h { font-size: 1
 /* Session list */
 .session-list { display: flex; flex-direction: column; gap: 10px; margin-top: 18px; }
 .session-row { display: flex; align-items: center; gap: 16px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); }
+/* ── Class review gate ── the whole app, behind a single question. */
+.review-gate { position: fixed; inset: 0; z-index: 200; display: flex; align-items: center; justify-content: center; padding: 20px; background: rgba(27, 22, 64, .55); backdrop-filter: blur(3px); overflow-y: auto; }
+.review-card { width: min(560px, 100%); background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 28px; box-shadow: var(--shadow); }
+.review-gate-sub { margin: 6px 0 0; line-height: 1.6; }
+.review-field { margin-top: 22px; }
+.review-label { display: block; font-size: 13.5px; font-weight: 600; color: var(--ink); margin-bottom: 8px; }
+.review-stars { display: flex; align-items: center; gap: 6px; }
+.review-star { background: none; border: 0; cursor: pointer; font-size: 30px; line-height: 1; padding: 0 2px; color: var(--line-strong); transition: color .12s, transform .12s; }
+.review-star:hover { transform: scale(1.08); }
+.review-star.on { color: #E8B004; }
+.review-star-word { margin-left: 10px; font-size: 13.5px; }
+.review-comment { width: 100%; resize: vertical; font: inherit; font-size: 14px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); color: var(--ink); }
+.review-comment:focus-visible { outline: 2px solid var(--violet); outline-offset: 1px; }
+
 .session-row:hover { border-color: var(--line-strong); }
 /* An open edit form takes its own full-width line under the row. */
 .session-row:has(.session-edit) { flex-wrap: wrap; }
