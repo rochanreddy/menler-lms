@@ -18,6 +18,7 @@ import LineIcon from './LineIcon.jsx';
 // stripper below also cleans the rows already stored with one.
 const ICON_FOR = {
   doubt: 'chat',
+  webinar: 'video',
   announcement: 'megaphone',
   assignment: 'upload',
   quiz: 'slides',

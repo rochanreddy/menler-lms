@@ -74,6 +74,7 @@ export function navFor(role) {
         { label: 'Learning', path: 'learning', Component: Learning },
         { label: 'Grades', path: 'grades', Component: StudentGrades },
         { label: 'Library', path: 'library', Component: Library },
+        { label: 'Webinar', path: 'webinar', Component: Webinar },
         { label: 'Forum', path: 'forum', Component: Forum },
       ];
     case 'mentor':
