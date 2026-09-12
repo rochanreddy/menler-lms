@@ -201,6 +201,21 @@ rule must not unlock the video.
 Anything that invalidates an account (password reset or change, an admin block)
 closes its sessions and drops its lease.
 
+### Webinars
+
+Masterclasses, scheduled by an admin and open to **everyone** — they carry no
+batch, because a guest session is worth the same to either cohort. All three
+roles share [pages/mentor/Webinar.jsx](client/src/pages/mentor/Webinar.jsx);
+only the scheduling form is gated on `role === 'admin'`. The page splits
+upcoming from past, since a learner arrives asking "what's next and how do I
+get in", not "what happened in July".
+
+Scheduling one notifies every student and mentor, and so does the **recording**
+appearing — the one edit worth interrupting people for, and only on the
+transition from absent to present, so re-saving a link stays silent. Nothing
+else about an edit notifies. Before this the webinar existed only for whoever
+thought to open the tab, and students had no tab at all.
+
 ### Doubt sessions
 
 An admin announces one from the **Doubts** tab: a programme, which of its
