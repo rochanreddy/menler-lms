@@ -20,6 +20,7 @@ import zoomRoutes from './zoom.js';
 import progressRoutes from './progress.js';
 import notificationRoutes from './notifications.js';
 import announcementRoutes from './announcements.js';
+import doubtSessionRoutes from './doubtSessions.js';
 import gradeRoutes from './grades.js';
 import searchRoutes from './search.js';
 import reportRoutes from './reports.js';
@@ -53,6 +54,7 @@ router.use('/zoom', zoomRoutes); // public webhook (signature-verified)
 router.use('/progress', progressRoutes);
 router.use('/notifications', notificationRoutes);
 router.use('/announcements', announcementRoutes);
+router.use('/doubt-sessions', doubtSessionRoutes); // slot-booked doubt clearing, admin-announced
 router.use('/grades', gradeRoutes);
 router.use('/search', searchRoutes); // universal ⌘K search across everything you can see
 router.use('/reports', reportRoutes); // admin CSV exports
