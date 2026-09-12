@@ -201,6 +201,27 @@ rule must not unlock the video.
 Anything that invalidates an account (password reset or change, an admin block)
 closes its sessions and drops its lease.
 
+### Forgotten passwords
+
+Three steps on the login page itself: `POST /auth/forgot` mails a six-digit
+code, `POST /auth/verify-otp` trades a correct code for a one-time ticket, and
+`POST /auth/reset` spends the ticket. **The code is emailed; the ticket never
+is** — six digits is only safe while it is short-lived and guess-limited, so
+all it buys is a proper 256-bit token, which is what authorises the change.
+
+Codes are stored as salted hashes and compared in constant time; five wrong
+guesses burn the code, counted on the **account** so spreading the guessing
+around buys no more of them; `/forgot` is limited per recipient as well as per
+IP, or one IP limit still allows mail-bombing one person. A wrong code and an
+address with no account get the identical reply, so this never becomes the
+enumeration oracle `/forgot` deliberately isn't. Asking for a new code voids
+any ticket already issued, and a reset clears `mustChangePassword` — they just
+chose their own password.
+
+**The mail carries no link and no button**, which is why `shell()` treats `cta`
+as optional. A password-reset email is the most impersonated message there is,
+and one that never asks you to click anything cannot train its readers to click.
+
 ### Webinars
 
 Masterclasses, scheduled by an admin and open to **everyone** — they carry no
