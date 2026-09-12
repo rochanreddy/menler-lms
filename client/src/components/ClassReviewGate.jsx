@@ -7,17 +7,41 @@ import { api } from '../api.js';
 // they get round to it" is feedback from the few who do, and the point of
 // asking every student is a complete picture of how the class landed. Escape
 // closes nothing and there is no dismiss — the only way out is to answer.
-const PACES = [
-  ['slow', 'Too slow'],
-  ['right', 'Just right'],
-  ['fast', 'Too fast'],
+//
+// Four scores rather than one, because they fail apart: a class can be
+// enjoyable and still teach nobody anything, and that gap is the signal worth
+// having. The scale is stated once, at the top — a bare row of stars leaves
+// half a cohort guessing which end is good.
+const QUESTIONS = [
+  ['overall', 'How would you rate today’s session?'],
+  ['useful', 'How useful was the session for you?'],
+  ['understanding', 'How well did you understand what was taught?'],
+  ['instructor', 'How would you rate the instructor and session experience?'],
 ];
-const RATING_WORDS = ['', 'Poor', 'Not great', 'Fine', 'Good', 'Excellent'];
+const WORDS = ['', 'Poor', 'Not great', 'Fine', 'Good', 'Excellent'];
+
+function StarRow({ id, value, onPick }) {
+  return (
+    <div className="review-stars" role="radiogroup" aria-labelledby={id}>
+      {[1, 2, 3, 4, 5].map((n) => (
+        <button
+          key={n}
+          type="button"
+          className={`review-star ${value >= n ? 'on' : ''}`}
+          role="radio"
+          aria-checked={value === n}
+          aria-label={`${n} of 5`}
+          onClick={() => onPick(n)}
+        >★</button>
+      ))}
+      <span className="muted review-star-word">{WORDS[value] || ''}</span>
+    </div>
+  );
+}
 
 export default function ClassReviewGate({ pending, onDone }) {
   const { session, remaining } = pending;
-  const [rating, setRating] = useState(0);
-  const [pace, setPace] = useState('');
+  const [scores, setScores] = useState({});
   const [comment, setComment] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
@@ -29,16 +53,16 @@ export default function ClassReviewGate({ pending, onDone }) {
   }, []);
 
   // A fresh, empty form for the next class in the queue.
-  useEffect(() => { setRating(0); setPace(''); setComment(''); setErr(''); }, [session._id]);
+  useEffect(() => { setScores({}); setComment(''); setErr(''); }, [session._id]);
 
   async function submit(e) {
     e.preventDefault();
     if (busy) return;
-    if (!rating) { setErr('Pick a rating.'); return; }
-    if (!pace) { setErr('Tell us how the pace felt.'); return; }
+    const missing = QUESTIONS.find(([key]) => !scores[key]);
+    if (missing) { setErr('Please answer all four ratings.'); return; }
     setErr(''); setBusy(true);
     try {
-      const r = await api(`/reviews/${session._id}`, { method: 'POST', body: { rating, pace, comment } });
+      const r = await api(`/reviews/${session._id}`, { method: 'POST', body: { ...scores, comment } });
       onDone(r.remaining || 0);
     } catch (e2) { setErr(e2.message); setBusy(false); }
   }
@@ -53,40 +77,22 @@ export default function ClassReviewGate({ pending, onDone }) {
         <p className="muted review-gate-sub">
           <strong>{session.title}</strong><br />{when}{session.batch ? ` · ${session.batch}` : ''}
         </p>
+        <p className="muted review-scale">Rate each from <strong>1 (low)</strong> to <strong>5 (high)</strong>.</p>
 
-        <div className="review-field">
-          <span className="review-label">Your rating</span>
-          <div className="review-stars">
-            {[1, 2, 3, 4, 5].map((n) => (
-              <button
-                key={n}
-                type="button"
-                className={`review-star ${rating >= n ? 'on' : ''}`}
-                aria-label={`${n} out of 5`}
-                aria-pressed={rating === n}
-                onClick={() => setRating(n)}
-              >★</button>
-            ))}
-            <span className="muted review-star-word">{RATING_WORDS[rating] || ''}</span>
+        {QUESTIONS.map(([key, label]) => (
+          <div className="review-field" key={key}>
+            <span className="review-label" id={`q-${key}`}>{label}</span>
+            <StarRow id={`q-${key}`} value={scores[key] || 0} onPick={(n) => setScores((s) => ({ ...s, [key]: n }))} />
           </div>
-        </div>
+        ))}
 
         <div className="review-field">
-          <span className="review-label">The pace was</span>
-          <div className="inline-form" style={{ marginTop: 0 }}>
-            {PACES.map(([key, label]) => (
-              <button key={key} type="button" className={`btn sm ${pace === key ? '' : 'ghost'}`} aria-pressed={pace === key} onClick={() => setPace(key)}>{label}</button>
-            ))}
-          </div>
-        </div>
-
-        <div className="review-field">
-          <span className="review-label">Anything you want to tell us? <span className="muted">(optional)</span></span>
+          <span className="review-label">What did you like most, and what can we improve? <span className="muted">(optional)</span></span>
           <textarea
             className="review-comment"
             rows={3}
             maxLength={2000}
-            placeholder="What worked, what didn't, anything you want covered again…"
+            placeholder="What worked, what didn’t, anything you want covered again…"
             value={comment}
             onChange={(e) => setComment(e.target.value)}
           />

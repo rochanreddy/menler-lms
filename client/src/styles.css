@@ -1245,14 +1245,60 @@ h1.md-h { font-size: 22px; } h2.md-h { font-size: 19px; } h3.md-h { font-size: 1
 .review-gate { position: fixed; inset: 0; z-index: 200; display: flex; align-items: center; justify-content: center; padding: 20px; background: rgba(27, 22, 64, .55); backdrop-filter: blur(3px); overflow-y: auto; }
 .review-card { width: min(560px, 100%); background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 28px; box-shadow: var(--shadow); }
 .review-gate-sub { margin: 6px 0 0; line-height: 1.6; }
+.review-scale { margin: 14px 0 0; font-size: var(--text-sm); }
 .review-field { margin-top: 22px; }
 .review-label { display: block; font-size: 13.5px; font-weight: 600; color: var(--ink); margin-bottom: 8px; }
 .review-stars { display: flex; align-items: center; gap: 6px; }
 .review-star { background: none; border: 0; cursor: pointer; font-size: 30px; line-height: 1; padding: 0 2px; color: var(--star-off); transition: color .12s, transform .12s; }
 .review-star:hover { transform: scale(1.08); }
 .review-star.on { color: var(--star); }
-/* The same rating, read back: a row of filled and hollow stars. */
-.rating-stars { color: var(--star); font-size: var(--text-lg); letter-spacing: .06em; white-space: nowrap; }
+/* ── Feedback (admin) ── a cohort's verdict on a class.
+   The stars are one string in two spans rather than five glyphs: the shape
+   never changes, only how much of it is lit. */
+.fb-stars { white-space: nowrap; letter-spacing: .06em; font-size: var(--text-base); }
+.fb-stars-on { color: var(--star); }
+.fb-stars-off { color: var(--star-off); }
+.fb-stars-sm { font-size: var(--text-sm); }
+.fb-stars-lg { font-size: var(--text-xl); }
+
+/* Score, spread and pace side by side, stacking on a narrow screen. */
+.fb-summary { display: grid; grid-template-columns: minmax(0, auto) minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-7); align-items: start; }
+.fb-score { display: flex; flex-direction: column; gap: var(--space-1); min-width: 0; }
+.fb-spread, .fb-pace, .fb-metrics { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+.fb-spread-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: var(--space-3); }
+.fb-spread-label { color: var(--star); font-size: var(--text-sm); }
+.fb-pace-label, .fb-spread-count { font-size: var(--text-sm); color: var(--muted-foreground); }
+.fb-pace-label { min-width: 6.5em; }
+.fb-spread-count { min-width: 2.5em; text-align: right; font-variant-numeric: tabular-nums; }
+
+/* The spread bars double as the rating and pace filters. */
+.fb-spread-btn { width: 100%; background: none; border: 0; padding: var(--space-1) var(--space-2); margin-left: calc(var(--space-2) * -1); border-radius: var(--radius-sm); cursor: pointer; text-align: left; }
+.fb-spread-btn:hover { background: var(--sunken); }
+.fb-spread-btn.on { background: var(--sunken); box-shadow: inset 0 0 0 1px var(--line-strong); }
+
+/* Filter rows: a label, then the options as chips. */
+.fb-chips { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.fb-filters { display: flex; flex-direction: column; gap: var(--space-3); }
+.fb-filter-note { display: flex; align-items: center; gap: var(--space-2); }
+
+.fb-class-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); flex-wrap: wrap; }
+.fb-class-score { display: flex; flex-direction: column; align-items: flex-end; gap: var(--space-1); }
+
+/* Each review is a ruled row, not a card inside a card. */
+.fb-reviews { display: flex; flex-direction: column; }
+.fb-review { padding: var(--space-4) 0; border-top: 1px solid var(--line-soft); }
+.fb-review:first-child { border-top: 0; padding-top: 0; }
+.fb-review:last-child { padding-bottom: 0; }
+.fb-review-head { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; margin-bottom: var(--space-2); }
+.fb-review-who { margin-left: auto; font-size: var(--text-sm); color: var(--muted-foreground); }
+/* The three scores that are not the headline, kept quiet beneath it. */
+.fb-review-scores { display: flex; flex-wrap: wrap; gap: var(--space-4); margin-bottom: var(--space-2); font-size: var(--text-sm); color: var(--muted-foreground); }
+.fb-review-score strong { color: var(--ink); }
+
+@media (max-width: 860px) {
+  .fb-summary { grid-template-columns: minmax(0, 1fr); gap: var(--space-5); }
+  .fb-review-who { margin-left: 0; flex-basis: 100%; }
+}
 .review-star-word { margin-left: 10px; font-size: 13.5px; }
 .review-comment { width: 100%; resize: vertical; font: inherit; font-size: 14px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); color: var(--ink); }
 .review-comment:focus-visible { outline: 2px solid var(--violet); outline-offset: 1px; }
