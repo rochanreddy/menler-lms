@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, setToken } from '../api.js';
 import MenlerWordmark from '../components/MenlerWordmark.jsx';
+import ForgotPassword from '../components/ForgotPassword.jsx';
 import { Alert, Button, Input, Stack, Text } from '../components/ui/index.js';
 
 // The demo accounts, as data — the box below fills the form from these instead
@@ -51,6 +52,11 @@ export default function Login({ onLogin }) {
   // to sign that other device out, because sometimes the honest answer is
   // "that's my flatmate on my account" and sometimes it's "that's my old phone".
   const [takeover, setTakeover] = useState(null);
+  // Swapped in over the sign-in form rather than routed to its own page: a
+  // password reset is a detour from signing in, and it ends by coming back
+  // here with the email already filled in.
+  const [forgot, setForgot] = useState(false);
+  const [notice, setNotice] = useState('');
   const nav = useNavigate();
 
   async function signIn(force) {
@@ -86,10 +92,25 @@ export default function Login({ onLogin }) {
         <div />
       </div>
 
+      {forgot ? (
+        <ForgotPassword
+          initialEmail={email}
+          onCancel={() => setForgot(false)}
+          onDone={(who) => {
+            setForgot(false);
+            setEmail(who);
+            setPassword('');
+            setErr('');
+            setNotice('Password changed. Sign in with your new password.');
+          }}
+        />
+      ) : (
       <div className="auth-form-wrap">
         <form className="auth-form" onSubmit={submit}>
           <Stack gap="6">
             <Text role="heading-1">Welcome to Menler</Text>
+
+            {notice && <Alert tone="success">{notice}</Alert>}
 
             <Stack gap="4">
               <Input
@@ -153,6 +174,12 @@ export default function Login({ onLogin }) {
 
             <Button type="submit" size="lg" loading={busy}>Sign in</Button>
 
+            <div className="auth-alt">
+              <Button type="button" variant="link" size="sm" onClick={() => { setForgot(true); setErr(''); setNotice(''); }}>
+                Forgot your password?
+              </Button>
+            </div>
+
             {SHOW_DEMOS && (
               <div className="demo-box">
                 <div className="eyebrow">Demo accounts, select one to fill the form</div>
@@ -172,6 +199,7 @@ export default function Login({ onLogin }) {
           </Stack>
         </form>
       </div>
+      )}
     </div>
   );
 }

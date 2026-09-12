@@ -2548,3 +2548,6 @@ input:hover:not(:disabled):not(:focus), select:hover:not(:disabled):not(:focus),
 @media (max-width: 720px) {
   .ds-slot { grid-template-columns: 1fr; gap: var(--space-1); }
 }
+
+/* The "Forgot your password?" line under the sign-in button. */
+.auth-alt { display: flex; justify-content: center; margin-top: calc(var(--space-2) * -1); }
