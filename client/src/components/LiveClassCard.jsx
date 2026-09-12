@@ -14,7 +14,10 @@ export default function LiveClassCard({ liveClass, onOpen }) {
   const { session, today, upcoming, url } = liveClass;
   const start = new Date(session.startsAt);
   const batchName = session.batchId?.name ? ` · ${session.batchId.name.replace(/^Demo[^A-Za-z0-9]+/, '')}` : '';
-  const note = (text) => <span className="live-cta-time" style={{ marginLeft: 'auto' }}>{text}</span>;
+  // Its own class, not .live-cta-time with an inline margin: this sits in the
+  // card's flex row where the Join button otherwise goes, and a flex item that
+  // cannot shrink squeezes the title to one word per line on a phone.
+  const note = (text) => <span className="live-cta-note">{text}</span>;
 
   let action;
   if (today) {

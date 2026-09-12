@@ -630,8 +630,15 @@ a:focus-visible,
 .live-cta-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: .15em; text-transform: uppercase; margin-bottom: 6px; }
 .live-cta.is-live .live-cta-eyebrow { color: rgba(255,255,255,.82); }
 .live-cta.is-replay .live-cta-eyebrow { color: var(--violet); }
-.live-cta-title { font-weight: 600; font-size: 16px; line-height: 1.3; }
+.live-cta-title { font-weight: 600; font-size: 16px; line-height: 1.3; overflow-wrap: anywhere; }
 .live-cta-time { font-size: 13.5px; margin-top: 3px; }
+/* The stand-in for the Join button ("Join opens here on Sun 13 Sept"). It sits
+   in the same flex row, so it needs min-width:0 -- without it the span refuses
+   to shrink past its longest line and starves .live-cta-copy, which is what
+   drove the title down to one word per line on a phone. */
+.live-cta-note { margin-left: auto; flex: 0 1 auto; min-width: 0; text-align: right; font-size: 13.5px; }
+.live-cta.is-live .live-cta-note { color: rgba(255,255,255,.85); }
+.live-cta.is-replay .live-cta-note, .live-cta.is-doubt .live-cta-note { color: var(--muted); }
 .live-cta.is-live .live-cta-time { color: rgba(255,255,255,.85); }
 .live-cta.is-replay .live-cta-time { color: var(--muted); }
 .live-cta .btn { margin-left: auto; padding: 14px 26px; font-size: 15px; }
@@ -1819,8 +1826,12 @@ h1.md-h { font-size: 22px; } h2.md-h { font-size: 19px; } h3.md-h { font-size: 1
   .path-next { margin: -20px 12px 0; padding: 22px; }
   .path-next-title { font-size: 23px; }
   .path-live { margin: 14px 12px 0; }
-  .live-cta { padding: 16px; border-radius: var(--radius); gap: 13px; }
+  /* Mark and copy share the top row; the action -- button or note -- takes a
+     full-width row of its own underneath. */
+  .live-cta { padding: 16px; border-radius: var(--radius); gap: 13px; align-items: flex-start; }
+  .live-cta-copy { flex: 1 1 auto; }
   .path-next .btn, .path-live .btn, .live-cta .btn { width: 100%; justify-content: center; margin-left: 0; }
+  .live-cta-note { flex: 1 0 100%; margin-left: 0; text-align: left; }
 
   /* Stack the dense grids */
   .roster, .roster-controls, .ce-grid, .home-row, .home-row-2 { grid-template-columns: minmax(0, 1fr); }
