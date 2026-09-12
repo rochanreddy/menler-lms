@@ -4,6 +4,7 @@ import { api } from '../api.js';
 import Empty from '../components/Empty.jsx';
 import LineIcon from '../components/LineIcon.jsx';
 import LiveClassCard from '../components/LiveClassCard.jsx';
+import DoubtSessionBanner from '../components/DoubtSessionBanner.jsx';
 import { loadLearning } from '../nav.jsx';
 
 // This device's local calendar day as absolute UTC instants, sent to
@@ -243,6 +244,11 @@ export default function StudentHome() {
             own one-request fetch, not the rest of the dashboard, so a slow
             assignments/announcements/attendance response never holds it back. */}
         {!liveClassLoading && liveClass && <LiveClassCard liveClass={liveClass} onOpen={openLiveClass} />}
+
+        {/* Below the class, above the path: booking a doubt slot matters this
+            week, but never more than the class starting in ten minutes. It
+            renders nothing unless a session is actually open. */}
+        <DoubtSessionBanner />
 
         {!liveClassLoading && !liveClass && liveClassFailed && (
           <div className="live-cta is-replay">

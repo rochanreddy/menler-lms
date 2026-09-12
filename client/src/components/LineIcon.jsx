@@ -16,6 +16,7 @@ const ICONS = {
   sidebar: <><rect x="3" y="4" width="18" height="16" rx="2.5" /><path d="M9.5 4v16" /></>,
   menu: <><path d="M4 7h16" /><path d="M4 12h16" /><path d="M4 17h16" /></>,
   close: <><path d="m6 6 12 12" /><path d="m18 6-12 12" /></>,
+  chat: <><path d="M21 11.5a8.38 8.38 0 0 1-8.5 8.5 8.5 8.5 0 0 1-3.8-.9L3 21l1.9-5.7A8.38 8.38 0 0 1 4 11.5 8.5 8.5 0 0 1 12.5 3 8.38 8.38 0 0 1 21 11.5z" /></>,
 };
 
 export default function LineIcon({ name, size = 16, className = '' }) {
