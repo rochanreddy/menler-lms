@@ -104,13 +104,16 @@ produce the same data.
 - **Per batch** 13 sessions (9 past with attendance + recordings, 1 today,
   3 upcoming), 4 assignments + 2 projects spanning closed/overdue/open/not-yet-open,
   3 quizzes incl. an exam, 3 announcements, 5 doubt threads with mentor answers.
+- **Support** 3 tickets across the desk — one waiting on the team, one answered,
+  one resolved — so each state is on screen without a wall of invented
+  complaints burying what the screen is meant to show.
 - Every student has graded work with feedback, quiz attempts, attendance and
   partial progress. Deliberate edge cases are pinned, not random: one student per
   batch is at 100% (certificate path), one is failing (at-risk panel), one never
   sat the exam, and some submissions sit in `NEEDS_FIXES` / `PENDING_CHECK`.
 
 `npm run test:flows` then drives the real HTTP API as admin, mentor and student —
-85 assertions covering both the happy paths and the RBAC refusals. It needs the
+120 assertions covering both the happy paths and the RBAC refusals. It needs the
 server running, and the API rate-limits login to 10/min/IP while the script uses
 9, so leave ~60s between consecutive runs.
 
@@ -296,6 +299,42 @@ admitting they have any. The client resolves the slot instants, because
 "Wednesday, 7 to 10" is a fact about the admin's calendar, not the server's UTC
 clock. Cancelling a session pulls it from every student's view but keeps the
 bookings as a record of what had been asked.
+
+### Support
+
+A student reports something broken — a dead link, a login that won't hold, a
+wrong receipt — and an admin answers it. A **thread**, not a form: the answer
+to "I can't open the recording" is usually a question, and a ticket that cannot
+hold the second message pushes the conversation onto WhatsApp where nobody else
+can see it.
+
+Deliberately not the Forum. A doubt about the course belongs to the cohort; a
+problem with your own account, your payment or your access belongs to you and
+the admin, and a public board is where people stop reporting them. Mentors see
+none of it — [routes/support.js](server/routes/support.js) is `requireRole('admin')`
+on the desk, and a mentor cannot read, reply or close.
+
+**Where it lives is the whole design question.** The student dock is six tabs
+and they are all used weekly; support is used the day something breaks. So it
+is *not* a tab — it sits in the account menu next to "Change password" (where
+people look for help), in ⌘K, and on the notification that a reply has landed.
+The admin's side *is* a tab, next to Doubts, because for an admin the queue is
+the job. See `extraRoutesFor('student')` in [client/src/nav.jsx](client/src/nav.jsx).
+
+`status` is derived from who spoke last, never set by hand: admin last →
+`answered`, student last → `open`, and `resolved` only when an admin closes it.
+A student reply reopens a resolved ticket, because "that didn't work" must not
+land in a closed folder. The admin's queue therefore cannot disagree with the
+thread, and it defaults to *everything* rather than to the open ones — a ticket
+answered last week and never followed up is the one most likely to have been
+dropped, and a queue that hides it is how it stays dropped.
+
+Both sides are told: raising a ticket notifies every admin, a reply notifies
+the other party, and resolving notifies the student — from their side a ticket
+that was settled and one that went quiet look identical. New tickets are capped
+at ten an hour per student: not a security control (support is the one place a
+person in trouble is *meant* to be able to shout) but a jammed submit button
+fires forty in a second.
 
 ### Classes and attendance
 
