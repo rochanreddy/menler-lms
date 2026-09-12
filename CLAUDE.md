@@ -201,6 +201,36 @@ rule must not unlock the video.
 Anything that invalidates an account (password reset or change, an admin block)
 closes its sessions and drops its lease.
 
+### Doubt sessions
+
+An admin announces one from the **Doubts** tab: a programme, which of its
+cohorts, a date, a window (7–10 pm in 30-minute slots by default) and the
+write-up. That pushes an in-app notification to every invited student pointing
+at `/app/doubt-session`, where they give a name, pick a slot and say what they
+want cleared. The booked sheet — every slot, the free ones included — is on the
+same admin tab, with the question each student wrote.
+
+**The push is never automatic.** There is no recurring rule that fires every
+Wednesday by itself: a notification nobody chose to send is one that goes out
+the week the session was cancelled, and students stop reading the bell after
+the second of those. **Push again** sends a reminder, and every push is counted.
+
+**One student per slot rests on a unique index**, not on a check
+([models/DoubtBooking.js](server/models/DoubtBooking.js): unique
+`{sessionId, slotAt}` and `{sessionId, studentId}`). Two students tapping 7:30
+in the same second both read it as free — only the index can settle it. The
+loser gets a 409 carrying the *refreshed* grid, so they pick again from what is
+actually free rather than from what was free when the page loaded. The second
+index makes a booking MOVE in place instead of accumulating, so nobody quietly
+holds three slots of a six-slot evening. Same reasoning as the playback lease.
+
+A taken slot shows the student only the word "Taken". Who booked 7:30 is the
+admin's business; a public register of who has doubts is how you stop people
+admitting they have any. The client resolves the slot instants, because
+"Wednesday, 7 to 10" is a fact about the admin's calendar, not the server's UTC
+clock. Cancelling a session pulls it from every student's view but keeps the
+bookings as a record of what had been asked.
+
 ### Classes and attendance
 
 Admins schedule classes per batch — one at a time, or a whole cohort through
