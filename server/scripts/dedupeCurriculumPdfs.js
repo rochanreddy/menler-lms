@@ -25,7 +25,7 @@ const MEDIA = ['readingUrl', 'notesUrl', 'contentUrl'];
 async function run() {
   await connectDb();
   const dbName = mongoose.connection.name;
-  if (APPLY && process.env.CONFIRM_DB !== dbName) {
+  if (APPLY && (process.env.CONFIRM_DB || "").trim() !== dbName) {
     console.error(`\n✗ Connected to "${dbName}" but CONFIRM_DB is "${process.env.CONFIRM_DB || ''}". Set CONFIRM_DB=${dbName} to apply.\n`);
     process.exit(1);
   }

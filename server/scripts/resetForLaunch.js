@@ -114,7 +114,7 @@ async function run() {
 
   await connectDb();
   const db = mongoose.connection.db;
-  if (process.env.CONFIRM_DB !== db.databaseName) {
+  if ((process.env.CONFIRM_DB || "").trim() !== db.databaseName) {
     fail(`Connected to "${db.databaseName}" but CONFIRM_DB is "${process.env.CONFIRM_DB || ''}". Set CONFIRM_DB=${db.databaseName} to proceed.`);
   }
 

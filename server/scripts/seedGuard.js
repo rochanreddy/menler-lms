@@ -23,7 +23,7 @@ const isScratch = (name) => /_test$/.test(name);
 export function assertSeedTarget(script, what) {
   const name = mongoose.connection.name;
   if (isScratch(name)) return name;
-  if (process.env.CONFIRM_DB === name) {
+  if ((process.env.CONFIRM_DB || "").trim() === name) {
     console.log(`\n⚠  ${script} is running against "${name}", NOT a _test database. CONFIRM_DB says that is deliberate.\n`);
     return name;
   }
