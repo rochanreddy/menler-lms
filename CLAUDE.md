@@ -90,7 +90,7 @@ the seed loads each into Mongo once (keyed on the content hash, so re-seeding
 never duplicates a blob or moves a URL) and attaches it there if the slot is
 empty. A lesson rule carries two files: the one-page assignment brief as
 reading material and the solution book as teacher notes (Kickstarter has one
-per session, on the session's deliverable lesson). A rule-mapped file lives
+per session, on every `Assignment:` lesson of that session). A rule-mapped file lives
 only where its rule puts it — a copy anywhere else is cleared — while files no
 rule knows about are never touched. Nodes with no rule keep an empty slot,
 which the lesson UI renders honestly as "No reading yet".

@@ -33,13 +33,14 @@ export const CURRICULUM_PDF_RULES = {
     { module: 'S02', file: 'Menler-Kickstarter-Session2-Ebook.pdf' },
     { module: 'S03', file: 'Menler-Kickstarter-Session3-Ebook.pdf' },
     { module: 'S04', file: 'Menler-Kickstarter-Session4-Ebook.pdf' },
-    // One assignment per session — the session deliverable, "Assignment 1 of 1"
-    // on the brief itself. The other assignment lessons have no PDF of their
-    // own and open the session ebook.
-    { module: 'S01', lesson: 'Assignment: AI Workflow Map', file: 'Menler-Kickstarter-S1-Assignment1.pdf', notes: 'Menler-Kickstarter-S1-Assignment1-Solution-Book.pdf' },
-    { module: 'S02', lesson: 'Assignment: Connected Claude Workspace', file: 'Menler-Kickstarter-S2-Assignment1.pdf', notes: 'Menler-Kickstarter-S2-Assignment1-Solution-Book.pdf' },
-    { module: 'S03', lesson: 'Assignment: Design + Ship One External Automation', file: 'Menler-Kickstarter-S3-Assignment1.pdf', notes: 'Menler-Kickstarter-S3-Assignment1-Solution-Book.pdf' },
-    { module: 'S04', lesson: 'Assignment: Capstone Project', file: 'Menler-Kickstarter-S4-Assignment1.pdf', notes: 'Menler-Kickstarter-S4-Assignment1-Solution-Book.pdf' },
+    // One assignment book per session, and it covers the whole session: every
+    // "Assignment:" lesson in it carries the one-page brief as reading and the
+    // solution book as notes. The "What's covered" lessons and the projects
+    // keep the session ebook.
+    { module: 'S01', lesson: 'Assignment:', file: 'Menler-Kickstarter-S1-Assignment1.pdf', notes: 'Menler-Kickstarter-S1-Assignment1-Solution-Book.pdf' },
+    { module: 'S02', lesson: 'Assignment:', file: 'Menler-Kickstarter-S2-Assignment1.pdf', notes: 'Menler-Kickstarter-S2-Assignment1-Solution-Book.pdf' },
+    { module: 'S03', lesson: 'Assignment:', file: 'Menler-Kickstarter-S3-Assignment1.pdf', notes: 'Menler-Kickstarter-S3-Assignment1-Solution-Book.pdf' },
+    { module: 'S04', lesson: 'Assignment:', file: 'Menler-Kickstarter-S4-Assignment1.pdf', notes: 'Menler-Kickstarter-S4-Assignment1-Solution-Book.pdf' },
   ],
   Generalist: [
     { module: 'WEEK 1', file: 'Menler-Fellowship-Week1-Ebook_3.pdf' },

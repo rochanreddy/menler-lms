@@ -93,7 +93,12 @@ async function run() {
         }
       }
     }
-    if (changed) console.log(`    ${lifted} lesson/session slot(s) ${APPLY ? 'cleared' : 'would be cleared'} in favour of the week or session above them`);
+    if (changed) {
+      const verb = (n) => (APPLY ? n : `would be ${n}`);
+      console.log(lifted >= 0
+        ? `    ${lifted} lesson/session slot(s) ${verb('cleared')} in favour of the week or session above them`
+        : `    ${-lifted} lesson slot(s) ${verb('filled')} by the rules, net of any cleared`);
+    }
     if (changed && APPLY) { p.markModified('modules'); await p.save(); }
     console.log('');
   }
