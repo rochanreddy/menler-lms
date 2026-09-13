@@ -80,7 +80,7 @@ export default function Classroom() {
   // Flatten the tree into an ordered lesson list for counting + prev/next.
   const flat = useMemo(() => {
     const arr = [];
-    (program?.modules || []).forEach((m) => (m.chapters || []).forEach((c) => (c.topics || []).forEach((t) => arr.push({ topic: t, modId: m._id, chapId: c._id, mod: m.title, chap: c.title }))));
+    (program?.modules || []).forEach((m) => (m.chapters || []).forEach((c) => (c.topics || []).forEach((t) => arr.push({ topic: t, modId: m._id, chapId: c._id, mod: m.title, chap: c.title, modNode: m, chapNode: c }))));
     return arr;
   }, [program]);
   const idx = flat.findIndex((f) => f.topic._id === topicId);
@@ -117,12 +117,15 @@ export default function Classroom() {
   const pageFirst = page ? flat.find((f) => (page.chap ? f.chapId === page.chap._id : f.modId === page.mod._id)) || null : null;
   const pageFirstIdx = pageFirst ? flat.indexOf(pageFirst) : -1;
   const pagePrev = pageFirstIdx > 0 ? flat[pageFirstIdx - 1] : null;
-  // A week or session has no media of its own, but the lessons under it do —
-  // the module ebook, the class link — and those are exactly the things a
-  // student is looking for when the page is open. Take the first of each that
-  // is actually set, so the chips mean the same here as on a lesson.
+  // A week or a session carries its own ebook and notes — that is how the
+  // books are organised, one per week or per week+session — and what it has
+  // not got, the lessons under it might: the class link, a lesson's own PDF.
+  // Those are exactly the things a student is looking for when the page is
+  // open, so take the node's own first, then the first lesson's that is set,
+  // so the chips mean the same here as on a lesson.
   const pageLessons = page ? flat.filter((f) => (page.chap ? f.chapId === page.chap._id : f.modId === page.mod._id)) : [];
   const fromLessons = (field) => pageLessons.map((f) => f.topic[field]).find(Boolean) || '';
+  const pageMedia = (field) => (page ? page.node[field] || (page.chap ? page.mod[field] : '') || fromLessons(field) : '');
 
   const loadProgress = (programId) => {
     if (!isStudent || !programId) return;
@@ -309,11 +312,14 @@ export default function Classroom() {
   const done = Math.min(completed.size, total);
   const pct = total ? Math.round((done / total) * 100) : 0;
   const isDone = topic && completed.has(topic._id);
-  // No fallback file. A lesson with nothing attached says so — serving another
-  // programme's PDF as if it were this lesson's reading is worse than showing
-  // nothing, because it looks correct.
-  const readingUrl = topic?.readingUrl || '';
-  const notesUrl = topic?.notesUrl || '';
+  // A lesson's reading is its own, else its session's, else its week's — the
+  // ebook is attached once, where it belongs, and every lesson under it opens
+  // it. No fallback beyond that: a lesson with nothing attached anywhere says
+  // so, because serving another programme's PDF as if it were this lesson's
+  // reading is worse than showing nothing. It looks correct.
+  const inherit = (field) => topic?.[field] || current?.chapNode?.[field] || current?.modNode?.[field] || '';
+  const readingUrl = inherit('readingUrl');
+  const notesUrl = inherit('notesUrl');
   const showProgress = isStudent && total > 0;
   const min = railMin && !isMobile;
   // The waiting state: no lesson open and no week page on show.
@@ -399,7 +405,7 @@ export default function Classroom() {
               </button>
             </div>
             <h1 className="reader-title">{page.title}</h1>
-            {toolsRow({ reading: fromLessons('readingUrl'), notes: fromLessons('notesUrl'), classLink: fromLessons('classLink'), video: fromLessons('contentUrl'), subtitle: page.crumb })}
+            {toolsRow({ reading: pageMedia('readingUrl'), notes: pageMedia('notesUrl'), classLink: fromLessons('classLink'), video: fromLessons('contentUrl'), subtitle: page.crumb })}
             <div className="reader-read" aria-hidden="true"><span style={{ transform: `scaleX(${read})` }} /></div>
           </div>
         ) : (

@@ -14,16 +14,23 @@ import { FileAsset } from '../models/FileAsset.js';
 
 const ASSETS_DIR = join(dirname(fileURLToPath(import.meta.url)), '../assets/curriculum-pdfs');
 
-// Module title prefix → ebook filename. Fellowship = Generalist, Kickstarter = Kickstarter.
-// Modules with no entry keep whatever reading material an admin attached by hand.
+// Which ebook goes where. Each rule names a module by title prefix and,
+// optionally, a session (chapter) inside it by prefix; the file is attached to
+// that node — the week for a week-wide book, the session for a per-session one
+// — and every lesson under it with no reading of its own opens it (resolution
+// is lesson → chapter → module, see models/Program.js). Fellowship = Generalist.
+// Modules and sessions with no rule keep whatever an admin attached by hand.
+//
+// To add a per-session ebook, drop the file in assets/curriculum-pdfs/ and add
+//   { module: 'WEEK 1', session: 'S1', file: 'Menler-Fellowship-Week1-Session1-Ebook.pdf' }
 export const CURRICULUM_PDF_RULES = {
   Kickstarter: [
-    { prefix: 'S01', file: 'Menler-Kickstarter-Session1-Ebook.pdf' },
-    { prefix: 'S02', file: 'Menler-Kickstarter-Session2-Ebook.pdf' },
+    { module: 'S01', file: 'Menler-Kickstarter-Session1-Ebook.pdf' },
+    { module: 'S02', file: 'Menler-Kickstarter-Session2-Ebook.pdf' },
   ],
   Generalist: [
-    { prefix: 'WEEK 1', file: 'Menler-Fellowship-Week1-Ebook_3.pdf' },
-    { prefix: 'WEEK 2', file: 'Menler-Fellowship-Week2-Ebook.pdf' },
+    { module: 'WEEK 1', file: 'Menler-Fellowship-Week1-Ebook_3.pdf' },
+    { module: 'WEEK 2', file: 'Menler-Fellowship-Week2-Ebook.pdf' },
   ],
 };
 
@@ -40,9 +47,12 @@ export const FIXTURE_PLACEHOLDERS = new Set([
 
 export const isPlaceholder = (url) => FIXTURE_PLACEHOLDERS.has(String(url || '').trim());
 
-function modulePdfFile(programTitle, moduleTitle) {
+/** The rule-mapped ebook for a module (no `session`) or for one of its sessions. */
+function ruleFile(programTitle, moduleTitle, chapterTitle) {
   const rules = CURRICULUM_PDF_RULES[programTitle] || [];
-  const hit = rules.find((r) => moduleTitle.startsWith(r.prefix));
+  const hit = rules.find((r) =>
+    String(moduleTitle || '').startsWith(r.module) &&
+    (chapterTitle === undefined ? !r.session : !!r.session && String(chapterTitle || '').startsWith(r.session)));
   return hit?.file || null;
 }
 
@@ -101,26 +111,91 @@ export async function loadCurriculumPdfUrls(ownerId) {
   return urls;
 }
 
+const empty = (url) => !url || isPlaceholder(url);
+
 /**
- * Attach each module's ebook as the reading material for its lessons.
+ * Attach the rule-mapped ebooks to the curriculum, on the week or the session
+ * they belong to, and lift any copy of the same file off the lessons beneath.
  *
- * Only fills a lesson whose reading slot is EMPTY. An admin who attached a
- * better PDF in the curriculum editor outranks the repo's default, and a seed
- * that overwrote them would make the editor pointless — you would lose the
- * upload on the next re-author. Teacher notes are deliberately left alone:
- * they are a different document, not a second copy of the student ebook.
+ * Only fills a slot that is EMPTY. An admin who attached a better PDF in the
+ * curriculum editor outranks the repo's default, and a seed that overwrote
+ * them would make the editor pointless — you would lose the upload on the
+ * next re-author. Teacher notes are deliberately left alone: they are a
+ * different document, not a second copy of the student ebook.
+ *
+ * The lift matters as much as the fill. Earlier seeds stamped the week's ebook
+ * onto every lesson, and a lesson's own slot wins over its session's — so a
+ * per-session book attached later would have been shadowed on every lesson by
+ * the week-wide one. A lesson pointing at exactly the file its week or
+ * session now carries is the same reading either way; clearing it changes
+ * nothing on screen and stops it shadowing anything.
+ *
+ * Mutates in place and returns the same array, so it works on plain objects
+ * from curricula.js and on a Mongoose document's subdocuments alike.
  */
-export function applyModuleReadingPdfs(modules, programTitle, urlByFile) {
-  return modules.map((m) => {
-    const file = modulePdfFile(programTitle, m.title);
-    const readingUrl = file ? urlByFile[file] || '' : '';
-    if (!readingUrl) return m;
-    return {
-      ...m,
-      chapters: m.chapters.map((ch) => ({
-        ...ch,
-        topics: ch.topics.map((t) => (t.readingUrl && !isPlaceholder(t.readingUrl) ? t : { ...t, readingUrl })),
-      })),
-    };
-  });
+export function applyCurriculumEbooks(modules, programTitle, urlByFile) {
+  for (const m of modules) {
+    const mFile = ruleFile(programTitle, m.title);
+    const mUrl = (mFile && urlByFile[mFile]) || '';
+    if (mUrl && empty(m.readingUrl)) m.readingUrl = mUrl;
+    for (const ch of m.chapters || []) {
+      const cFile = ruleFile(programTitle, m.title, ch.title);
+      const cUrl = (cFile && urlByFile[cFile]) || '';
+      if (cUrl && empty(ch.readingUrl)) ch.readingUrl = cUrl;
+      // A lesson holding the session's file, or the week's, is a copy: the
+      // week's even when the session now has a book of its own, because that
+      // copy is an older seed's stamp and the session book is meant to
+      // supersede it for every lesson under the session.
+      for (const t of ch.topics || []) {
+        if (t.readingUrl && (t.readingUrl === ch.readingUrl || t.readingUrl === m.readingUrl)) t.readingUrl = '';
+      }
+    }
+    for (const ch of m.chapters || []) if (m.readingUrl && ch.readingUrl === m.readingUrl) ch.readingUrl = '';
+  }
+  return modules;
 }
+
+/**
+ * Where every lesson of a session, or every session of a week, carries the
+ * same reading (or the same notes), move it up a level. Renders identically —
+ * the lessons resolve to the same file — but it is then attached ONCE, where
+ * the admin panel shows it against the week or session, and a per-session
+ * book attached later is not shadowed by copies on each lesson.
+ *
+ * Returns how many lesson/chapter slots were cleared. Mutates in place.
+ */
+export function liftSharedMedia(modules) {
+  let lifted = 0;
+  const same = (rows, f) => {
+    const urls = rows.map((r) => r[f] || '');
+    return rows.length && urls[0] && !isPlaceholder(urls[0]) && urls.every((u) => u === urls[0]) ? urls[0] : '';
+  };
+  for (const f of ['readingUrl', 'notesUrl']) {
+    for (const m of modules) {
+      for (const ch of m.chapters || []) {
+        const topics = ch.topics || [];
+        // Lessons that all agree AND match nothing above them: hoist.
+        const u = same(topics, f);
+        if (u && (!ch[f] || ch[f] === u)) {
+          ch[f] = u;
+          for (const t of topics) { t[f] = ''; lifted++; }
+        }
+        // Lessons that merely repeat what the session (or week) already says.
+        const above = ch[f] || m[f] || '';
+        for (const t of topics) if (above && t[f] === above) { t[f] = ''; lifted++; }
+      }
+      const chapters = m.chapters || [];
+      const u = same(chapters, f);
+      if (u && (!m[f] || m[f] === u)) {
+        m[f] = u;
+        for (const ch of chapters) { ch[f] = ''; lifted++; }
+      }
+      for (const ch of chapters) if (m[f] && ch[f] === m[f]) { ch[f] = ''; lifted++; }
+    }
+  }
+  return lifted;
+}
+
+/** What a lesson actually opens: its own slot, else its session's, else its week's. */
+export const resolveMedia = (field, module, chapter, topic) =>
+  topic?.[field] || chapter?.[field] || module?.[field] || '';

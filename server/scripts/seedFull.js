@@ -40,7 +40,7 @@ import {
   KICKSTARTER_DESCRIPTION,
   GENERALIST_DESCRIPTION,
 } from './curricula.js';
-import { loadCurriculumPdfUrls, applyModuleReadingPdfs } from '../utils/curriculumPdfAssets.js';
+import { loadCurriculumPdfUrls, applyCurriculumEbooks } from '../utils/curriculumPdfAssets.js';
 import { assertSeedTarget } from './seedGuard.js';
 
 // ── Knobs ────────────────────────────────────────────────────────────────────
@@ -113,7 +113,10 @@ const emailFor = (name) => `${name.toLowerCase().replace(/[^a-z]+/g, '.')}@stude
 //
 // What the fixture adds on top is the per-lesson media the lesson UI needs.
 function withLessonMedia(modules, programTitle, urlByFile) {
-  const withReading = applyModuleReadingPdfs(modules, programTitle, urlByFile);
+  // The real ebooks land on the week (or session) they cover, and lessons
+  // under them inherit — so the placeholder goes only where nothing resolves,
+  // or it would sit on every lesson and hide the ebook behind it.
+  const withReading = applyCurriculumEbooks(modules, programTitle, urlByFile);
   const lastLive = Math.min(2, withReading.length - 1);
   return withReading.map((m, mi) => ({
     ...m,
@@ -121,7 +124,7 @@ function withLessonMedia(modules, programTitle, urlByFile) {
       ...ch,
       topics: ch.topics.map((t) => ({
         ...t,
-        readingUrl: t.readingUrl || PDF,
+        readingUrl: t.readingUrl || (ch.readingUrl || m.readingUrl ? '' : PDF),
         notesUrl: t.notesUrl || PDF,
         // Past lectures point at a recording, the current module at a live
         // room, later ones at nothing — the three-state case the lesson UI

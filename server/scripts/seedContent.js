@@ -33,7 +33,7 @@ import { Batch } from '../models/Batch.js';
 import { Progress } from '../models/Progress.js';
 import { BatchLessonVideo } from '../models/BatchLessonVideo.js';
 import { User } from '../models/User.js';
-import { loadCurriculumPdfUrls, applyModuleReadingPdfs, isPlaceholder } from '../utils/curriculumPdfAssets.js';
+import { loadCurriculumPdfUrls, applyCurriculumEbooks, liftSharedMedia, isPlaceholder } from '../utils/curriculumPdfAssets.js';
 import {
   kickstarterModules,
   generalistModules,
@@ -52,6 +52,7 @@ const PROGRAMS = [
 // A lesson's identity is its position in the tree plus its title — stable
 // across edits to the body, and unique because no chapter repeats a topic name.
 const topicKey = (m, ch, t) => `${m.title}\u0000${ch.title}\u0000${t.title}`;
+const chapterKey = (m, ch) => `${m.title}\u0000${ch.title}`;
 const moduleKey = (m) => m.title;
 
 // Per-lesson media is authored in the admin curriculum editor, and curricula.js
@@ -79,25 +80,36 @@ function carryMedia(fresh, old) {
   return out;
 }
 
+// A week's or a session's own ebook and notes (models/Program.js) are admin
+// uploads too, keyed on the node's title the same way a lesson's are.
+const NODE_MEDIA = ['readingUrl', 'notesUrl'];
+function carryNodeMedia(fresh, old) {
+  const out = { ...fresh };
+  for (const f of NODE_MEDIA) if (old?.[f] && !isPlaceholder(old[f])) out[f] = old[f];
+  return out;
+}
+
 // Reuse the existing _ids wherever the same lesson is still there, and its
 // media along with them. Anything new or renamed gets a fresh id (and so is
 // treated as a new lesson, which it is).
 function preserveIds(oldModules, newModules) {
   const topics = new Map();
+  const chapters = new Map();
   const modules = new Map();
   for (const m of oldModules || []) {
-    modules.set(moduleKey(m), m._id);
+    modules.set(moduleKey(m), m);
     for (const ch of m.chapters || []) {
+      chapters.set(chapterKey(m, ch), ch);
       for (const t of ch.topics || []) topics.set(topicKey(m, ch, t), t);
     }
   }
   let kept = 0;
   let media = 0;
   const out = newModules.map((m) => ({
-    ...m,
-    ...(modules.has(moduleKey(m)) ? { _id: modules.get(moduleKey(m)) } : {}),
+    ...carryNodeMedia(m, modules.get(moduleKey(m))),
+    ...(modules.has(moduleKey(m)) ? { _id: modules.get(moduleKey(m))._id } : {}),
     chapters: m.chapters.map((ch) => ({
-      ...ch,
+      ...carryNodeMedia(ch, chapters.get(chapterKey(m, ch))),
       topics: ch.topics.map((t) => {
         const old = topics.get(topicKey(m, ch, t));
         if (!old) return t;
@@ -179,7 +191,12 @@ async function run() {
 
     const { modules, kept, media, was } = preserveIds(program.modules, fresh);
     program.slug = title.toLowerCase();
-    program.modules = applyModuleReadingPdfs(modules, title, pdfUrls);
+    // Ebooks sit on the week or session they cover; a lesson-level copy of
+    // the same file (older seeds stamped one on every lesson) is lifted off so
+    // it cannot shadow a per-session book attached later.
+    applyCurriculumEbooks(modules, title, pdfUrls);
+    liftSharedMedia(modules);
+    program.modules = modules;
     program.published = true;
     program.description = description;
     await program.save();

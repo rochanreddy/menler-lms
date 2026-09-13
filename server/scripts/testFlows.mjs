@@ -119,8 +119,19 @@ async function run() {
   const genExpected = generalistModules().flatMap((m) => m.chapters.flatMap((c) => c.topics)).length;
   ok('Generalist has every lesson curricula.js defines', genTopics.length === genExpected, `got ${genTopics.length}, curricula.js has ${genExpected}`);
   const hasPdf = (url) => !!url && (url.endsWith('.pdf') || url.startsWith('/uploads/'));
-  ok('every seeded lesson carries a reading PDF', genTopics.every((t) => hasPdf(t.readingUrl)));
-  ok('every seeded lesson carries teacher notes PDF', genTopics.every((t) => hasPdf(t.notesUrl)));
+  // Reading resolves lesson → session → week: the week ebook is attached to
+  // the week, not copied onto each lesson, so the check follows the same path.
+  const genMods = genFull.json.program.modules || [];
+  const genResolved = genMods.flatMap((m) => m.chapters.flatMap((c) => c.topics.map((t) => ({
+    reading: t.readingUrl || c.readingUrl || m.readingUrl,
+    notes: t.notesUrl || c.notesUrl || m.notesUrl,
+  }))));
+  ok('every seeded lesson resolves to a reading PDF', genResolved.every((t) => hasPdf(t.reading)));
+  ok('every seeded lesson resolves to teacher notes PDF', genResolved.every((t) => hasPdf(t.notes)));
+  const ebookWeeks = genMods.filter((m) => (m.readingUrl || '').startsWith('/uploads/'));
+  ok('the week ebook sits on the week, not on each of its lessons',
+    ebookWeeks.length >= 2 && ebookWeeks.every((m) => m.chapters.every((c) => c.topics.every((t) => t.readingUrl !== m.readingUrl))),
+    `${ebookWeeks.length} week(s) carry an ebook`);
 
   // Fellowship was a duplicate of the Kickstarter curriculum with no batch behind
   // it; it should not reappear in the programme picker.

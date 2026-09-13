@@ -15,11 +15,18 @@ import useMediaQuery, { MOBILE } from '../useMediaQuery.js';
 // it is scoped to that one cohort, and the lesson video slot appears: videos
 // are attached per batch (server/models/BatchLessonVideo.js), so September's
 // students never see October's recordings.
+//
+// Reading material and teacher notes attach at three levels — a lesson, the
+// session (chapter) above it, or the whole week (module) — because that is
+// how the books are organised: one ebook per week, or one per week+session,
+// never one per lesson. A lesson with an empty slot opens its session's,
+// then its week's. The book icon on a week or session row opens that node.
 export default function CurriculumEditor({ programId, batch, onClose }) {
   const [program, setProgram] = useState(null);
   const [modules, setModules] = useState([]);
   const [published, setPublished] = useState(false);
-  const [sel, setSel] = useState(null); // { mi, ci, ti }
+  // { mi } a week · { mi, ci } a session · { mi, ci, ti } a lesson
+  const [sel, setSel] = useState(null);
   // On a phone the tree is the page and the lesson form opens over it as a
   // bottom sheet — the form used to sit under a hundred lessons of tree.
   const isMobile = useMediaQuery(MOBILE);
@@ -63,6 +70,8 @@ export default function CurriculumEditor({ programId, batch, onClose }) {
   const delTopic = (mi, ci, ti) => { touch((m) => m[mi].chapters[ci].topics.splice(ti, 1)); setSel(null); };
   const setModuleTitle = (mi, v) => touch((m) => { m[mi].title = v; });
   const setChapterTitle = (mi, ci, v) => touch((m) => { m[mi].chapters[ci].title = v; });
+  const setModuleField = (mi, patch) => touch((m) => { Object.assign(m[mi], patch); });
+  const setChapterField = (mi, ci, patch) => touch((m) => { Object.assign(m[mi].chapters[ci], patch); });
   const setTopicField = (mi, ci, ti, patch) => touch((m) => {
     m[mi].chapters[ci].topics[ti] = { ...m[mi].chapters[ci].topics[ti], ...patch };
   });
@@ -89,7 +98,27 @@ export default function CurriculumEditor({ programId, batch, onClose }) {
   }
 
   if (!program) return <div className="panel">Loading…</div>;
-  const selTopic = sel ? modules[sel.mi]?.chapters[sel.ci]?.topics[sel.ti] : null;
+  const selKind = !sel ? null : sel.ti !== undefined ? 'lesson' : sel.ci !== undefined ? 'chapter' : 'module';
+  const selModule = sel ? modules[sel.mi] : null;
+  const selChapter = sel && sel.ci !== undefined ? selModule?.chapters[sel.ci] : null;
+  const selTopic = selKind === 'lesson' ? selChapter?.topics[sel.ti] : null;
+  const isSel = (mi, ci, ti) => !!sel && sel.mi === mi && sel.ci === ci && sel.ti === ti;
+  // What a lesson with an empty slot would open — said next to the slot, so
+  // the admin can see the week's book already covers it.
+  const inheritedFrom = (field) => (selChapter?.[field] ? 'the session' : selModule?.[field] ? 'the week' : '');
+  // The book icon: lit when the node carries a reading, so the tree shows at
+  // a glance which weeks and sessions have their ebook and which are waiting.
+  const bookBtn = (node, onClick, what) => (
+    <button
+      type="button"
+      className={`ce-mini ce-book ${node.readingUrl ? 'has' : ''}`}
+      title={node.readingUrl ? `Reading material attached to this ${what} · edit` : `Attach the ${what}'s reading material`}
+      onClick={onClick}
+    >
+      <LessonIcon type="pdf" size={13} />
+    </button>
+  );
+  const sheetTitle = selKind === 'lesson' ? 'Edit lesson' : selKind === 'chapter' ? 'Edit session' : 'Edit week';
 
   return (
     <div className={`ce ${sheet ? 'ce-sheet-open' : ''}`}>
@@ -120,16 +149,18 @@ export default function CurriculumEditor({ programId, batch, onClose }) {
           {modules.length === 0 && <Empty inline icon="learning" title="No content yet." hint="Import a document above, or add a module by hand." />}
           {modules.map((m, mi) => (
             <div key={mi} className="ce-mod">
-              <div className="ce-mod-head">
+              <div className={`ce-mod-head ${isSel(mi, undefined, undefined) ? 'active' : ''}`}>
                 <input className="ce-mod-input" value={m.title} onChange={(e) => setModuleTitle(mi, e.target.value)} />
+                {bookBtn(m, () => setSel({ mi }), 'week')}
                 <button className="ce-mini" title="Move up" onClick={() => move(mi, -1)}>↑</button>
                 <button className="ce-mini" title="Move down" onClick={() => move(mi, 1)}>↓</button>
                 <button className="ce-mini danger" title="Delete module" onClick={() => delModule(mi)}>✕</button>
               </div>
               {(m.chapters || []).map((c, ci) => (
                 <div key={ci} className="ce-chap">
-                  <div className="ce-chap-head">
+                  <div className={`ce-chap-head ${isSel(mi, ci, undefined) ? 'active' : ''}`}>
                     <input className="ce-chap-input" value={c.title} onChange={(e) => setChapterTitle(mi, ci, e.target.value)} />
+                    {bookBtn(c, () => setSel({ mi, ci }), 'session')}
                     <button className="ce-mini danger" title="Delete chapter" onClick={() => delChapter(mi, ci)}>✕</button>
                   </div>
                   {(c.topics || []).map((t, ti) => {
@@ -154,14 +185,24 @@ export default function CurriculumEditor({ programId, batch, onClose }) {
         {/* Phones: the scrim behind the lesson sheet. */}
         <div className="ce-backdrop" onClick={() => setSel(null)} aria-hidden="true" />
         <section className="ce-editor panel">
-          {selTopic && (
+          {sel && (
             <div className="ce-sheet-head">
-              <strong>Edit lesson</strong>
+              <strong>{sheetTitle}</strong>
               <button type="button" className="rail-toggle" onClick={() => setSel(null)} aria-label="Close"><LineIcon name="close" size={15} /></button>
             </div>
           )}
-          {!selTopic ? (
-            <div className="empty-state"><p className="muted">Select a lesson to edit its content, or import a document above.</p></div>
+          {!sel ? (
+            <div className="empty-state"><p className="muted">Select a lesson to edit its content, or the book icon on a week or session to attach its ebook. Or import a document above.</p></div>
+          ) : selKind !== 'lesson' ? (
+            /* ── A week or a session: its ebook, its notes, its overview page. ── */
+            <NodeEditor
+              key={`${sel.mi}-${sel.ci ?? 'w'}`}
+              kind={selKind === 'chapter' ? 'session' : 'week'}
+              node={selKind === 'chapter' ? selChapter : selModule}
+              parent={selKind === 'chapter' ? selModule : null}
+              fieldKey={`${sel.mi}-${sel.ci ?? 'w'}`}
+              onChange={(patch) => (selKind === 'chapter' ? setChapterField(sel.mi, sel.ci, patch) : setModuleField(sel.mi, patch))}
+            />
           ) : (
             <>
               <label className="ce-label">Lesson title</label>
@@ -236,6 +277,13 @@ export default function CurriculumEditor({ programId, batch, onClose }) {
               />
 
               <label className="ce-label">Reading material <span className="muted">(PDF, opens in the in-page viewer)</span></label>
+              {/* The ebook normally lives on the week or the session; this slot
+                  is for a lesson that needs a different file. Say when the
+                  lesson is already covered, or an empty box here reads as
+                  "no reading" when the student actually has the week's book. */}
+              {!selTopic.readingUrl && inheritedFrom('readingUrl') && (
+                <p className="ce-inherit"><LessonIcon type="pdf" size={13} /> Opens {inheritedFrom('readingUrl')}'s reading material. Attach a file here only if this lesson needs a different one.</p>
+              )}
               <PdfUrlField
                 key={`${sel.mi}-${sel.ci}-${sel.ti}-reading`}
                 fieldKey={`${sel.mi}-${sel.ci}-${sel.ti}-reading`}
@@ -244,6 +292,9 @@ export default function CurriculumEditor({ programId, batch, onClose }) {
               />
 
               <label className="ce-label">Teacher notes <span className="muted">(PDF, opens in the in-page viewer)</span></label>
+              {!selTopic.notesUrl && inheritedFrom('notesUrl') && (
+                <p className="ce-inherit"><LineIcon name="slides" size={13} /> Opens {inheritedFrom('notesUrl')}'s teacher notes. Attach a file here only if this lesson needs different ones.</p>
+              )}
               <PdfUrlField
                 key={`${sel.mi}-${sel.ci}-${sel.ti}-notes`}
                 fieldKey={`${sel.mi}-${sel.ci}-${sel.ti}-notes`}
@@ -258,6 +309,41 @@ export default function CurriculumEditor({ programId, batch, onClose }) {
         </section>
       </div>
     </div>
+  );
+}
+
+// A week or a session, opened from the book icon on its row: the ebook and
+// notes every lesson under it inherits, and the overview page students see
+// when they open it in the syllabus. The title is edited inline in the tree,
+// so it is only shown here, to say what you are attaching to.
+function NodeEditor({ kind, node, parent, fieldKey, onChange }) {
+  const below = kind === 'week' ? 'every session and lesson in it' : 'every lesson in it';
+  return (
+    <>
+      <p className="ce-node-kind">{kind === 'week' ? 'Week' : 'Session'}</p>
+      <h3 className="ce-node-title">{node.title || 'Untitled'}</h3>
+      {parent && <p className="muted ce-node-parent">in {parent.title}</p>}
+
+      <label className="ce-label">Reading material <span className="muted">(the {kind}'s ebook · PDF, opens in the in-page viewer)</span></label>
+      <p className="ce-inherit">Opens for {below} that has no reading of its own{kind === 'session' && parent?.readingUrl ? ' — and takes over from the week\u2019s book for this session' : ''}.</p>
+      <PdfUrlField
+        key={`${fieldKey}-reading`}
+        fieldKey={`${fieldKey}-reading`}
+        value={node.readingUrl || ''}
+        onChange={(readingUrl) => onChange({ readingUrl })}
+      />
+
+      <label className="ce-label">Teacher notes <span className="muted">(PDF, opens in the in-page viewer)</span></label>
+      <PdfUrlField
+        key={`${fieldKey}-notes`}
+        fieldKey={`${fieldKey}-notes`}
+        value={node.notesUrl || ''}
+        onChange={(notesUrl) => onChange({ notesUrl })}
+      />
+
+      <label className="ce-label">Overview <span className="muted">(Markdown; the page students see when they open this {kind} in the syllabus. Leave empty and the {kind} opens straight onto its lessons)</span></label>
+      <textarea className="ce-body" rows={12} value={node.description || ''} onChange={(e) => onChange({ description: e.target.value })} placeholder={kind === 'week' ? 'The week\u2019s objective, what it leads to…' : 'What this session carries forward, what you build…'} />
+    </>
   );
 }
 

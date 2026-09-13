@@ -31,6 +31,12 @@ const chapterSchema = new mongoose.Schema(
     // "Overview"; an assignment calls its page "Brief", because that is the
     // thing a student opens an assignment to read.
     pageLabel: { type: String, default: '' },
+    // The session's ebook and notes. A lesson with an empty slot of its own
+    // opens these, so a book that covers the whole session is attached once,
+    // here, rather than copied onto every lesson under it — which is how the
+    // ebooks are actually organised (one per week, or one per week+session).
+    readingUrl: { type: String, default: '' },
+    notesUrl: { type: String, default: '' },
     order: { type: Number, default: 0 },
     topics: { type: [topicSchema], default: [] },
   },
@@ -43,6 +49,10 @@ const moduleSchema = new mongoose.Schema(
     // Markdown shown in the reader when the module itself is opened — the
     // week's objective and outcome, say — rather than as lessons of its own.
     description: { type: String, default: '' },
+    // The week's ebook and notes — the fallback for every session and lesson
+    // in it that has none of its own. Resolution is lesson → chapter → module.
+    readingUrl: { type: String, default: '' },
+    notesUrl: { type: String, default: '' },
     order: { type: Number, default: 0 },
     chapters: { type: [chapterSchema], default: [] },
   },

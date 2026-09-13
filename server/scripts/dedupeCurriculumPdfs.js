@@ -56,22 +56,27 @@ async function run() {
   let rewritten = 0;
   for (const p of await Program.find({})) {
     let touched = false;
+    // A reading or notes PDF can hang off a lesson, its session or its week
+    // (models/Program.js); every one of them has to follow the survivor.
+    const repoint = (node) => {
+      for (const f of MEDIA) {
+        const id = /^\/uploads\/([a-f0-9]{24})$/.exec(node[f] || '')?.[1];
+        const to = id && remap.get(id);
+        if (!to) continue;
+        node[f] = `/uploads/${to}`;
+        touched = true;
+        rewritten++;
+      }
+    };
     for (const m of p.modules || []) {
+      repoint(m);
       for (const ch of m.chapters || []) {
-        for (const t of ch.topics || []) {
-          for (const f of MEDIA) {
-            const id = /^\/uploads\/([a-f0-9]{24})$/.exec(t[f] || '')?.[1];
-            const to = id && remap.get(id);
-            if (!to) continue;
-            t[f] = `/uploads/${to}`;
-            touched = true;
-            rewritten++;
-          }
-        }
+        repoint(ch);
+        for (const t of ch.topics || []) repoint(t);
       }
     }
     if (touched) {
-      console.log(`  ${p.title}: ${rewritten} lesson reference(s) repointed`);
+      console.log(`  ${p.title}: ${rewritten} reference(s) repointed`);
       if (APPLY) { p.markModified('modules'); await p.save(); }
     }
   }
@@ -86,7 +91,7 @@ async function run() {
 
   console.log(`\n  ${assets.length} rows → ${groups.size} distinct file(s)`);
   console.log(`  ${ids.length} duplicate(s) ${APPLY ? 'deleted' : 'would be deleted'}, ${(freed / 1048576).toFixed(1)} MB ${APPLY ? 'freed' : 'recoverable'}`);
-  console.log(`  ${rewritten} lesson reference(s) ${APPLY ? 'repointed' : 'would be repointed'}`);
+  console.log(`  ${rewritten} curriculum reference(s) ${APPLY ? 'repointed' : 'would be repointed'}`);
   if (!APPLY) console.log(`\n  Dry run. Re-run with:  CONFIRM_DB=${dbName} node scripts/dedupeCurriculumPdfs.js --apply`);
   console.log('');
 

@@ -1182,6 +1182,16 @@ h1.md-h { font-size: 22px; } h2.md-h { font-size: 19px; } h3.md-h { font-size: 1
 }
 .ce-mini:hover { background: var(--line-soft); border-color: var(--line); color: var(--ink); }
 .ce-mini.danger:hover { background: var(--danger-soft); border-color: var(--danger-line); color: var(--danger); }
+/* The book on a week / session row: lit once its ebook is attached, so the
+   tree reads as a checklist of which weeks have their book and which are
+   still waiting. */
+.ce-book.has { color: var(--brand); }
+.ce-mod-head.active, .ce-chap-head.active { background: var(--brand-soft); border-radius: 8px; }
+.ce-mod-head.active .ce-book, .ce-chap-head.active .ce-book { background: var(--brand); color: #fff; border-color: var(--brand); }
+.ce-node-kind { margin: 0; font-size: 11.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--brand); }
+.ce-node-title { margin: 4px 0 0; font-size: 17px; line-height: 1.3; }
+.ce-node-parent { margin: 2px 0 0; font-size: 13px; }
+.ce-inherit { display: flex; align-items: center; gap: 6px; margin: 0 0 8px; font-size: 12.5px; color: var(--muted); }
 .ce-add {
   border: 1.5px dashed var(--line); background: none; color: var(--brand); cursor: pointer;
   font-size: 12px; font-weight: 600; padding: 6px 12px; font-family: var(--font);

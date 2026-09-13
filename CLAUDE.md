@@ -21,6 +21,9 @@ cd server && npm run seed      # admin@menler.in / ChangeMe123!
 cd server && npm run seed:full # the whole LMS, mid-cohort (see below)
 cd server && node scripts/dedupeCurriculumPdfs.js          # dry run; --apply to collapse
                                # duplicate curriculum PDF blobs (needs CONFIRM_DB to apply)
+cd server && node scripts/liftCurriculumEbooks.js          # dry run; --apply to move ebooks
+                               # copied onto every lesson up to the week/session
+                               # they cover (needs CONFIRM_DB to apply)
 cd server && node scripts/syncCurriculumAssignments.js     # dry run; --apply to write
                                # puts a curriculum's work into every one of its batches'
                                # Assignments & Projects tab: Generalist 6 weekly
@@ -63,14 +66,30 @@ through the curriculum editor. The exception is the placeholders `seed:full`
 stamps on (the marketing brochure, the joke recording): those count as an empty
 slot, or the real curriculum would be pinned to them forever.
 
-**Module ebooks.** [server/assets/curriculum-pdfs/](server/assets/curriculum-pdfs/)
-holds the week/session ebooks, committed so a seed is reproducible off one
+**Ebooks attach to the week or the session, not to each lesson.** Reading
+material and teacher notes have a slot on the module, on the chapter and on
+the lesson ([models/Program.js](server/models/Program.js)), and a lesson
+resolves **lesson → chapter → module**. The books are organised that way — one
+per week, or one per week+session — so the admin attaches a book once, on the
+week or session row (the book icon in the curriculum editor), and every lesson
+under it opens it. A lesson's own slot is for the rare lesson that needs a
+different file; the editor says when a lesson is already covered from above.
+Before this the ebook was copied onto every lesson, which put nothing against
+the week or session in the admin panel and, worse, would have hidden a
+per-session book behind the week-wide copy on each lesson.
+`node scripts/liftCurriculumEbooks.js` (dry run; `--apply` with `CONFIRM_DB`)
+moves those copies up on a live database; `seed:content` does the same on every
+run (`liftSharedMedia`).
+
+[server/assets/curriculum-pdfs/](server/assets/curriculum-pdfs/) holds the
+ebooks that ship with the repo, committed so a seed is reproducible off one
 laptop. `CURRICULUM_PDF_RULES` in
-[curriculumPdfAssets.js](server/utils/curriculumPdfAssets.js) maps a module title
-prefix to its ebook; the seed loads each into Mongo once (keyed on the content
-hash, so re-seeding never duplicates a blob or moves a URL) and fills the reading
-slot of every lesson in that module that has none. Modules with no rule keep an
-empty slot, which the lesson UI renders honestly as "No reading yet".
+[curriculumPdfAssets.js](server/utils/curriculumPdfAssets.js) maps a module
+title prefix — and optionally a session prefix inside it — to its ebook; the
+seed loads each into Mongo once (keyed on the content hash, so re-seeding never
+duplicates a blob or moves a URL) and attaches it to that week or session if
+the slot is empty. Nodes with no rule keep an empty slot, which the lesson UI
+renders honestly as "No reading yet".
 
 **Lesson ids are load-bearing.** Modules/chapters/topics are embedded
 sub-documents, so a naive `p.modules = …` re-mints every `_id` and orphans the
