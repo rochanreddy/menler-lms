@@ -34,6 +34,8 @@ const PREREQUISITES_URL = 'https://drive.google.com/drive/folders/1yi0IWBMnztCty
 const mailtoLink = (color = '#534AB7') =>
   `<a href="mailto:${SUPPORT_EMAIL}" style="color:${color}; text-decoration:underline;">${SUPPORT_EMAIL}</a>`;
 
+const DEFAULT_HELP = `If anything about signing in does not work, write to ${mailtoLink()}.`;
+
 const FOOTER = `<tr><td bgcolor="#211B4C" class="px" style="background-color:#211B4C; padding:34px 40px 30px;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
 
@@ -91,7 +93,10 @@ const FOOTER = `<tr><td bgcolor="#211B4C" class="px" style="background-color:#21
 // `closing` the line above the signature — "See you in class!" is a student's.
 // `cta` is optional: a password-reset code has no button on purpose, and a
 // mail that asks you to click nothing cannot train its readers to click.
-function shell({ preview, greeting, body, cta = null, why, title, closing = 'See you in class!' }) {
+// `help` is the "if this doesn't work, write to us" line above the sign-off;
+// the default is the account mails' wording, a broadcast passes its own.
+// `closing` may be '' — a broadcast's sign-off is whatever the admin typed.
+function shell({ preview, greeting, body, cta = null, why, title, closing = 'See you in class!', help = DEFAULT_HELP }) {
   return `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en">
 <head>
@@ -144,8 +149,8 @@ function shell({ preview, greeting, body, cta = null, why, title, closing = 'See
         </td></tr>` : ''}
 
         <tr><td class="px" style="padding:32px 40px 44px;">
-          ${P(`If anything about signing in does not work, write to ${mailtoLink()}.`, 0)}
-          ${P(esc(closing), 24)}
+          ${P(help, 0)}
+          ${closing ? P(esc(closing), 24) : ''}
           ${P('<strong style="font-weight:700;">Menler</strong><br />Your turning point in the AI era', 24)}
         </td></tr>
 
@@ -363,6 +368,71 @@ export function passwordOtpEmail({ fullName, email, code, minutes = 10 }) {
     `    ${code}`, '',
     `The code expires in ${minutes} minutes and can be used once.`, '',
     'If you did not ask for this, you can ignore this email — your password stays as it is.', '',
+    `Questions? Write to ${SUPPORT_EMAIL}.`, '',
+    SIGN_OFF,
+  ].join('\n');
+
+  return { subject, text, html };
+}
+
+// ── Admin broadcasts ────────────────────────────────────────────────────────
+//
+// A mail the admin wrote on the Mail tab and scheduled for a batch. The admin
+// owns the subject and the body; the banner, the greeting, the help line, the
+// signature and the footer are the shell's, so every campaign reads as the
+// same company as the account mails. `body` arrives as plain text with the
+// placeholders already filled (see utils/mailCampaigns.js).
+//
+// Text → HTML: blank lines split paragraphs, a single newline is a <br>, a
+// bare URL becomes a link, and everything else is escaped. No markup is
+// honoured on purpose — an admin pasting from a doc is how a mail ships with
+// half a table in it.
+const URL_RE = /\bhttps?:\/\/[^\s<>"')\]]+/g;
+
+function paragraphHtml(text) {
+  const lines = String(text || '').split('\n').map((line) => {
+    let out = '';
+    let last = 0;
+    for (const m of line.matchAll(URL_RE)) {
+      // Trailing punctuation is prose, not part of the address.
+      const raw = m[0];
+      const trimmed = raw.replace(/[.,;:!?]+$/, '');
+      out += esc(line.slice(last, m.index));
+      out += `<a href="${esc(trimmed)}" style="color:#534AB7; text-decoration:underline; word-break:break-all;">${esc(trimmed)}</a>${esc(raw.slice(trimmed.length))}`;
+      last = m.index + raw.length;
+    }
+    return out + esc(line.slice(last));
+  });
+  return lines.join('<br />');
+}
+
+export function bodyToHtml(text) {
+  return String(text || '')
+    .replace(/\r\n?/g, '\n')
+    .split(/\n{2,}/)
+    .map((para) => para.trim())
+    .filter(Boolean)
+    .map((para) => P(paragraphHtml(para)))
+    .join('\n');
+}
+
+export function broadcastEmail({ fullName, email, subject, body, batchName = '' }) {
+  const first = firstNameOf(fullName, email);
+  const where = batchName ? ` in ${esc(batchName)}` : '';
+
+  const html = shell({
+    title: subject,
+    preview: String(body || '').replace(/\s+/g, ' ').trim().slice(0, 120),
+    greeting: first,
+    body: bodyToHtml(body),
+    help: `Questions? Write to ${mailtoLink()}.`,
+    closing: '',
+    why: `You're receiving this because you are enrolled${where} on the Menler LMS, as ${esc(email)}.`,
+  });
+
+  const text = [
+    `Dear ${first},`, '',
+    String(body || '').replace(/\r\n?/g, '\n').trim(), '',
     `Questions? Write to ${SUPPORT_EMAIL}.`, '',
     SIGN_OFF,
   ].join('\n');

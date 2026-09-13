@@ -398,6 +398,65 @@ at ten an hour per student: not a security control (support is the one place a
 person in trouble is *meant* to be able to shout) but a jammed submit button
 fires forty in a second.
 
+### Mail
+
+An admin writes a mail once, picks the batches it goes to, and says when —
+one time, or several in the same day. The **Mail** tab
+([pages/admin/Mail.jsx](client/src/pages/admin/Mail.jsx)) is two panes:
+compose, and what is scheduled or sent. Admin only, end to end —
+[routes/mail.js](server/routes/mail.js) is `requireRole('admin')` on
+everything; a mentor reaches students through the classroom, not a mailer.
+
+**The admin owns the subject and the body. Nothing else.** The banner, the
+"Dear <first name>," greeting, the help line, the signature and the footer
+are the same shell every account mail is on (`shell()` in
+[emailTemplates.js](server/utils/emailTemplates.js), via `broadcastEmail()`),
+so a reminder typed on a hurried Friday still reads as the company that sent
+the welcome mail. The body is plain text: blank lines split paragraphs, a bare
+URL becomes a link, and markup is escaped rather than honoured, because an
+admin pasting from a doc is how a mail ships with half a table in it.
+`{{first_name}}`, `{{name}}`, `{{email}}`, `{{batch}}` and
+`{{programme}}` (`PLACEHOLDERS` in
+[utils/mailCampaigns.js](server/utils/mailCampaigns.js)) are filled per
+recipient; `{{batch}}` is the batch the mail was *sent through*, so a student
+in both cohorts picked via Kickstarter reads "Kickstarter". There are no
+saved templates on purpose: **Reuse** on any past mail refills the form,
+which is the whole of what a template did without a second list to tend.
+Three worked examples (`EXAMPLES` in Mail.jsx) fill the form so a first test
+needs no writing; they live in the client, not the database.
+
+**One row per send time.** A compose with three times is three
+`MailCampaign` rows with the same copy (`POST /mail/campaigns` takes
+`sendAts[]`, up to twelve, deduped and sorted). Each has its own status and
+counts, so "the 9 am one went, the 6 pm one is waiting" is a fact the list
+shows, and each can be reworded, sent early or cancelled on its own.
+
+**The row is the schedule.** There is no timer object: `startMailScheduler()`
+wakes every minute (and at boot, so a Render instance that slept through a
+send time sends the moment it wakes) and claims any `scheduled` row whose
+`sendAt` has passed with one atomic status flip to `sending`. Two instances,
+or a restart mid-run, cannot send a campaign twice. A row still `sending`
+thirty minutes on was interrupted and is closed as `failed` with a note
+rather than re-run — whoever was reached was reached, and running it again
+would double them up. "Send now" and anything due inside thirty seconds run
+in the request itself, so *now* means now. `sendAt` is resolved on the
+admin's own clock and sent as an instant, like classes and doubt sessions.
+
+The audience is resolved **at send time**, not at scheduling: a student
+enrolled tonight gets Friday's mail. It skips accounts blocked from the LMS
+and students blocked from that batch, and a student in two picked batches is
+one person and gets one mail. The compose form shows the same count through
+`GET /mail/audience`. Sends are paced at 600 ms apart on Resend, whose free
+tier refuses more than two requests a second and caps at 100 mails a day —
+the form says so past ninety recipients, and it counts every time picked,
+since three sends to thirty students is ninety mails. A **test** goes to any
+address the admin types, remembered in the browser (ten an hour), and the **preview** renders the real shell
+in a sandboxed iframe, so the placeholders are checked before, not after.
+
+A scheduled mail can be edited, sent early or cancelled; a sent, failed or
+cancelled one is history and can only be reused (which refills the form) or
+removed. The per-address failures are kept on the row and listed on the card.
+
 ### Classes and attendance
 
 Admins schedule classes per batch — one at a time, or a whole cohort through

@@ -7,6 +7,8 @@ import LineIcon from './LineIcon.jsx';
 // change from `e.target.value` to the value itself.
 
 const pad = (n) => String(n).padStart(2, '0');
+const POP_HEIGHT = 430;      // the popover, fully open
+const DOCK_CLEARANCE = 110;  // the fixed dock plus its bottom margin
 const WEEKDAYS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December'];
@@ -28,7 +30,20 @@ export default function DateTimePicker({ value, onChange, placeholder = 'Pick da
   const selected = parseValue(value);
   const [open, setOpen] = useState(false);
   const [view, setView] = useState(() => selected || new Date());
+  // Opens upward when the field sits near the bottom of the viewport. The
+  // popover is ~420px tall and the dock is fixed over the last ~100px, so a
+  // picker at the foot of a long form used to put its time row under the dock.
+  const [flipUp, setFlipUp] = useState(false);
   const wrapRef = useRef(null);
+
+  const toggle = () => {
+    if (!open && wrapRef.current) {
+      const r = wrapRef.current.getBoundingClientRect();
+      const below = window.innerHeight - r.bottom;
+      setFlipUp(below < POP_HEIGHT + DOCK_CLEARANCE && r.top > below);
+    }
+    setOpen((o) => !o);
+  };
 
   // Follow the value when it changes from outside (e.g. the form resetting).
   useEffect(() => { const d = parseValue(value); if (d) setView(d); }, [value]);
@@ -88,7 +103,7 @@ export default function DateTimePicker({ value, onChange, placeholder = 'Pick da
         type="button"
         id={id}
         className={`dtp-field ${selected ? '' : 'is-empty'}`}
-        onClick={() => setOpen((o) => !o)}
+        onClick={toggle}
         aria-haspopup="dialog"
         aria-expanded={open}
       >
@@ -109,7 +124,7 @@ export default function DateTimePicker({ value, onChange, placeholder = 'Pick da
       </button>
 
       {open && (
-        <div className="dtp-pop" role="dialog" aria-label="Choose date and time">
+        <div className={`dtp-pop${flipUp ? ' up' : ''}`} role="dialog" aria-label="Choose date and time">
           <div className="dtp-head">
             <button type="button" className="dtp-nav" onClick={() => shiftMonth(-1)} aria-label="Previous month">‹</button>
             <div className="dtp-month">{MONTHS[month]} {year}</div>

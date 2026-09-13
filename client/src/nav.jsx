@@ -35,6 +35,7 @@ const AdminDoubts = lazy(() => import('./pages/admin/Doubts.jsx'));
 const DoubtSession = lazy(() => import('./pages/DoubtSession.jsx'));
 const Support = lazy(() => import('./pages/Support.jsx'));
 const AdminSupport = lazy(() => import('./pages/admin/Support.jsx'));
+const AdminMail = lazy(() => import('./pages/admin/Mail.jsx'));
 
 // A placeholder page factory — renders the spec's sections for screens whose
 // backend is Phase 2.
@@ -105,6 +106,7 @@ export function navFor(role) {
         { label: 'Feedback', path: 'feedback', Component: AdminFeedback },
         { label: 'Doubts', path: 'doubts', Component: AdminDoubts },
         { label: 'Support', path: 'support', Component: AdminSupport },
+        { label: 'Mail', path: 'mail', Component: AdminMail },
         { label: 'Library', path: 'library', Component: Library },
         { label: 'Webinar', path: 'webinar', Component: Webinar },
         { label: 'Forum', path: 'forum', Component: ph('Forum', [

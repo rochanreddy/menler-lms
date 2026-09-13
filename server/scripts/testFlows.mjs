@@ -14,6 +14,7 @@ import { Submission } from '../models/Submission.js';
 import { Doubt } from '../models/Doubt.js';
 import { Announcement } from '../models/Announcement.js';
 import { SupportTicket } from '../models/SupportTicket.js';
+import { MailCampaign } from '../models/MailCampaign.js';
 import { generalistModules } from './curricula.js';
 
 const BASE = process.env.LMS_API || 'http://localhost:4100/api/lms';
@@ -464,6 +465,49 @@ async function run() {
   const mentorResolves = await call(`/support/${ticketId}`, { token: mentorAll.token, method: 'PATCH', body: { status: 'resolved' } });
   ok('a mentor cannot close a ticket', mentorResolves.status === 403, `got ${mentorResolves.status}`);
 
+  // ────────────────────────────────── Mail desk
+  // The admin writes a mail once, picks the batches and the times, and the
+  // server sends it. Nothing is actually sent here: the sends are scheduled
+  // three days out and cancelled, because a flow check that mails sixteen
+  // invented students on every run is one that gets switched off.
+  section('MAIL');
+  const mentorMail = await call('/mail', { token: mentorAll.token });
+  ok('a mentor is refused the mail desk', mentorMail.status === 403, `got ${mentorMail.status}`);
+  const mailDesk = await call('/mail', { token: admin.token });
+  ok('admin loads the mail desk', mailDesk.status === 200 && Array.isArray(mailDesk.json.batches), `got ${mailDesk.status}`);
+  const kMail = (mailDesk.json.batches || []).find((b) => b.programId === String(kick._id));
+  const gMail = (mailDesk.json.batches || []).find((b) => b.programId === String(gen._id));
+  ok('…with a batch for each programme', !!kMail && !!gMail);
+  const mailAud = await call(`/mail/audience?batchIds=${kMail.id},${gMail.id}`, { token: admin.token });
+  ok('the audience of both batches counts a dual-enrolled student once',
+    mailAud.json.count > 0 && mailAud.json.count < kMail.students + gMail.students, `${mailAud.json.count} of ${kMail.students}+${gMail.students}`);
+
+  const flowCopy = { subject: 'Class tonight · {{batch}}', body: 'Hi {{first_name}}, see you at 7.\n\nhttps://menler.in' };
+  const flowPrev = await call('/mail/preview', { token: admin.token, method: 'POST', body: { ...flowCopy, batchId: kMail.id } });
+  ok('the preview fills the placeholders', flowPrev.status === 200 && !flowPrev.json.subject.includes('{{') && !flowPrev.json.html.includes('{{'), flowPrev.json?.subject);
+  ok('…on the fixed shell, with the link made clickable', flowPrev.json.html.includes('email-banner.jpg') && flowPrev.json.html.includes('<a href="https://menler.in"'));
+
+  const day3 = Date.now() + 3 * 86400000;
+  const morning = new Date(day3).toISOString();
+  const evening = new Date(day3 + 9 * 3600000).toISOString();
+  const flowCamp = await call('/mail/campaigns', {
+    token: admin.token, method: 'POST',
+    body: { batchIds: [kMail.id], subject: `${FLOW} mail`, body: 'Hi {{first_name}}.', sendAts: [evening, morning, morning] },
+  });
+  ok('admin schedules a mail to a batch at two times of a day', flowCamp.status === 201 && (flowCamp.json.campaigns || []).length === 2, `got ${flowCamp.status}, ${flowCamp.json?.campaigns?.length} rows`);
+  ok('…one row per time, in time order, a repeated time folded', flowCamp.json.campaigns?.[0]?.sendAt === morning && flowCamp.json.campaigns?.[1]?.sendAt === evening);
+  ok('…each waiting, with its recipients counted', (flowCamp.json.campaigns || []).every((c) => c.status === 'scheduled' && c.recipients > 0));
+  const mentorSchedules = await call('/mail/campaigns', { token: mentorAll.token, method: 'POST', body: { batchIds: [kMail.id], subject: `${FLOW} mail`, body: 'x', sendAt: morning } });
+  ok('a mentor cannot schedule one', mentorSchedules.status === 403, `got ${mentorSchedules.status}`);
+  const flowEdit = await call(`/mail/campaigns/${flowCamp.json.campaigns[1]._id}`, { token: admin.token, method: 'PUT', body: { subject: `${FLOW} mail, evening` } });
+  ok('one of the times can be reworded on its own', flowEdit.status === 200 && flowEdit.json.campaign.subject.endsWith('evening'), `got ${flowEdit.status}`);
+  let cancelled = 0;
+  for (const c of flowCamp.json.campaigns) {
+    const r = await call(`/mail/campaigns/${c._id}`, { token: admin.token, method: 'DELETE' });
+    if (r.json?.cancelled) cancelled++;
+  }
+  ok('admin cancels both before they go out', cancelled === 2, `cancelled ${cancelled}`);
+
   // ────────────────────────────────── Single active session + watch lock
   section('SINGLE ACTIVE SESSION');
 
@@ -555,9 +599,10 @@ async function run() {
   const rmDoubts = await Doubt.deleteMany({ text: new RegExp(`^${FLOW}`) });
   const rmAnns = await Announcement.deleteMany({ title: new RegExp(`^${FLOW}`) });
   const rmTickets = await SupportTicket.deleteMany({ subject: new RegExp(`^${FLOW}`) });
+  const rmMail = await MailCampaign.deleteMany({ subject: new RegExp(`^${FLOW}`) });
   await mongoose.disconnect();
   ok('this run left nothing behind', true,
-    `${rmAssign.deletedCount} assignment · ${rmSubs.deletedCount} submission · ${rmDoubts.deletedCount} doubt · ${rmAnns.deletedCount} announcement · ${rmTickets.deletedCount} ticket removed`);
+    `${rmAssign.deletedCount} assignment · ${rmSubs.deletedCount} submission · ${rmDoubts.deletedCount} doubt · ${rmAnns.deletedCount} announcement · ${rmTickets.deletedCount} ticket · ${rmMail.deletedCount} mail removed`);
 
   // ────────────────────────────────── Summary
   console.log(`\n═══════════════════════════════════════`);

@@ -1572,12 +1572,15 @@ h1.md-h { font-size: 22px; } h2.md-h { font-size: 19px; } h3.md-h { font-size: 1
 .dtp-clear { color: var(--muted); font-size: 16px; line-height: 1; padding: 0 2px; border-radius: 5px; }
 .dtp-clear:hover { color: var(--a4); background: var(--a4-soft); }
 
+/* z-index above the dock (60): the picker is opened from inside a form and
+   the dock must not cover its time row. */
 .dtp-pop {
-  position: absolute; z-index: 60; top: calc(100% + 6px); left: 0;
+  position: absolute; z-index: 70; top: calc(100% + 6px); left: 0;
   width: 288px; padding: 14px;
   background: var(--card); border: 1px solid var(--line);
   border-radius: var(--radius-sm); box-shadow: var(--shadow-lg);
 }
+.dtp-pop.up { top: auto; bottom: calc(100% + 6px); }
 .dtp-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
 .dtp-month { font-weight: 650; font-size: 14px; color: var(--ink); }
 .dtp-nav {
@@ -2695,3 +2698,20 @@ input:hover:not(:disabled):not(:focus), select:hover:not(:disabled):not(:focus),
 .rp-name { font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rp-from { font-size: 12px; color: var(--muted); }
 .rp-go { flex: none; color: var(--muted); }
+
+/* ── Admin mail desk ─────────────────────────────────────────────────────── */
+/* Placeholder chips under the body box: press one to drop {{first_name}} at
+   the caret. Chips, not a select, because the admin is mid-sentence. */
+.mail-placeholders { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; }
+.mail-placeholders-label { font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin-right: 4px; }
+.mail-chip { font: inherit; font-size: 12.5px; padding: 4px 10px; border: 1px solid var(--line); border-radius: 999px; background: #fff; color: var(--ink); cursor: pointer; font-family: var(--font); }
+.mail-chip:hover { border-color: var(--violet); color: var(--violet); }
+.mail-chip:focus-visible { outline: 2px solid var(--violet); outline-offset: 2px; }
+/* The saved body, as typed: line breaks kept, no monospace — it is prose. */
+.mail-body-preview { margin: 0; padding: 12px 14px; background: var(--bg-soft, #f7f6fb); border: 1px solid var(--line); border-radius: 10px; font-family: var(--font); font-size: 14px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; color: var(--ink); max-height: 220px; overflow: auto; }
+.mail-preview { display: flex; flex-direction: column; gap: 10px; }
+.mail-preview iframe { width: 100%; min-width: min(640px, 80vw); height: 70vh; border: 1px solid var(--line); border-radius: 10px; background: #fff; }
+.mail-failures { margin: 8px 0 0; padding-left: 18px; font-size: 13px; line-height: 1.6; color: var(--muted); }
+/* One row per send time on the compose form. */
+.mail-times { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
+.mail-time-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }

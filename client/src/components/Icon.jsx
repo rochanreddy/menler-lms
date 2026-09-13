@@ -30,6 +30,8 @@ const PATHS = {
   doubts: <><path d="M21 11.5a8.38 8.38 0 0 1-8.5 8.5 8.5 8.5 0 0 1-3.8-.9L3 21l1.9-5.7A8.38 8.38 0 0 1 4 11.5 8.5 8.5 0 0 1 12.5 3 8.38 8.38 0 0 1 21 11.5z" /><path className="ico-draw" pathLength="1" d="M10.3 9.3a2.2 2.2 0 0 1 4.2.8c0 1.5-2.2 2.2-2.2 2.2" /><path className="ico-draw" pathLength="1" d="M12.3 15.2h.01" /></>,
   // A life buoy: support is the thing you reach for when you are going under,
   // and it is the one icon in the set nobody has to learn.
+  // An envelope, flap drawn: mail is what goes out to a batch, not what comes in.
+  mail: <><rect x="3" y="5.5" width="18" height="13" rx="2" /><path className="ico-draw" pathLength="1" d="m3.5 7 8.5 6 8.5-6" /></>,
   support: <><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="3.6" /><path className="ico-draw" pathLength="1" d="m5.6 5.6 3.9 3.9" /><path className="ico-draw" pathLength="1" d="m14.5 14.5 3.9 3.9" /><path className="ico-draw" pathLength="1" d="m18.4 5.6-3.9 3.9" /><path className="ico-draw" pathLength="1" d="m9.5 14.5-3.9 3.9" /></>,
 };
 
@@ -37,7 +39,7 @@ const ALIAS = {
   'Home': 'home', 'Learning': 'learning', 'Library': 'library', 'Forum': 'forum',
   'Profile': 'profile', 'Programs': 'programs', 'Batches': 'batches',
   'Mentors': 'mentors', 'Students': 'students', 'Webinar': 'webinar', 'Account': 'account', 'Grades': 'grades',
-  'Feedback': 'feedback', 'Doubts': 'doubts', 'Support': 'support',
+  'Feedback': 'feedback', 'Doubts': 'doubts', 'Support': 'support', 'Mail': 'mail',
 };
 
 export default function Icon({ name }) {
