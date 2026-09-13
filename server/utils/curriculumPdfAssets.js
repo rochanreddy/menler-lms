@@ -43,8 +43,19 @@ export const CURRICULUM_PDF_RULES = {
     { module: 'S04', lesson: 'Assignment:', file: 'Menler-Kickstarter-S4-Assignment1.pdf', notes: 'Menler-Kickstarter-S4-Assignment1-Solution-Book.pdf' },
   ],
   Generalist: [
+    // The week ebook on the week, a session ebook on each session, and the
+    // week's one assignment on its "Weekly Assignment" submission lesson —
+    // brief as reading, solution book as notes. Week 2's brief says it IS
+    // Milestone Project 1, so that project's submission carries it too.
     { module: 'WEEK 1', file: 'Menler-Fellowship-Week1-Ebook_3.pdf' },
+    { module: 'WEEK 1', session: 'S1', file: 'Menler-Fellowship-Week1-Session1-Ebook.pdf' },
+    { module: 'WEEK 1', session: 'S2', file: 'Menler-Fellowship-Week1-Session2-Ebook.pdf' },
+    { module: 'WEEK 1', session: 'Weekly Assignment', lesson: 'Submission', file: 'Menler-Fellowship-Week1-Assignment.pdf', notes: 'Menler-Fellowship-Week1-Assignment-Solution-Book.pdf' },
     { module: 'WEEK 2', file: 'Menler-Fellowship-Week2-Ebook.pdf' },
+    { module: 'WEEK 2', session: 'S1', file: 'Menler-Fellowship-Week2-Session1-Ebook.pdf' },
+    { module: 'WEEK 2', session: 'S2', file: 'Menler-Fellowship-Week2-Session2-Ebook.pdf' },
+    { module: 'WEEK 2', session: 'Weekly Assignment', lesson: 'Submission', file: 'Menler-Fellowship-Week2-Assignment.pdf', notes: 'Menler-Fellowship-Week2-Assignment-Solution-Book.pdf' },
+    { module: 'WEEK 2', session: 'Milestone Project 1', lesson: 'Submission', file: 'Menler-Fellowship-Week2-Assignment.pdf', notes: 'Menler-Fellowship-Week2-Assignment-Solution-Book.pdf' },
   ],
 };
 
