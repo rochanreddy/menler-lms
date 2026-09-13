@@ -1,15 +1,25 @@
 import { Router } from 'express';
+import mongoose from 'mongoose';
 import multer from 'multer';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { Program } from '../models/Program.js';
 import { User } from '../models/User.js';
 import { Batch } from '../models/Batch.js';
 import { parseDocToModules } from '../utils/docparse.js';
+import { MAX_CURRICULUM_BYTES, isPdfUpload, storeCurriculumPdf } from '../utils/curriculumFiles.js';
 
 const router = Router();
 
 // In-memory upload for doc import (we parse the buffer, we don't store the file).
 const importUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 15 * 1024 * 1024 } });
+// Reading materials pushed onto a week, session or lesson: several PDFs in
+// one go, each stored through the same hash-deduped store as the editor's
+// single drop.
+const MAX_MATERIALS_PER_PUSH = 20;
+const materialUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: MAX_CURRICULUM_BYTES, files: MAX_MATERIALS_PER_PUSH },
+});
 
 // Admin module-block: strip blocked curriculum modules from what a non-admin
 // user sees. The module simply doesn't exist for them (Learning, progress UI).
@@ -128,6 +138,93 @@ router.post('/:id/import', requireAuth, requireRole('admin', 'mentor'), importUp
   } catch (e) {
     res.status(422).json({ error: `Could not read that file: ${e.message}` });
   }
+});
+
+// ── Reading materials ───────────────────────────────────────────────────────
+// The one thing a mentor does to the curriculum week after week is put the
+// handouts up, so it gets its own two routes that save at once — no tree to
+// understand, no Save button to forget, and no whole-tree PATCH from a
+// mentor's screen that could overwrite an admin's edit in flight.
+//
+// A material lands on ONE node: the week (moduleId), the session (moduleId +
+// chapterId) or the lesson (all three). The student's Reading material chip
+// lists everything on the lesson, its session and its week together.
+
+/** The week, session or lesson the ids point at, as a live subdocument. */
+function findNode(program, { moduleId, chapterId, topicId } = {}) {
+  const m = moduleId && mongoose.isValidObjectId(moduleId) ? program.modules.id(moduleId) : null;
+  if (!m) return null;
+  if (!chapterId) return m;
+  const c = mongoose.isValidObjectId(chapterId) ? m.chapters.id(chapterId) : null;
+  if (!c) return null;
+  if (!topicId) return c;
+  return (mongoose.isValidObjectId(topicId) && c.topics.id(topicId)) || null;
+}
+
+// A pasted link has to be something a browser can open. Root-relative
+// /uploads/… paths are ours and fine; anything else must be http(s).
+const isOpenableLink = (u) => /^https?:\/\/\S+$/i.test(u) || /^\/uploads\/[a-f0-9]{24}$/i.test(u);
+
+// POST /api/lms/programs/:id/materials — multipart: files[] (PDFs, up to 20),
+// moduleId, chapterId?, topicId?, kind ('notes' default | 'resource'), and
+// optionally url + name for a link instead of (or as well as) files.
+// Returns the node's full list.
+router.post('/:id/materials', requireAuth, requireRole('admin', 'mentor'), (req, res) => {
+  materialUpload.array('files', MAX_MATERIALS_PER_PUSH)(req, res, async (err) => {
+    if (err) {
+      if (err.code === 'LIMIT_FILE_SIZE') return res.status(413).json({ error: 'One of those files is over the 15 MB limit.' });
+      if (err.code === 'LIMIT_FILE_COUNT') return res.status(413).json({ error: `Add up to ${MAX_MATERIALS_PER_PUSH} files at a time.` });
+      return res.status(400).json({ error: 'Upload failed.' });
+    }
+    const program = await Program.findById(req.params.id);
+    if (!program) return res.status(404).json({ error: 'Program not found.' });
+    if (!(await canEditProgram(req.user, program))) return res.status(403).json({ error: 'Only mentors assigned to this program can add its reading materials.' });
+    const node = findNode(program, req.body || {});
+    if (!node) return res.status(404).json({ error: 'That week, session or lesson was not found. Reload and try again.' });
+
+    const files = req.files || [];
+    const link = String(req.body?.url || '').trim();
+    const kind = req.body?.kind === 'resource' ? 'resource' : 'notes';
+    if (!files.length && !link) return res.status(400).json({ error: 'Nothing to add: choose at least one PDF or paste a link.' });
+    const notPdf = files.find((f) => !isPdfUpload(f));
+    if (notPdf) return res.status(415).json({ error: `${notPdf.originalname || 'That file'} is not a PDF. Only PDF files are accepted.` });
+    if (link && !isOpenableLink(link)) return res.status(400).json({ error: 'That link must start with https://.' });
+
+    try {
+      let added = 0;
+      for (const f of files) {
+        const { url, name } = await storeCurriculumPdf(f, req.user._id);
+        // The same file pushed twice onto the same node is one entry.
+        if (node.materials.some((x) => x.url === url)) continue;
+        node.materials.push({ url, name, kind, addedBy: req.user._id });
+        added++;
+      }
+      if (link && !node.materials.some((x) => x.url === link)) {
+        node.materials.push({ url: link, name: String(req.body?.name || '').trim() || link, kind, addedBy: req.user._id });
+        added++;
+      }
+      await program.save();
+      return res.status(201).json({ materials: node.materials, added });
+    } catch {
+      return res.status(500).json({ error: 'Could not store the file.' });
+    }
+  });
+});
+
+// DELETE /api/lms/programs/:id/materials/:mid — remove one material wherever
+// it sits in the tree. The stored bytes stay: they are hash-shared and may be
+// attached elsewhere. Returns the node's remaining list.
+router.delete('/:id/materials/:mid', requireAuth, requireRole('admin', 'mentor'), async (req, res) => {
+  const program = await Program.findById(req.params.id);
+  if (!program) return res.status(404).json({ error: 'Program not found.' });
+  if (!(await canEditProgram(req.user, program))) return res.status(403).json({ error: 'Only mentors assigned to this program can edit its reading materials.' });
+  const mid = String(req.params.mid);
+  const nodes = program.modules.flatMap((m) => [m, ...m.chapters.flatMap((c) => [c, ...c.topics])]);
+  const node = nodes.find((n) => (n.materials || []).some((x) => String(x._id) === mid));
+  if (!node) return res.status(404).json({ error: 'That material is already gone.' });
+  node.materials.pull(mid);
+  await program.save();
+  res.json({ materials: node.materials });
 });
 
 // PATCH /api/lms/programs/:id — admin, or a mentor assigned to this program

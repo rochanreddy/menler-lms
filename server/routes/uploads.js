@@ -4,13 +4,13 @@ import multer from 'multer';
 import { requireAuth } from '../middleware/auth.js';
 import { FileAsset } from '../models/FileAsset.js';
 import { sha256 } from '../utils/curriculumPdfAssets.js';
+import { MAX_CURRICULUM_BYTES, isPdfUpload, storeCurriculumPdf } from '../utils/curriculumFiles.js';
 
 // Resume upload + read-back, and curriculum PDFs from the admin editor.
 // Bytes go to Mongo (see models/FileAsset.js), never to disk, and they are
 // served back through this authenticated route rather than a static mount.
 
 const MAX_RESUME_BYTES = 5 * 1024 * 1024;
-const MAX_CURRICULUM_BYTES = 15 * 1024 * 1024;
 
 // What the Profile file picker offers (.pdf/.doc/.docx). Browsers disagree about
 // the exact type they report for Office formats, so the extension is accepted as
@@ -21,8 +21,6 @@ const RESUME_TYPES = new Set([
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
 ]);
 const RESUME_EXT = /\.(pdf|doc|docx)$/i;
-const PDF_TYPE = 'application/pdf';
-const PDF_EXT = /\.pdf$/i;
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -56,8 +54,7 @@ router.post('/', requireAuth, (req, res) => {
       if (!['admin', 'mentor'].includes(req.user.role)) {
         return res.status(403).json({ error: 'Not allowed.' });
       }
-      const okPdf = req.file.mimetype === PDF_TYPE || PDF_EXT.test(req.file.originalname || '');
-      if (!okPdf) return res.status(415).json({ error: 'Only PDF files are accepted.' });
+      if (!isPdfUpload(req.file)) return res.status(415).json({ error: 'Only PDF files are accepted.' });
     } else {
       const okType = RESUME_TYPES.has(req.file.mimetype) || RESUME_EXT.test(req.file.originalname || '');
       if (!okType) return res.status(415).json({ error: 'Only PDF and Word documents are accepted.' });
@@ -67,24 +64,22 @@ router.post('/', requireAuth, (req, res) => {
     }
 
     try {
-      const hash = sha256(req.file.buffer);
-
       // Course material is shared, so the same ebook dropped onto twenty
-      // lessons should be ONE row, not twenty copies of 750 KB. Reuse the
-      // stored bytes when the hash matches. Resumes are personal and stay
-      // per-owner: two people submitting an identical file must not end up
-      // sharing a document either of them can later replace.
+      // lessons should be ONE row, not twenty copies of 750 KB — the helper
+      // reuses the stored bytes when the hash matches. Resumes are personal
+      // and stay per-owner: two people submitting an identical file must not
+      // end up sharing a document either of them can later replace.
       if (kind === 'curriculum-pdf') {
-        const seen = await FileAsset.findOne({ kind, hash }).sort({ createdAt: 1 }).select('_id name');
-        if (seen) return res.status(200).json({ url: `/uploads/${seen._id}`, name: seen.name, reused: true });
+        const stored = await storeCurriculumPdf(req.file, req.user._id);
+        return res.status(stored.reused ? 200 : 201).json(stored);
       }
 
       const asset = await FileAsset.create({
         data: req.file.buffer,
-        name: req.file.originalname || (kind === 'curriculum-pdf' ? 'document.pdf' : 'resume'),
-        mimeType: req.file.mimetype || (kind === 'curriculum-pdf' ? PDF_TYPE : 'application/octet-stream'),
+        name: req.file.originalname || 'resume',
+        mimeType: req.file.mimetype || 'application/octet-stream',
         size: req.file.size,
-        hash,
+        hash: sha256(req.file.buffer),
         ownerId: req.user._id,
         kind,
       });

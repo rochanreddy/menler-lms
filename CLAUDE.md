@@ -81,6 +81,45 @@ per-session book behind the week-wide copy on each lesson.
 moves those copies up on a live database; `seed:content` does the same on every
 run (`liftSharedMedia`).
 
+**Mentors push notes, they do not edit the tree.** Next to the single
+`notesUrl` slot, every week, session and lesson carries a `materials`
+list (`{url, name, kind, addedBy, addedAt}`, `kind` = `notes` | `resource`:
+the deck versus a notice or template — the mentor says which at upload, and
+the student's list is split on it). A mentor reaches it from Programs →
+**Add teacher notes** ([MaterialsManager](client/src/components/MaterialsManager.jsx)):
+the course as one row per class — a module, which is a Kickstarter session
+(`S01 · …`) or a Generalist week (one four-hour class a week, so no row per
+S1/S2 chapter) — because a mentor teaches a class in one sitting and a row
+per lesson made forty drop targets of a four-session course. Drop several PDFs
+on a row, each drop saved at once
+through `POST /programs/:id/materials` (multipart `files[]` + `moduleId` /
+`chapterId` / `topicId`, or `url`+`name` for a link) and taken down with
+`DELETE /programs/:id/materials/:mid`. Both need `canEditProgram`, both go
+through the same hash-deduped store as the editor's single drop, and every
+upload is checked for the `%PDF-` header, not just its declared type. The
+full curriculum editor is still there for the admin, with the same list on
+each node as **More teacher notes**, saved with the tree. `seed:content`
+carries `materials` across a re-author the way it carries the ebook.
+`tierNames()` in [features.js](client/src/features.js) decides what the two
+levels are called on screen: a Kickstarter module (`S01 · …`) is a *session*
+of *parts*, a Generalist module is a *week* of *sessions*.
+
+The student's **Teacher notes** chip lists everything at once — the
+resolved `notesUrl`, then the lesson's, the session's and the week's
+materials, deduped on url ([ReadingPicker](client/src/components/ReadingPicker.jsx)).
+**Reading material** stays the admin's ebook alone: the ebook is the course,
+the notes are what the mentor put up after class, and the two chips must not
+blur into one list. An **assignment** — Kickstarter's `Assignment: …` lesson
+(`isAssignmentLesson()`) or Generalist's `Weekly assignment: …` chapter
+(`isAssignmentChapter()`) — lists only its own notes: its reading is the
+brief and its notes the solution book, not the session's deck. The mentor's
+page shows no row for an assignment chapter for the same reason.
+One item opens straight into the reader; more than one opens the list;
+a link that is not a PDF opens in a new tab rather than as a blank box in
+the PDF reader. That list is the promise the mentor's page makes ("a file
+for the whole week goes on the week"), so it must not be narrowed to the
+lesson's own files.
+
 [server/assets/curriculum-pdfs/](server/assets/curriculum-pdfs/) holds the
 ebooks that ship with the repo, committed so a seed is reproducible off one
 laptop. `CURRICULUM_PDF_RULES` in

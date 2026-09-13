@@ -823,6 +823,8 @@ a:focus-visible,
 .rchip:disabled svg { color: #7d77b3; }
 .rchip.is-done { background: rgba(29,158,117,.16); border-color: rgba(29,158,117,.35); color: var(--stage-ok-soft); cursor: default; }
 .rchip.is-done svg { color: var(--stage-ok-soft); }
+/* A chip that opens a list says so: the caret points down, the way a menu's does. */
+.rchip-caret { display: inline-grid; place-items: center; margin: 0 -3px 0 -1px; transform: rotate(90deg); opacity: .8; }
 /* Reading progress — a hairline under the head that fills as the body scrolls. */
 .reader-read { height: 2px; background: var(--stage-line); }
 .reader-read span { display: block; height: 100%; background: var(--lavender); transform-origin: left; transition: transform .1s linear; }
@@ -2616,3 +2618,80 @@ input:hover:not(:disabled):not(:focus), select:hover:not(:disabled):not(:focus),
 @media (max-width: 720px) {
   .sup-msg { max-width: 100%; }
 }
+
+/* ── Reading materials: the mentor's page (MaterialsManager) ──────────────
+   The course as rows you drop PDFs on. A week folds; inside it the week row,
+   then each session with its lessons. Rows are quiet until a file hovers
+   over them. The chips (.mm-file) are shared with the editor's multi-file
+   list, so a file looks the same wherever it was attached. */
+.mm { max-width: 980px; }
+.mm-msg { font-weight: 600; color: var(--ok, #1d9e75); }
+.mm-intro { display: flex; gap: 14px; align-items: flex-start; padding: 16px 18px; margin-bottom: 18px; border: 1.5px dashed var(--violet-line, var(--line)); border-radius: 12px; background: var(--violet-soft); }
+.mm-intro svg { flex: none; color: var(--violet); margin-top: 2px; }
+.mm-intro strong { display: block; font-size: 15px; }
+.mm-intro p { margin: 3px 0 0; font-size: 13.5px; line-height: 1.5; }
+.mm-week { background: var(--card); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); margin-bottom: 12px; overflow: hidden; }
+.mm-week-head { display: flex; align-items: center; gap: 10px; width: 100%; padding: 14px 16px; border: 0; background: none; cursor: pointer; font-family: var(--font); text-align: left; color: var(--ink); }
+.mm-week-head:hover { background: var(--line-soft); }
+.mm-week-chev { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 6px; color: var(--muted); transition: transform .18s; }
+.mm-week.open .mm-week-chev { transform: rotate(90deg); }
+.mm-week-title { flex: 1; min-width: 0; font-weight: 700; font-size: 14px; letter-spacing: .02em; text-transform: uppercase; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mm-week-count { flex: none; font-size: 12.5px; }
+.mm-week-body { padding: 0 12px 12px; display: grid; gap: 8px; }
+.mm-row { padding: 10px 12px; border: 1.5px dashed transparent; border-radius: 10px; transition: border-color .15s, background .15s; }
+.mm-row:hover { border-color: var(--line); }
+.mm-row.drag { border-color: var(--violet); background: var(--violet-soft); }
+.mm-row.busy { opacity: .75; }
+.mm-row-week { background: var(--sunken); border-style: solid; border-color: var(--line-soft); box-shadow: none; margin: 0; border-radius: 10px; overflow: visible; }
+.mm-row-week:hover { border-color: var(--line); }
+.mm-row-lesson { padding: 7px 12px; }
+.mm-row-head { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.mm-kind { flex: none; font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; padding: 3px 7px; border-radius: 6px; background: var(--line-soft); color: var(--muted); }
+.mm-kind-week { background: var(--violet-soft); color: var(--violet); }
+.mm-kind-session { background: var(--a5-soft, var(--line-soft)); color: var(--a5-ink, var(--ink-2)); }
+.mm-row-title { flex: 1; min-width: 0; font-size: 13.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mm-row-lesson .mm-row-title { font-weight: 500; }
+.mm-add { flex: none; display: inline-flex; align-items: center; gap: 6px; }
+.mm-linkbtn { flex: none; background: none; border: 0; padding: 4px 6px; font: inherit; font-size: 12px; color: var(--muted); cursor: pointer; text-decoration: underline; border-radius: 6px; }
+.mm-linkbtn:hover { color: var(--ink); }
+.mm-row-hint { margin: 4px 0 0 0; font-size: 12.5px; }
+.mm-linkform { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 200px) auto auto; gap: 8px; margin-top: 8px; align-items: center; }
+.mm-files { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.mm-file { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; padding: 5px 6px 5px 9px; border: 1px solid var(--line); border-radius: var(--pill); background: var(--card); font-size: 12.5px; color: var(--ink); }
+.mm-file svg { flex: none; color: var(--violet); }
+.mm-file.is-ebook { background: var(--violet-soft); border-color: var(--violet-line, var(--line)); color: var(--violet); font-weight: 600; padding-right: 10px; }
+.mm-file-name { min-width: 0; max-width: 28ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mm-file-x { display: grid; place-items: center; width: 20px; height: 20px; border: 0; border-radius: 50%; background: transparent; color: var(--muted); cursor: pointer; }
+.mm-file-x:hover { background: var(--danger-soft); color: var(--danger); }
+.mm-file-x svg { color: inherit; }
+.mm-file-kind { font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; padding: 2px 6px; border-radius: 5px; background: var(--violet-soft); color: var(--violet); }
+.mm-file.is-resource .mm-file-kind { background: var(--a3-soft, var(--line-soft)); color: var(--a3-ink, var(--ink-2)); }
+.mm-file-kind.is-btn { border: 0; cursor: pointer; font-family: var(--font); }
+.mm-file-kind.is-btn:hover { filter: brightness(.95); }
+.mm-ask { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 8px; padding: 10px 12px; border-radius: 9px; background: var(--violet-soft); font-size: 13px; }
+.mm-ask > span { flex: 1; min-width: 0; font-weight: 600; }
+.mm-kind-select { width: auto; }
+.rp-group { padding: 10px 12px 4px; font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.rp-list + .rp-list { padding-top: 0; }
+.row-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+@media (max-width: 640px) {
+  .mm-row-head { flex-wrap: wrap; }
+  .mm-row-title { flex-basis: 100%; order: -1; }
+  .mm-linkform { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ── The Reading material list (ReadingPicker) ────────────────────────────
+   Opens over the stage when a lesson has more than one thing to read. */
+.rp-overlay { position: fixed; inset: 0; z-index: 130; display: grid; place-items: center; padding: 3vh 4vw; background: rgba(26,22,64,.42); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); animation: fv-in .16s ease-out; }
+.rp { width: 100%; max-width: 520px; max-height: 88vh; display: flex; flex-direction: column; background: var(--card); border-radius: var(--radius); box-shadow: 0 30px 80px rgba(16,20,36,.45); overflow: hidden; outline: none; }
+.rp-head { display: flex; align-items: flex-start; gap: 12px; padding: 16px 16px 12px 20px; border-bottom: 1px solid var(--line); }
+.rp-head > div:first-child { flex: 1; min-width: 0; }
+.rp-title { font-family: var(--display); font-weight: 700; font-size: 17px; letter-spacing: -0.01em; margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rp-list { list-style: none; margin: 0; padding: 8px; overflow-y: auto; }
+.rp-item { display: flex; align-items: center; gap: 12px; width: 100%; padding: 11px 12px; border: 0; border-radius: 10px; background: none; color: var(--ink); font-family: var(--font); text-align: left; cursor: pointer; text-decoration: none; }
+.rp-item:hover, .rp-item:focus-visible { background: var(--violet-soft); outline: none; }
+.rp-icon { flex: none; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 9px; background: var(--violet-soft); color: var(--violet); }
+.rp-copy { flex: 1; min-width: 0; display: grid; }
+.rp-name { font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rp-from { font-size: 12px; color: var(--muted); }
+.rp-go { flex: none; color: var(--muted); }

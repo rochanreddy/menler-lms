@@ -6,6 +6,7 @@
 // student can each complete their whole loop, and that neither of the latter
 // two can step outside it.
 import 'dotenv/config';
+import { readFile } from 'node:fs/promises';
 import mongoose from 'mongoose';
 import { connectDb } from '../db.js';
 import { Assignment } from '../models/Assignment.js';
@@ -218,6 +219,38 @@ async function run() {
   const newAnn = await call('/announcements', { token: mentorAll.token, method: 'POST', body: { batchId: bK.id, title: 'Flow-test announcement', body: 'Posted by the flow check.' } });
   ok('mentor posts an announcement', newAnn.status === 201 || newAnn.status === 200, `got ${newAnn.status}`);
 
+  // Reading materials: several PDFs in one push onto a week, a session or a
+  // lesson, saved at once — the one curriculum job a mentor actually has.
+  const pdfA = await readFile(new URL('../assets/curriculum-pdfs/Menler-Fellowship-Week1-Assignment.pdf', import.meta.url));
+  const pdfB = await readFile(new URL('../assets/curriculum-pdfs/Menler-Fellowship-Week1-Assignment-Solution-Book.pdf', import.meta.url));
+  const kMod = kickFull.json.program.modules[0];
+  const kChap = kMod.chapters[0];
+  const kTopic = kChap.topics[0];
+  const pushMaterials = async (token, programId, fields, files = []) => {
+    const fd = new FormData();
+    for (const [name, bytes] of files) fd.append('files', new File([bytes], name, { type: 'application/pdf' }));
+    for (const [k, v] of Object.entries(fields)) if (v) fd.append(k, v);
+    const res = await fetch(`${BASE}/programs/${programId}/materials`, { method: 'POST', headers: { 'X-Device-Id': DEVICE, Authorization: `Bearer ${token}` }, body: fd });
+    return { status: res.status, json: await res.json().catch(() => null) };
+  };
+  const pushed = await pushMaterials(mentorAll.token, kick._id, { moduleId: kMod._id, chapterId: kChap._id, topicId: kTopic._id },
+    [[`${FLOW} handout.pdf`, pdfA], [`${FLOW} solutions.pdf`, pdfB]]);
+  ok('mentor pushes two PDFs onto a lesson in one go', pushed.status === 201 && pushed.json?.added === 2, `got ${pushed.status}, added=${pushed.json?.added}`);
+  const pushedUrls = (pushed.json?.materials || []).filter((x) => x.name.startsWith(FLOW)).map((x) => x.url);
+  ok('…both stored and named', pushedUrls.length === 2 && pushedUrls.every((u) => u.startsWith('/uploads/')));
+  const again = await pushMaterials(mentorAll.token, kick._id, { moduleId: kMod._id, chapterId: kChap._id, topicId: kTopic._id }, [[`${FLOW} handout again.pdf`, pdfA]]);
+  ok('the same bytes pushed twice are one entry', again.status === 201 && again.json?.added === 0, `added=${again.json?.added}`);
+  const weekLink = await pushMaterials(mentorAll.token, kick._id, { moduleId: kMod._id, url: 'https://example.com/flow-test-week.pdf', name: `${FLOW} week link`, kind: 'resource' });
+  ok('mentor adds a link to the whole week', weekLink.status === 201 && weekLink.json?.materials?.some((x) => x.name === `${FLOW} week link`), `got ${weekLink.status}`);
+  ok('…filed as a resource, while the PDFs are notes', weekLink.json?.materials?.find((x) => x.name === `${FLOW} week link`)?.kind === 'resource'
+    && (pushed.json?.materials || []).filter((x) => x.name.startsWith(FLOW)).every((x) => x.kind === 'notes'));
+  const notPdf = await pushMaterials(mentorAll.token, kick._id, { moduleId: kMod._id }, [[`${FLOW} notes.txt`, Buffer.from('hello')]]);
+  ok('a non-PDF is refused', notPdf.status === 415, `got ${notPdf.status}`);
+  const crossPush = await pushMaterials(mentorGen.token, kick._id, { moduleId: kMod._id }, [[`${FLOW} sneak.pdf`, pdfA]]);
+  ok('Generalist-only mentor is refused Kickstarter materials', crossPush.status === 403, `got ${crossPush.status}`);
+  const emptyPush = await pushMaterials(mentorAll.token, kick._id, { moduleId: kMod._id });
+  ok('an empty push is refused', emptyPush.status === 400, `got ${emptyPush.status}`);
+
   // RBAC: a mentor must not be able to do admin things.
   const mentorMakesUser = await call('/users', { token: mentorAll.token, method: 'POST', body: { email: 'nope@menler.in', fullName: 'Nope', role: 'student' } });
   ok('mentor is refused user provisioning', mentorMakesUser.status === 403, `got ${mentorMakesUser.status}`);
@@ -255,6 +288,17 @@ async function run() {
   ok('quizzes never leak correct answers', quizzes.every((q) => q.questions.every((x) => x.correctIndex === undefined)));
   const attempted = quizzes.filter((q) => q.myAttempt);
   ok('student has quiz attempts with scores', attempted.length > 0 && attempted.every((q) => typeof q.myAttempt.score === 'number'), `${attempted.length} attempted`);
+
+  // The reading list the chip shows: the lesson's own files and the week's.
+  const sKick = await call(`/programs/${kick._id}`, { token: sK.token });
+  const sMod = (sKick.json.program?.modules || []).find((m) => String(m._id) === String(kMod._id));
+  const sTopic = sMod?.chapters.find((c) => String(c._id) === String(kChap._id))?.topics.find((t) => String(t._id) === String(kTopic._id));
+  ok('student sees the two PDFs on the lesson', pushedUrls.length === 2 && pushedUrls.every((u) => (sTopic?.materials || []).some((x) => x.url === u)));
+  ok('…and the link on the week', (sMod?.materials || []).some((x) => x.name === `${FLOW} week link`));
+  const sOpen = await fetch(`${BASE}${pushedUrls[0]}`, { headers: { 'X-Device-Id': DEVICE, Authorization: `Bearer ${sK.token}` } });
+  ok('student can open a pushed PDF', sOpen.status === 200 && (sOpen.headers.get('content-type') || '').includes('pdf'), `got ${sOpen.status}`);
+  const sPush = await pushMaterials(sK.token, kick._id, { moduleId: kMod._id }, [[`${FLOW} student.pdf`, pdfA]]);
+  ok('student is refused pushing materials', sPush.status === 403, `got ${sPush.status}`);
 
   const sProgress = await call(`/progress/me?programId=${kick._id}`, { token: sK.token });
   ok('student progress loads', sProgress.status === 200);
@@ -469,6 +513,20 @@ async function run() {
   // teardown goes straight to the collections. Nothing seeded is touched: only
   // rows this script created, matched on its own prefix.
   section('CLEANUP');
+  // The materials this run pushed come off through the API, as a mentor would
+  // take them down — which is also the DELETE route's test.
+  const kNow = await call(`/programs/${kick._id}`, { token: mentorAll.token });
+  const flowMaterials = (kNow.json.program?.modules || []).flatMap((m) => [m, ...m.chapters.flatMap((c) => [c, ...c.topics])])
+    .flatMap((n) => (n.materials || []).filter((x) => (x.name || '').startsWith(FLOW)));
+  let removed = 0;
+  for (const x of flowMaterials) {
+    const r = await call(`/programs/${kick._id}/materials/${x._id}`, { token: mentorAll.token, method: 'DELETE' });
+    if (r.status === 200) removed++;
+  }
+  ok('mentor removes the pushed materials again', flowMaterials.length === 3 && removed === 3, `found ${flowMaterials.length}, removed ${removed}`);
+  const kAfter = await call(`/programs/${kick._id}`, { token: mentorAll.token });
+  ok('…and none are left on the tree', !(kAfter.json.program?.modules || []).some((m) => [m, ...m.chapters.flatMap((c) => [c, ...c.topics])].some((n) => (n.materials || []).some((x) => (x.name || '').startsWith(FLOW)))));
+
   await connectDb();
 
   // The assertions above ran over HTTP against whatever database THE SERVER is

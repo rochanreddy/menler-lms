@@ -3,6 +3,30 @@ import mongoose from 'mongoose';
 // Curriculum hierarchy from the canvas: Program → Module → Chapter → Topic.
 // Edited together as one tree, so embedded as sub-documents.
 
+// One file a mentor pushed after class — a PDF stored through /uploads, or
+// a link. Every week, session and lesson carries a list of these next to its
+// single `notesUrl` slot, because the admin's notes are one file while a
+// mentor's arrive three at a time (the deck, a notice, an extra reading) and
+// nobody wants to pick which one is "the" notes. The student's Teacher notes
+// chip lists the slot AND every material on the lesson, its session and its
+// week; Reading material stays the admin's ebook alone.
+//
+// Added through POST /programs/:id/materials (which saves at once, no tree
+// Save to forget) as well as through the curriculum editor's tree Save.
+const materialSchema = new mongoose.Schema(
+  {
+    url: { type: String, required: true },
+    name: { type: String, default: '' },
+    // What it is to the student: 'notes' (the deck, what was taught) or a
+    // 'resource' (a notice, a template, further reading). The mentor says
+    // which at upload; the student's list is split on it.
+    kind: { type: String, enum: ['notes', 'resource'], default: 'notes' },
+    addedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    addedAt: { type: Date, default: Date.now },
+  },
+  { _id: true },
+);
+
 const topicSchema = new mongoose.Schema(
   {
     title: { type: String, required: true },
@@ -16,6 +40,7 @@ const topicSchema = new mongoose.Schema(
     // Two PDF files per lecture, both opened in the in-page PDF viewer.
     readingUrl: { type: String, default: '' },  // handout / reading (PDF)
     notesUrl: { type: String, default: '' },    // teacher notes (PDF)
+    materials: { type: [materialSchema], default: [] },
     order: { type: Number, default: 0 },
   },
   { _id: true },
@@ -37,6 +62,7 @@ const chapterSchema = new mongoose.Schema(
     // ebooks are actually organised (one per week, or one per week+session).
     readingUrl: { type: String, default: '' },
     notesUrl: { type: String, default: '' },
+    materials: { type: [materialSchema], default: [] },
     order: { type: Number, default: 0 },
     topics: { type: [topicSchema], default: [] },
   },
@@ -53,6 +79,7 @@ const moduleSchema = new mongoose.Schema(
     // in it that has none of its own. Resolution is lesson → chapter → module.
     readingUrl: { type: String, default: '' },
     notesUrl: { type: String, default: '' },
+    materials: { type: [materialSchema], default: [] },
     order: { type: Number, default: 0 },
     chapters: { type: [chapterSchema], default: [] },
   },

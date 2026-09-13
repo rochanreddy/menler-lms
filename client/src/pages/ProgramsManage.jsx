@@ -3,6 +3,7 @@ import { useOutletContext } from 'react-router-dom';
 import { api } from '../api.js';
 import Empty from '../components/Empty.jsx';
 import CurriculumEditor from '../components/CurriculumEditor.jsx';
+import MaterialsManager from '../components/MaterialsManager.jsx';
 
 // Admin: create + list programs, and manage each program's curriculum (upload
 // docs → auto-structured lessons students see in Learning).
@@ -16,6 +17,8 @@ export default function ProgramsManage() {
   // on one cohort's videos. Videos are attached per batch (see
   // BatchLessonVideo on the server), so a batch is how you reach them.
   const [editing, setEditing] = useState(null);
+  // programId whose reading materials are open: the drop-and-done page.
+  const [materials, setMaterials] = useState(null);
   const [batches, setBatches] = useState([]);
   // Per-programme "add a cohort" draft, keyed by programme id.
   const [draft, setDraft] = useState({});
@@ -36,6 +39,7 @@ export default function ProgramsManage() {
     } catch (e2) { setErr(e2.message); }
   }
 
+  if (materials) return <MaterialsManager programId={materials} onClose={() => { setMaterials(null); load(); }} />;
   if (editing) {
     return (
       <CurriculumEditor
@@ -108,7 +112,12 @@ export default function ProgramsManage() {
               <strong>{p.title}</strong>
               <div className="muted">{p.modules?.length || 0} modules · {lessons(p)} lessons · <span className={p.published ? 'pub-on' : 'pub-off'}>{p.published ? '● published' : '○ draft'}</span></div>
             </div>
-            {isAdmin && <button className="btn sm" onClick={() => setEditing({ programId: p._id })}>Manage curriculum</button>}
+            {isAdmin && (
+              <div className="row-actions">
+                <button className="btn sm quiet" onClick={() => setMaterials(p._id)}>Teacher notes</button>
+                <button className="btn sm" onClick={() => setEditing({ programId: p._id })}>Manage curriculum</button>
+              </div>
+            )}
             </div>
 
             {/* Each cohort of this programme. Lesson videos are per batch, so

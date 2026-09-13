@@ -212,8 +212,28 @@ export async function postFile(path, file, fields = {}) {
   return data;
 }
 
+// POST several Files at once (multipart, field "files") plus plain fields.
+export async function postFiles(path, files, fields = {}) {
+  const fd = new FormData();
+  for (const f of files) fd.append('files', f);
+  for (const [k, v] of Object.entries(fields)) if (v !== undefined && v !== null && v !== '') fd.append(k, v);
+  const res = await authedFetch(path, { method: 'POST', body: fd });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Upload failed');
+  return data;
+}
+
 // Upload a File → returns { url, name }. Used for resume/submissions.
 export const uploadFile = (file) => postFile('/uploads', file);
+
+// Teacher notes / resources on a week / session / lesson — several PDFs in
+// one push, saved at once. `node` is { moduleId, chapterId?, topicId? };
+// `kind` is 'notes' or 'resource'; `link` is an optional { url, name } to add
+// instead of or alongside the files. Returns { materials, added }.
+export const addMaterials = (programId, node, files = [], link = null, kind = 'notes') =>
+  postFiles(`/programs/${programId}/materials`, files, { ...node, kind, url: link?.url, name: link?.name });
+export const removeMaterial = (programId, materialId) =>
+  api(`/programs/${programId}/materials/${materialId}`, { method: 'DELETE' });
 
 // Curriculum PDF from the admin editor → stored in Mongo, up to 15 MB.
 export const uploadCurriculumPdf = (file) => postFile('/uploads', file, { kind: 'curriculum-pdf' });

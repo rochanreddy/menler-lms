@@ -25,3 +25,23 @@ const HOSTED_ELSEWHERE = /(^https?:\/\/)?([^/]*\.)?(drive\.google\.com|docs\.goo
  * can watch. Those open in their own tab instead.
  */
 export const isDirectVideoFile = (url) => !!url && !HOSTED_ELSEWHERE.test(url) && /\.(mp4|webm|ogg|ogv|m4v|mov)(\?|#|$)/i.test(url);
+
+// What the two levels of a curriculum are called, judged from the module
+// title. Generalist is weeks of sessions ("Week 1 · …" holding "S1 · …");
+// Kickstarter is sessions of parts ("S01 · …" holding "1.1 · …") — there a
+// mentor teaches the whole module in one sitting, so the module is "the
+// session" and calling it a week on the mentor's page sent people looking
+// for a session row that wasn't there.
+export const tierNames = (moduleTitle) => (/^S\d+\b/i.test(String(moduleTitle || '').trim())
+  ? { top: 'Session', topWhole: 'Whole session', sub: 'Part', fromTop: 'this session', fromSub: 'this part' }
+  : { top: 'Week', topWhole: 'Whole week', sub: 'Session', fromTop: 'this week', fromSub: 'this session' });
+
+// An assignment lesson ("Assignment: …") carries its own brief as its
+// reading, and a session's handouts are not what a student opens it for —
+// so the files a mentor drops on the session reach every lesson in it
+// EXCEPT these.
+export const isAssignmentLesson = (title) => /^assignment\b/i.test(String(title || '').trim());
+// Generalist files its weekly assignment as a whole chapter ("Weekly
+// assignment: …", with Brief and Submission pages), so the same exception
+// has to be judged on the chapter as well as the lesson.
+export const isAssignmentChapter = (title) => /\bassignments?\b/i.test(String(title || ''));

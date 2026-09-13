@@ -68,6 +68,7 @@ function carryMedia(fresh, old) {
   // pin the real curriculum to them forever, blocking the module ebook from
   // ever being attached. Treat them as the empty slot they stand in for.
   for (const f of MEDIA) if (old[f] && !isPlaceholder(old[f])) out[f] = old[f];
+  carryMaterials(out, old);
   // Teacher notes that are byte-for-byte the same link as the reading material
   // are not a document anyone chose: seedFull.js used to assign notesUrl from
   // readingUrl, so the notes chip opened a second copy of the student ebook.
@@ -80,13 +81,20 @@ function carryMedia(fresh, old) {
   return out;
 }
 
+// The extra readings a mentor pushed onto a node (its `materials` list) are
+// theirs too, and curricula.js knows nothing about them either.
+function carryMaterials(out, old) {
+  if (Array.isArray(old?.materials) && old.materials.length) out.materials = old.materials;
+  return out;
+}
+
 // A week's or a session's own ebook and notes (models/Program.js) are admin
 // uploads too, keyed on the node's title the same way a lesson's are.
 const NODE_MEDIA = ['readingUrl', 'notesUrl'];
 function carryNodeMedia(fresh, old) {
   const out = { ...fresh };
   for (const f of NODE_MEDIA) if (old?.[f] && !isPlaceholder(old[f])) out[f] = old[f];
-  return out;
+  return carryMaterials(out, old);
 }
 
 // Reuse the existing _ids wherever the same lesson is still there, and its

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { api, postFile, uploadCurriculumPdf, isStoredFile, getLessonVideos, setLessonVideo, clearLessonVideo } from '../api.js';
+import { opensInReader } from './ReadingPicker.jsx';
 import Empty from './Empty.jsx';
 import LessonIcon from './LessonIcon.jsx';
 import LineIcon from './LineIcon.jsx';
@@ -64,7 +65,7 @@ export default function CurriculumEditor({ programId, batch, onClose }) {
   // ── Tree mutators ──
   const addModule = () => touch((m) => m.push({ title: 'New module', order: m.length, chapters: [] }));
   const addChapter = (mi) => touch((m) => m[mi].chapters.push({ title: 'New chapter', order: m[mi].chapters.length, topics: [] }));
-  const addTopic = (mi, ci) => touch((m) => m[mi].chapters[ci].topics.push({ title: 'New lesson', contentType: 'text', contentUrl: '', body: '', classLink: '', readingUrl: '', notesUrl: '', order: m[mi].chapters[ci].topics.length }));
+  const addTopic = (mi, ci) => touch((m) => m[mi].chapters[ci].topics.push({ title: 'New lesson', contentType: 'text', contentUrl: '', body: '', classLink: '', readingUrl: '', notesUrl: '', materials: [], order: m[mi].chapters[ci].topics.length }));
   const delModule = (mi) => { touch((m) => m.splice(mi, 1)); setSel(null); };
   const delChapter = (mi, ci) => { touch((m) => m[mi].chapters.splice(ci, 1)); setSel(null); };
   const delTopic = (mi, ci, ti) => { touch((m) => m[mi].chapters[ci].topics.splice(ti, 1)); setSel(null); };
@@ -315,6 +316,13 @@ export default function CurriculumEditor({ programId, batch, onClose }) {
                 onChange={(notesUrl) => setTopicField(sel.mi, sel.ci, sel.ti, { notesUrl })}
               />
 
+              <label className="ce-label">More teacher notes <span className="muted">(several PDFs at once · students see them all under Teacher notes, with the session's and the week's)</span></label>
+              <MaterialsField
+                key={`${sel.mi}-${sel.ci}-${sel.ti}-materials`}
+                items={selTopic.materials || []}
+                onChange={(materials) => setTopicField(sel.mi, sel.ci, sel.ti, { materials })}
+              />
+
               <label className="ce-label">Content <span className="muted">(Markdown, # headings, **bold**, - lists, `code`)</span></label>
               <textarea className="ce-body" rows={16} value={selTopic.body} onChange={(e) => setTopicField(sel.mi, sel.ci, sel.ti, { body: e.target.value })} placeholder="Write the lesson content here…" />
             </>
@@ -354,9 +362,95 @@ function NodeEditor({ kind, node, parent, fieldKey, onChange }) {
         onChange={(notesUrl) => onChange({ notesUrl })}
       />
 
+      <label className="ce-label">More teacher notes <span className="muted">(several PDFs at once · listed under Teacher notes on {below}, which is where a mentor's uploads land too)</span></label>
+      <MaterialsField
+        key={`${fieldKey}-materials`}
+        items={node.materials || []}
+        onChange={(materials) => onChange({ materials })}
+      />
+
       <label className="ce-label">Overview <span className="muted">(Markdown; the page students see when they open this {kind} in the syllabus. Leave empty and the {kind} opens straight onto its lessons)</span></label>
       <textarea className="ce-body" rows={12} value={node.description || ''} onChange={(e) => onChange({ description: e.target.value })} placeholder={kind === 'week' ? 'The week\u2019s objective, what it leads to…' : 'What this session carries forward, what you build…'} />
     </>
+  );
+}
+
+// Several PDFs at once, kept as a list on the node and saved with the tree.
+// Same store as the single slot above (hash-deduped), so a file dropped here
+// and on the mentor's Reading materials page is one row either way.
+function MaterialsField({ items, onChange }) {
+  const inputRef = useRef(null);
+  const [drag, setDrag] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const [link, setLink] = useState('');
+
+  async function take(fileList) {
+    const files = Array.from(fileList || []);
+    if (!files.length) return;
+    const notPdf = files.find((f) => !/\.pdf$/i.test(f.name) && f.type !== 'application/pdf');
+    if (notPdf) { setErr(`${notPdf.name} is not a PDF. Only PDF files are accepted.`); return; }
+    setErr('');
+    setBusy(true);
+    try {
+      const added = [];
+      for (const f of files) {
+        const { url, name } = await uploadCurriculumPdf(f);
+        if (!items.some((x) => x.url === url) && !added.some((x) => x.url === url)) added.push({ url, name: name || f.name, kind: 'notes' });
+      }
+      if (added.length) onChange([...items, ...added]);
+    } catch (e) { setErr(e.message); } finally { setBusy(false); }
+  }
+
+  function addLink(e) {
+    e.preventDefault();
+    const url = link.trim();
+    if (!url) return;
+    if (!/^https?:\/\//i.test(url)) { setErr('That link must start with https://.'); return; }
+    setErr('');
+    if (!items.some((x) => x.url === url)) onChange([...items, { url, name: url.split('/').pop() || url, kind: 'notes' }]);
+    setLink('');
+  }
+
+  return (
+    <div className="pdf-field">
+      <div
+        className={`pdf-drop ${drag ? 'drag' : ''} ${busy ? 'busy' : ''}`}
+        onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
+        onDragLeave={() => setDrag(false)}
+        onDrop={(e) => { e.preventDefault(); setDrag(false); take(e.dataTransfer.files); }}
+      >
+        <input ref={inputRef} type="file" accept=".pdf,application/pdf" multiple hidden onChange={(e) => { take(e.target.files); e.target.value = ''; }} />
+        <LineIcon name="upload" size={20} />
+        <div>
+          <strong>{busy ? 'Uploading…' : 'Drop PDFs here'}</strong>
+          <p className="muted">or <button type="button" className="pdf-browse" onClick={() => inputRef.current?.click()} disabled={busy}>browse</button> · several at once · up to 15 MB each · each lands as notes, tap its tag to make it a resource</p>
+        </div>
+      </div>
+      {items.length > 0 && (
+        <div className="mm-files">
+          {items.map((x, i) => (
+            <span className={`mm-file ${x.kind === 'resource' ? 'is-resource' : ''}`} key={x._id || `${x.url}-${i}`}>
+              <LessonIcon type={opensInReader(x.url) ? 'pdf' : 'text'} size={13} />
+              <span className="mm-file-name" title={x.name || x.url}>{x.name || x.url}</span>
+              {/* Tap to flip between notes and resource — the student list is split on it. */}
+              <button
+                type="button"
+                className="mm-file-kind is-btn"
+                title="Notes or resource? Tap to switch."
+                onClick={() => onChange(items.map((y, j) => (j === i ? { ...y, kind: y.kind === 'resource' ? 'notes' : 'resource' } : y)))}
+              >{x.kind === 'resource' ? 'resource' : 'notes'}</button>
+              <button type="button" className="mm-file-x" onClick={() => onChange(items.filter((_, j) => j !== i))} aria-label={`Remove ${x.name || 'file'}`}><LineIcon name="close" size={12} /></button>
+            </span>
+          ))}
+        </div>
+      )}
+      <form className="pdf-link" onSubmit={addLink}>
+        <span className="muted">…or paste a link and press Enter</span>
+        <input className="ce-field" placeholder="https://… .pdf" value={link} onChange={(e) => setLink(e.target.value)} />
+      </form>
+      {err && <p className="pdf-err">{err}</p>}
+    </div>
   );
 }
 
