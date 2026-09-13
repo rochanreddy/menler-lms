@@ -85,11 +85,15 @@ run (`liftSharedMedia`).
 ebooks that ship with the repo, committed so a seed is reproducible off one
 laptop. `CURRICULUM_PDF_RULES` in
 [curriculumPdfAssets.js](server/utils/curriculumPdfAssets.js) maps a module
-title prefix — and optionally a session prefix inside it — to its ebook; the
-seed loads each into Mongo once (keyed on the content hash, so re-seeding never
-duplicates a blob or moves a URL) and attaches it to that week or session if
-the slot is empty. Nodes with no rule keep an empty slot, which the lesson UI
-renders honestly as "No reading yet".
+title prefix — optionally a session or a lesson prefix inside it — to its PDF;
+the seed loads each into Mongo once (keyed on the content hash, so re-seeding
+never duplicates a blob or moves a URL) and attaches it there if the slot is
+empty. A lesson rule carries two files: the one-page assignment brief as
+reading material and the solution book as teacher notes (Kickstarter has one
+per session, on the session's deliverable lesson). A rule-mapped file lives
+only where its rule puts it — a copy anywhere else is cleared — while files no
+rule knows about are never touched. Nodes with no rule keep an empty slot,
+which the lesson UI renders honestly as "No reading yet".
 
 **Lesson ids are load-bearing.** Modules/chapters/topics are embedded
 sub-documents, so a naive `p.modules = …` re-mints every `_id` and orphans the

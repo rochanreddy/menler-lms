@@ -14,25 +14,43 @@ import { FileAsset } from '../models/FileAsset.js';
 
 const ASSETS_DIR = join(dirname(fileURLToPath(import.meta.url)), '../assets/curriculum-pdfs');
 
-// Which ebook goes where. Each rule names a module by title prefix and,
-// optionally, a session (chapter) inside it by prefix; the file is attached to
-// that node — the week for a week-wide book, the session for a per-session one
-// — and every lesson under it with no reading of its own opens it (resolution
-// is lesson → chapter → module, see models/Program.js). Fellowship = Generalist.
-// Modules and sessions with no rule keep whatever an admin attached by hand.
+// Which PDF goes where. Each rule names a module by title prefix and lands
+// its file on one of three nodes:
+//   · the module itself           { module, file }            — the week / session ebook
+//   · a session (chapter) in it   { module, session, file }   — a per-session ebook
+//   · a lesson in it              { module, lesson, file, notes } — an assignment: the
+//     one-page brief as reading material, the solution book as teacher notes
+// A lesson with an empty slot opens its session's file, else its module's
+// (resolution is lesson → chapter → module, see models/Program.js).
+// Fellowship = Generalist. Nodes with no rule keep whatever an admin attached.
 //
-// To add a per-session ebook, drop the file in assets/curriculum-pdfs/ and add
-//   { module: 'WEEK 1', session: 'S1', file: 'Menler-Fellowship-Week1-Session1-Ebook.pdf' }
+// A rule-mapped file lives ONLY where its rule puts it: a copy of the week's
+// ebook on a lesson, or Session 2's brief on a Session 1 lesson, is cleared
+// on the next seed or lift. Files that no rule knows about are never touched.
 export const CURRICULUM_PDF_RULES = {
   Kickstarter: [
     { module: 'S01', file: 'Menler-Kickstarter-Session1-Ebook.pdf' },
     { module: 'S02', file: 'Menler-Kickstarter-Session2-Ebook.pdf' },
+    { module: 'S03', file: 'Menler-Kickstarter-Session3-Ebook.pdf' },
+    { module: 'S04', file: 'Menler-Kickstarter-Session4-Ebook.pdf' },
+    // One assignment per session — the session deliverable, "Assignment 1 of 1"
+    // on the brief itself. The other assignment lessons have no PDF of their
+    // own and open the session ebook.
+    { module: 'S01', lesson: 'Assignment: AI Workflow Map', file: 'Menler-Kickstarter-S1-Assignment1.pdf', notes: 'Menler-Kickstarter-S1-Assignment1-Solution-Book.pdf' },
+    { module: 'S02', lesson: 'Assignment: Connected Claude Workspace', file: 'Menler-Kickstarter-S2-Assignment1.pdf', notes: 'Menler-Kickstarter-S2-Assignment1-Solution-Book.pdf' },
+    { module: 'S03', lesson: 'Assignment: Design + Ship One External Automation', file: 'Menler-Kickstarter-S3-Assignment1.pdf', notes: 'Menler-Kickstarter-S3-Assignment1-Solution-Book.pdf' },
+    { module: 'S04', lesson: 'Assignment: Capstone Project', file: 'Menler-Kickstarter-S4-Assignment1.pdf', notes: 'Menler-Kickstarter-S4-Assignment1-Solution-Book.pdf' },
   ],
   Generalist: [
     { module: 'WEEK 1', file: 'Menler-Fellowship-Week1-Ebook_3.pdf' },
     { module: 'WEEK 2', file: 'Menler-Fellowship-Week2-Ebook.pdf' },
   ],
 };
+
+/** Every file the rules mention, for one programme or for all of them. */
+export const ruleFiles = (programTitle) =>
+  [...new Set((programTitle ? CURRICULUM_PDF_RULES[programTitle] || [] : Object.values(CURRICULUM_PDF_RULES).flat())
+    .flatMap((r) => [r.file, r.notes]).filter(Boolean))];
 
 // Stand-ins that seedFull.js writes onto every lesson so the fixture cohort has
 // something to click. They are fine in a test database and wrong in a real
@@ -46,15 +64,6 @@ export const FIXTURE_PLACEHOLDERS = new Set([
 ]);
 
 export const isPlaceholder = (url) => FIXTURE_PLACEHOLDERS.has(String(url || '').trim());
-
-/** The rule-mapped ebook for a module (no `session`) or for one of its sessions. */
-function ruleFile(programTitle, moduleTitle, chapterTitle) {
-  const rules = CURRICULUM_PDF_RULES[programTitle] || [];
-  const hit = rules.find((r) =>
-    String(moduleTitle || '').startsWith(r.module) &&
-    (chapterTitle === undefined ? !r.session : !!r.session && String(chapterTitle || '').startsWith(r.session)));
-  return hit?.file || null;
-}
 
 export const sha256 = (buf) => createHash('sha256').update(buf).digest('hex');
 
@@ -105,52 +114,72 @@ export async function ensureCurriculumPdf(ownerId, filename) {
 
 /** Upsert every known ebook and return filename → url. */
 export async function loadCurriculumPdfUrls(ownerId) {
-  const files = new Set(Object.values(CURRICULUM_PDF_RULES).flatMap((rules) => rules.map((r) => r.file)));
   const urls = {};
-  for (const file of files) urls[file] = await ensureCurriculumPdf(ownerId, file);
+  for (const file of ruleFiles()) urls[file] = await ensureCurriculumPdf(ownerId, file);
   return urls;
 }
 
 const empty = (url) => !url || isPlaceholder(url);
 
+const startsWith = (title, prefix) => String(title || '').startsWith(prefix);
+
 /**
- * Attach the rule-mapped ebooks to the curriculum, on the week or the session
- * they belong to, and lift any copy of the same file off the lessons beneath.
+ * Attach the rule-mapped PDFs to the curriculum — on the week, the session or
+ * the lesson each rule names — and clear the same files from anywhere else.
  *
  * Only fills a slot that is EMPTY. An admin who attached a better PDF in the
  * curriculum editor outranks the repo's default, and a seed that overwrote
  * them would make the editor pointless — you would lose the upload on the
- * next re-author. Teacher notes are deliberately left alone: they are a
- * different document, not a second copy of the student ebook.
+ * next re-author. Notes are filled only where a rule carries a `notes` file:
+ * the solution book is a different document, not a copy of the ebook.
  *
- * The lift matters as much as the fill. Earlier seeds stamped the week's ebook
- * onto every lesson, and a lesson's own slot wins over its session's — so a
- * per-session book attached later would have been shadowed on every lesson by
- * the week-wide one. A lesson pointing at exactly the file its week or
- * session now carries is the same reading either way; clearing it changes
- * nothing on screen and stops it shadowing anything.
+ * The clearing matters as much as the fill. Earlier seeds stamped the week's
+ * ebook onto every lesson, and a lesson's own slot wins over its session's —
+ * so a per-session book attached later would have been shadowed on every
+ * lesson by the week-wide copy. And a brief uploaded by hand onto the wrong
+ * session's lesson is the same file in the wrong place. A rule-mapped file
+ * pointed at from a node its rule does not name is therefore cleared FIRST,
+ * and the empty slots filled after. Files no rule knows about are left alone.
  *
  * Mutates in place and returns the same array, so it works on plain objects
  * from curricula.js and on a Mongoose document's subdocuments alike.
  */
 export function applyCurriculumEbooks(modules, programTitle, urlByFile) {
+  const rules = CURRICULUM_PDF_RULES[programTitle] || [];
+  const url = (file) => (file && urlByFile[file]) || '';
+  const ruleUrls = new Set(rules.flatMap((r) => [url(r.file), url(r.notes)]).filter(Boolean));
+
+  // Where each rule lands: node → { readingUrl?, notesUrl? }.
+  const wanted = new Map();
+  const want = (node, field, u) => {
+    if (!u) return;
+    if (!wanted.has(node)) wanted.set(node, {});
+    wanted.get(node)[field] = u;
+  };
   for (const m of modules) {
-    const mFile = ruleFile(programTitle, m.title);
-    const mUrl = (mFile && urlByFile[mFile]) || '';
-    if (mUrl && empty(m.readingUrl)) m.readingUrl = mUrl;
-    for (const ch of m.chapters || []) {
-      const cFile = ruleFile(programTitle, m.title, ch.title);
-      const cUrl = (cFile && urlByFile[cFile]) || '';
-      if (cUrl && empty(ch.readingUrl)) ch.readingUrl = cUrl;
-      // A lesson holding the session's file, or the week's, is a copy: the
-      // week's even when the session now has a book of its own, because that
-      // copy is an older seed's stamp and the session book is meant to
-      // supersede it for every lesson under the session.
-      for (const t of ch.topics || []) {
-        if (t.readingUrl && (t.readingUrl === ch.readingUrl || t.readingUrl === m.readingUrl)) t.readingUrl = '';
+    for (const r of rules) {
+      if (!startsWith(m.title, r.module)) continue;
+      if (!r.session && !r.lesson) { want(m, 'readingUrl', url(r.file)); continue; }
+      for (const ch of m.chapters || []) {
+        if (r.session && !startsWith(ch.title, r.session)) continue;
+        if (!r.lesson) { want(ch, 'readingUrl', url(r.file)); continue; }
+        for (const t of ch.topics || []) {
+          if (!startsWith(t.title, r.lesson)) continue;
+          want(t, 'readingUrl', url(r.file));
+          want(t, 'notesUrl', url(r.notes));
+        }
       }
     }
-    for (const ch of m.chapters || []) if (m.readingUrl && ch.readingUrl === m.readingUrl) ch.readingUrl = '';
+  }
+
+  const nodes = modules.flatMap((m) => [m, ...(m.chapters || []).flatMap((ch) => [ch, ...(ch.topics || [])])]);
+  for (const n of nodes) {
+    for (const f of ['readingUrl', 'notesUrl']) {
+      if (n[f] && ruleUrls.has(n[f]) && wanted.get(n)?.[f] !== n[f]) n[f] = '';
+    }
+  }
+  for (const [n, w] of wanted) {
+    for (const f of Object.keys(w)) if (empty(n[f])) n[f] = w[f];
   }
   return modules;
 }

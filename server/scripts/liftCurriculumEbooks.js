@@ -13,8 +13,8 @@
 // per-session book attached to S1 would be shadowed on its lesson by the
 // week-wide copy still sitting there. This script clears the trap once:
 //
-//   1. attaches each rule-mapped ebook (utils/curriculumPdfAssets.js) to its
-//      week or session, and clears lessons that pointed at that same file;
+//   1. attaches each rule-mapped PDF (utils/curriculumPdfAssets.js) to its
+//      week, session or lesson, and clears that same file from anywhere else;
 //   2. where every lesson of a session, or every session of a week, still
 //      carries one identical reading (or notes) PDF, hoists it a level.
 //
@@ -33,7 +33,7 @@ import { connectDb } from '../db.js';
 import { Program } from '../models/Program.js';
 import { FileAsset } from '../models/FileAsset.js';
 import { User } from '../models/User.js';
-import { CURRICULUM_PDF_RULES, applyCurriculumEbooks, liftSharedMedia, ensureCurriculumPdf } from '../utils/curriculumPdfAssets.js';
+import { ruleFiles, applyCurriculumEbooks, liftSharedMedia, ensureCurriculumPdf } from '../utils/curriculumPdfAssets.js';
 
 const APPLY = process.argv.includes('--apply');
 // Name a programme to leave every other one exactly as it is.
@@ -42,9 +42,8 @@ const ONLY = process.argv.slice(2).find((a) => !a.startsWith('--')) || '';
 // A dry run must not write, and ensureCurriculumPdf upserts — so on a dry run
 // look the ebooks up by name only and report any it cannot find.
 async function ebookUrls(adminId) {
-  const files = new Set(Object.values(CURRICULUM_PDF_RULES).flatMap((rules) => rules.map((r) => r.file)));
   const urls = {};
-  for (const file of files) {
+  for (const file of ruleFiles(ONLY || undefined)) {
     if (APPLY) { urls[file] = await ensureCurriculumPdf(adminId, file); continue; }
     const row = await FileAsset.findOne({ kind: 'curriculum-pdf', name: file }).sort({ createdAt: 1 }).select('_id');
     if (row) urls[file] = `/uploads/${row._id}`;
@@ -89,7 +88,9 @@ async function run() {
       console.log(`    W ${label(m, m.readingUrl)}`);
       for (const ch of m.chapters) {
         if (ch.readingUrl || ch.notesUrl) console.log(`      S ${label(ch, ch.readingUrl)}`);
-        for (const t of ch.topics) if (t.readingUrl) console.log(`        L ${label(t, t.readingUrl)}  (its own)`);
+        for (const t of ch.topics) {
+          if (t.readingUrl || t.notesUrl) console.log(`        L ${label(t, t.readingUrl)}${t.notesUrl ? `  notes ${t.notesUrl.replace('/uploads/', '…/')}` : ''}`);
+        }
       }
     }
     if (changed) console.log(`    ${lifted} lesson/session slot(s) ${APPLY ? 'cleared' : 'would be cleared'} in favour of the week or session above them`);
