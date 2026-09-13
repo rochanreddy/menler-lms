@@ -119,6 +119,17 @@ export default function CurriculumEditor({ programId, batch, onClose }) {
     </button>
   );
   const sheetTitle = selKind === 'lesson' ? 'Edit lesson' : selKind === 'chapter' ? 'Edit session' : 'Edit week';
+  // The overview row, as the student sees it: a week's "Week overview" and a
+  // session's "Overview" (or "Brief") sit above the lessons in the syllabus,
+  // so they sit above them here too — the tree should show what the student
+  // gets, and "where do I edit the overview" should not need explaining.
+  // Opens the same panel as the book icon; an empty page says so.
+  const overviewRow = (node, active, onClick, label) => (
+    <div className={`ce-topic ce-ov ${active ? 'active' : ''}`} onClick={onClick}>
+      <span className="ce-topic-type"><LineIcon name="list" size={13} /></span>
+      <span className="ce-topic-title">{label}{!node.description?.trim() && <span className="muted"> · empty</span>}</span>
+    </div>
+  );
 
   return (
     <div className={`ce ${sheet ? 'ce-sheet-open' : ''}`}>
@@ -156,6 +167,7 @@ export default function CurriculumEditor({ programId, batch, onClose }) {
                 <button className="ce-mini" title="Move down" onClick={() => move(mi, 1)}>↓</button>
                 <button className="ce-mini danger" title="Delete module" onClick={() => delModule(mi)}>✕</button>
               </div>
+              {overviewRow(m, isSel(mi, undefined, undefined), () => setSel({ mi }), 'Week overview')}
               {(m.chapters || []).map((c, ci) => (
                 <div key={ci} className="ce-chap">
                   <div className={`ce-chap-head ${isSel(mi, ci, undefined) ? 'active' : ''}`}>
@@ -163,6 +175,7 @@ export default function CurriculumEditor({ programId, batch, onClose }) {
                     {bookBtn(c, () => setSel({ mi, ci }), 'session')}
                     <button className="ce-mini danger" title="Delete chapter" onClick={() => delChapter(mi, ci)}>✕</button>
                   </div>
+                  {overviewRow(c, isSel(mi, ci, undefined), () => setSel({ mi, ci }), c.pageLabel || 'Overview')}
                   {(c.topics || []).map((t, ti) => {
                     const active = sel && sel.mi === mi && sel.ci === ci && sel.ti === ti;
                     return (
