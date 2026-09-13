@@ -256,11 +256,17 @@ export default function Classroom() {
     setOpenChap(null);
   }
 
-  // Unfold a session in the rail. Deliberately does NOT touch the stage: you
-  // opened a week to read its overview, and looking at what a session contains
-  // shouldn't take that away before you've chosen anything inside it.
+  // Press a session in the rail: unfold it AND put its page on the stage, the
+  // way a week's header does. It used to only unfold, so pressing "Weekly
+  // Assignment" left the previous lesson — and that lesson's teacher notes —
+  // on the stage, which read as the assignment carrying the session's notes.
+  // Pressing the session you are already on folds it away and returns you to
+  // whatever lesson was open underneath.
   function toggleChapter(c) {
-    setOpenChap((prev) => (prev === c._id ? null : c._id));
+    const onIt = pageRef?.kind === 'chapter' && pageRef.id === c._id;
+    if (openChap === c._id && onIt) { setOpenChap(null); setPageRef(null); return; }
+    setOpenChap(c._id);
+    setPageRef({ kind: 'chapter', id: c._id });
   }
   // ...and this is choosing something inside it.
   function showChapterPage(c) {
@@ -590,11 +596,9 @@ export default function Classroom() {
                   <div className="rmod-body">
                     {(m.chapters || []).map((c) => {
                       // A session with a page of its own is a dropdown inside
-                      // the week's: pressing it only unfolds it, so whatever
-                      // you were reading — the week overview, most often —
-                      // stays put until you pick something inside. A chapter
-                      // with no page is a plain label with its lessons under
-                      // it, exactly as before.
+                      // the week's: pressing it unfolds it and opens its page
+                      // (the brief, for an assignment). A chapter with no
+                      // page is a plain label with its lessons under it.
                       const fold = has(c);
                       const cOpen = !fold || openChap === c._id;
                       const onChapPage = page?.chap?._id === c._id;
