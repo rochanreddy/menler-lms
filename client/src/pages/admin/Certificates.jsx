@@ -29,6 +29,10 @@ export default function AdminCertificates() {
   const [batches, setBatches] = useState([]);
   const [batchId, setBatchId] = useState('');
   const [certs, setCerts] = useState([]);
+  // The batch's enrolled students. The table is the roster, not the list of
+  // certificates — an admin about to issue needs to see who that is, and
+  // "Nothing issued for this batch" answers a question nobody asked.
+  const [roster, setRoster] = useState([]);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState('');
   const [err, setErr] = useState('');
@@ -53,15 +57,43 @@ export default function AdminCertificates() {
     setLoading(true);
     setErr('');
     let live = true;
-    api(`/certificates?batchId=${batchId}`)
-      .then((d) => { if (live) setCerts(d.certificates || []); })
-      .catch((e) => { if (live) setErr(e.message || 'Could not load the certificates.'); })
+    Promise.all([
+      api(`/certificates?batchId=${batchId}`),
+      api(`/batches/${batchId}`),
+    ])
+      .then(([c, b]) => {
+        if (!live) return;
+        setCerts(c.certificates || []);
+        setRoster(b.batch?.studentIds || []);
+      })
+      .catch((e) => { if (live) setErr(e.message || 'Could not load the batch.'); })
       .finally(() => { if (live) setLoading(false); });
     return () => { live = false; };
   }, [batchId, reloadKey(report)]);
 
   const issued = certs.filter((c) => !c.revoked).length;
   const sent = certs.filter((c) => !c.revoked && c.sentAt).length;
+
+  /* One row per enrolled student, with their certificate if they have one.
+     Then any certificate whose holder is no longer on the roster — somebody
+     removed from the batch after being issued. Those must not disappear from
+     this screen: the certificate still exists, still verifies, and is still
+     revocable, and a row that vanishes is how an admin loses track of one. */
+  const rows = useMemo(() => {
+    const byStudent = new Map(certs.map((c) => [c.studentId, c]));
+    const onRoster = roster.map((s) => ({
+      key: s._id,
+      name: s.fullName || s.email,
+      email: s.email,
+      cert: byStudent.get(String(s._id)) || null,
+      enrolled: true,
+    }));
+    const seen = new Set(roster.map((s) => String(s._id)));
+    const orphans = certs
+      .filter((c) => !seen.has(c.studentId))
+      .map((c) => ({ key: c.id, name: c.name, email: c.email, cert: c, enrolled: false }));
+    return [...onRoster, ...orphans];
+  }, [certs, roster]);
 
   async function run(send) {
     setBusy(send ? 'send' : 'issue');
@@ -99,34 +131,49 @@ export default function AdminCertificates() {
   }
 
   const columns = useMemo(() => ([
-    { key: 'name', header: 'Student' },
+    {
+      key: 'name',
+      header: 'Student',
+      cell: (r) => (
+        <>
+          {r.name}
+          {/* Issued, then removed from the batch. Worth saying, because the
+              certificate is still live and still theirs. */}
+          {!r.enrolled && <Text as="span" role="label" tone="muted"> · no longer in this batch</Text>}
+        </>
+      ),
+    },
     { key: 'email', header: 'Email' },
-    { key: 'code', header: 'Certificate ID', cell: (r) => <span className="cert-id">{r.code}</span> },
-    { key: 'issuedAt', header: 'Issued', cell: (r) => monthYear(r.issuedAt) },
+    {
+      key: 'code',
+      header: 'Certificate ID',
+      cell: (r) => (r.cert ? <span className="cert-id">{r.cert.code}</span> : <Text as="span" role="label" tone="muted">—</Text>),
+    },
+    { key: 'issuedAt', header: 'Issued', cell: (r) => (r.cert ? monthYear(r.cert.issuedAt) : '—') },
     {
       key: 'status',
       header: 'Status',
-      /* Whether the student has been told, which is also whether they can see
-         it — an unsent certificate exists but is invisible to them, so this
-         column is the difference between "minted" and "delivered". */
+      /* Three states, and they are three different things: nothing issued yet,
+         issued but the student cannot see it, and delivered. */
       cell: (r) => {
-        if (r.revoked) return <Text as="span" role="label" tone="destructive">Revoked</Text>;
-        if (!r.sentAt) return <Text as="span" role="label" tone="muted">Not sent — hidden from the student</Text>;
-        return <a href={r.verifyUrl} target="_blank" rel="noreferrer">Verify ↗</a>;
+        if (!r.cert) return <Text as="span" role="label" tone="muted">Not issued</Text>;
+        if (r.cert.revoked) return <Text as="span" role="label" tone="destructive">Revoked</Text>;
+        if (!r.cert.sentAt) return <Text as="span" role="label" tone="muted">Not sent — hidden from the student</Text>;
+        return <a href={r.cert.verifyUrl} target="_blank" rel="noreferrer">Verify ↗</a>;
       },
     },
     {
       key: 'actions',
       header: '',
-      cell: (r) => (
+      cell: (r) => (r.cert ? (
         <div className="row">
           {/* View comes first and is available on revoked certificates too —
               seeing what was issued is exactly what you want when deciding
               whether a revocation was right. */}
-          <Button size="sm" variant="ghost" onClick={() => openPreview(r)}>View</Button>
-          {!r.revoked && <Button size="sm" variant="ghost" onClick={() => revoke(r)}>Revoke</Button>}
+          <Button size="sm" variant="ghost" onClick={() => openPreview(r.cert)}>View</Button>
+          {!r.cert.revoked && <Button size="sm" variant="ghost" onClick={() => revoke(r.cert)}>Revoke</Button>}
         </div>
-      ),
+      ) : null),
     },
   ]), []);
 
@@ -155,9 +202,10 @@ export default function AdminCertificates() {
           />
 
           <Text role="caption">
-            {issued} issued, {sent} emailed. A certificate stays hidden from the student until it is
-            emailed — so issue first, open one with <strong>View</strong> to check it reads correctly,
-            then email. Issuing again is safe: anyone who already has one keeps the same code.
+            {roster.length} {roster.length === 1 ? 'student' : 'students'} in this batch · {issued} issued · {sent} emailed.
+            A certificate stays hidden from the student until it is emailed — so issue first, open one
+            with <strong>View</strong> to check it reads correctly, then email. Issuing again is safe:
+            anyone who already has one keeps the same code.
           </Text>
 
           {/* Stack is column-only; the app-wide .row is what puts two
@@ -198,12 +246,12 @@ export default function AdminCertificates() {
 
       <Card padding="none">
         <Table
-          caption="Certificates issued in this batch"
+          caption="Students in this batch, and their certificates"
           columns={columns}
-          rows={certs}
-          rowKey={(r) => r.id}
+          rows={rows}
+          rowKey={(r) => r.key}
           loading={loading}
-          empty="Nothing issued for this batch yet. Press “Issue certificates” above."
+          empty="No students are enrolled in this batch yet. Add them under Batches first."
         />
       </Card>
     </Stack>

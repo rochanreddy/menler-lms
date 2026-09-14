@@ -71,6 +71,10 @@ router.get('/', requireAuth, requireRole('admin'), async (req, res) => {
   res.json({
     certificates: certs.map((c) => ({
       id: c._id,
+      // The student this belongs to, so the admin screen can line certificates
+      // up against the batch roster by id. Matching on the email string would
+      // work until somebody corrects a typo in an address.
+      studentId: String(c.studentId?._id || c.studentId || ''),
       code: c.code,
       name: c.studentName,
       email: c.studentId?.email || '',
