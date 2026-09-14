@@ -1,5 +1,6 @@
 import QRCode from 'qrcode';
 import { Certificate } from '../models/Certificate.js';
+import { User } from '../models/User.js';
 import { nextSeq } from '../models/Counter.js';
 import { appUrl } from './appUrl.js';
 
@@ -104,10 +105,40 @@ export async function qrDataUri(code) {
  * pressed it twice — and a second press must not mint a second code for a
  * person who has already shared their first one.
  */
+/**
+ * The batch's mentor, as a name and a line of designation.
+ *
+ * Reads the first assigned mentor. A batch with two mentors is not a case this
+ * certificate has a design for — there is one signature line beside the
+ * founder's — so it takes the first rather than inventing a rule about which
+ * of them signs.
+ *
+ * The designation is built from the mentor's own profile rather than stored
+ * per programme, so it stays true when they update it. It is snapshotted onto
+ * the certificate at issue, so updating it later does not rewrite certificates
+ * already given out.
+ */
+export async function mentorFor(batch) {
+  const id = (batch?.mentorIds || [])[0];
+  if (!id) return { mentorName: '', mentorRole: '' };
+  // The id may already be a populated document, depending on the caller.
+  const user = id.fullName ? id : await User.findById(id).select('fullName email professional');
+  if (!user) return { mentorName: '', mentorRole: '' };
+
+  const p = user.professional || {};
+  const who = [p.title, p.company].filter(Boolean).join(', ');
+  return {
+    mentorName: user.fullName || user.email || '',
+    mentorRole: who ? `${who} | Mentor, Menler` : 'Mentor, Menler',
+  };
+}
+
 export async function issueCertificate({ student, program, batch = null, issuedBy = null }) {
   const filter = { studentId: student._id, programId: program._id, batchId: batch?._id || null };
   const existing = await Certificate.findOne(filter);
   if (existing) return { cert: existing, created: false };
+
+  const { mentorName, mentorRole } = await mentorFor(batch);
 
   /* The counter behind nextCode() is atomic, so two issues racing get two
      different numbers and the loop below should never run twice. It stays
@@ -124,6 +155,8 @@ export async function issueCertificate({ student, program, batch = null, issuedB
         studentName: student.fullName || student.email,
         programTitle: program.title,
         batchName: batch?.name || '',
+        mentorName,
+        mentorRole,
         issuedBy,
       });
       return { cert, created: true };
@@ -154,6 +187,8 @@ export const publicView = (cert) => ({
   name: cert.studentName,
   programme: cert.programTitle,
   batch: cert.batchName || null,
+  mentorName: cert.mentorName || null,
+  mentorRole: cert.mentorRole || null,
   issuedAt: cert.issuedAt,
   revoked: Boolean(cert.revokedAt),
   revokedAt: cert.revokedAt || null,

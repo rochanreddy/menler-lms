@@ -39,14 +39,19 @@ function fellowshipName(program) {
   return `Menler ${/^ai\b/i.test(t) ? t : `AI ${t}`} Fellowship Program`;
 }
 
-/* Who signs. Hardcoded because every certificate this LMS issues today is
-   signed by the same two people; when a second mentor starts signing their own
-   cohort's certificates this should move onto the programme or batch record
-   rather than growing a table of special cases here. */
-const SIGNATORIES = [
-  { name: 'Sridevi Edupuganti', role: 'AI Generalist, Ex-Microsoft | Mentor, Menler' },
-  { name: 'Sachin Roy', role: 'Founder, Menler' },
-];
+/* The founder signs every certificate; the other signature is the mentor who
+   actually taught the cohort, carried on the certificate itself (see
+   mentorFor() on the server) so it is whoever was assigned to that batch at
+   the time rather than whoever is assigned now.
+
+   A batch with no mentor assigned gets the founder alone. One signature and an
+   empty line beside it looks like a rendering fault; one signature looks
+   deliberate. */
+const FOUNDER = { name: 'Sachin Roy', role: 'Founder, Menler' };
+
+const signatoriesFor = (cert) => (cert.mentorName
+  ? [{ name: cert.mentorName, role: cert.mentorRole || 'Mentor, Menler' }, FOUNDER]
+  : [FOUNDER]);
 
 /* Per-logo height, because a shared one does not make a row look even.
    These four marks have wildly different proportions once their transparent
@@ -128,7 +133,7 @@ function CertificateModal({ cert, onClose }) {
             </div>
 
             <div className="cert-signs">
-              {SIGNATORIES.map((s) => (
+              {signatoriesFor(cert).map((s) => (
                 <div className="cert-sign" key={s.name}>
                   <div className="cert-sign-name">{s.name}</div>
                   <div className="cert-sign-role">{s.role}</div>

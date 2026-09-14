@@ -213,6 +213,8 @@ function MyCertificates() {
     issuedAt: c.issuedAt,
     certId: c.code,
     revoked: c.revoked,
+    mentorName: c.mentorName,
+    mentorRole: c.mentorRole,
     verifyUrl: c.verifyUrl,
     qr: c.qr,
   });

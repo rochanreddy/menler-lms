@@ -73,6 +73,8 @@ router.get('/certificate', requireAuth, async (req, res) => {
       batch: held.batchName || null,
       issuedAt: held.issuedAt,
       certId: held.code,
+      mentorName: held.mentorName || null,
+      mentorRole: held.mentorRole || null,
       revoked: Boolean(held.revokedAt),
       verifyUrl: verifyUrl(held.code),
       qr: await qrDataUri(held.code),
@@ -97,7 +99,8 @@ router.get('/certificate', requireAuth, async (req, res) => {
      there for the certificate to name, not to gate on: someone who worked
      through the curriculum without a batch row has still earned this, the
      certificate just does not carry a cohort line. */
-  const batch = await Batch.findOne({ programId: program._id, studentIds: req.user._id });
+  const batch = await Batch.findOne({ programId: program._id, studentIds: req.user._id })
+    .populate('mentorIds', 'fullName email professional');
   const { cert } = await issueCertificate({ student: req.user, program, batch });
 
   res.json({
@@ -107,6 +110,8 @@ router.get('/certificate', requireAuth, async (req, res) => {
     batch: cert.batchName || null,
     issuedAt: cert.issuedAt,
     certId: cert.code,
+    mentorName: cert.mentorName || null,
+    mentorRole: cert.mentorRole || null,
     verifyUrl: verifyUrl(cert.code),
     qr: await qrDataUri(cert.code),
   });

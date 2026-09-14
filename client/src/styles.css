@@ -771,9 +771,12 @@ a:focus-visible,
 .cert-issued { font-family: Consolas, Menlo, monospace; font-size: 11px; color: var(--c-dim); }
 
 .cert-signs { display: flex; gap: 34px; flex-wrap: wrap; }
-.cert-sign { border-top: 1px solid var(--c-line); padding-top: 9px; min-width: 168px; }
-.cert-sign-name { font-size: 13.5px; font-weight: 700; color: var(--c-ink); }
-.cert-sign-role { font-size: 10.5px; color: var(--c-dim); margin-top: 3px; }
+/* The rule sits BETWEEN the name and the designation, not above the name —
+   it reads as the signature line the name is written on, which is what a
+   rule above the name cannot do. */
+.cert-sign { min-width: 168px; }
+.cert-sign-name { font-size: 13.5px; font-weight: 700; color: var(--c-ink); padding-bottom: 8px; border-bottom: 1px solid var(--c-line); }
+.cert-sign-role { font-size: 10.5px; color: var(--c-dim); margin-top: 8px; }
 
 .cert-actions { display: flex; gap: 10px; justify-content: flex-end; padding: 0 18px 18px; }
 

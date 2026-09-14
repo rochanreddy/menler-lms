@@ -29,6 +29,16 @@ const certificateSchema = new mongoose.Schema(
     programTitle: { type: String, required: true },
     batchName: { type: String, default: '' },
 
+    /* Who signed it, alongside the founder. Taken from the batch's assigned
+       mentor at issue and then frozen, for the same reason as every other
+       field here: a mentor who later leaves, changes employer, or is
+       reassigned to another cohort must not retroactively re-sign a
+       certificate that has already been printed. Empty when the batch had no
+       mentor, in which case the sheet carries the founder's signature alone
+       rather than an empty line. */
+    mentorName: { type: String, default: '' },
+    mentorRole: { type: String, default: '' },
+
     issuedAt: { type: Date, default: Date.now },
     // Who pressed the button. Null means the student claimed it themselves by
     // completing the programme.

@@ -132,7 +132,7 @@ test('the public view exposes only what verifying needs', async () => {
   const view = publicView(cert);
   assert.deepEqual(
     Object.keys(view).sort(),
-    ['batch', 'code', 'issuedAt', 'name', 'programme', 'revoked', 'revokedAt', 'valid'],
+    ['batch', 'code', 'issuedAt', 'mentorName', 'mentorRole', 'name', 'programme', 'revoked', 'revokedAt', 'valid'],
   );
   // The things a verifier has no business receiving.
   const serialized = JSON.stringify(view);
@@ -140,6 +140,36 @@ test('the public view exposes only what verifying needs', async () => {
     assert.ok(!serialized.includes(leak), `public view leaked ${leak}`);
   }
   assert.equal(view.valid, true);
+});
+
+test('the signing mentor is taken from the batch and then frozen', async () => {
+  const mentor = await User.create({
+    email: 'mentor@test.in', fullName: 'Sridevi Edupuganti', role: 'mentor', passwordHash: 'x',
+    professional: { title: 'AI Generalist', company: 'Ex-Microsoft' },
+  });
+  const b = await Batch.create({
+    programId: program._id, name: 'Kickstarter · Oct 2026',
+    studentIds: [students[0]._id], mentorIds: [mentor._id], status: 'ongoing',
+  });
+  const { cert } = await issueCertificate({ student: students[0], program, batch: b });
+  assert.equal(cert.mentorName, 'Sridevi Edupuganti');
+  assert.equal(cert.mentorRole, 'AI Generalist, Ex-Microsoft | Mentor, Menler');
+
+  // Frozen: the mentor changing employer must not re-sign what is already out.
+  await User.findByIdAndUpdate(mentor._id, { professional: { title: 'AI Lead', company: 'Ex-Google' } });
+  const reread = await Certificate.findById(cert._id);
+  assert.equal(reread.mentorRole, 'AI Generalist, Ex-Microsoft | Mentor, Menler');
+
+  // A batch with no mentor leaves the fields empty, so the sheet can fall back
+  // to the founder's signature alone rather than drawing an empty line.
+  const solo = await Batch.create({ programId: program._id, name: 'No mentor', studentIds: [students[1]._id], status: 'ongoing' });
+  const { cert: c2 } = await issueCertificate({ student: students[1], program, batch: solo });
+  assert.equal(c2.mentorName, '');
+  assert.equal(c2.mentorRole, '');
+
+  await Certificate.deleteMany({ batchId: { $in: [b._id, solo._id] } });
+  await Batch.deleteMany({ _id: { $in: [b._id, solo._id] } });
+  await User.deleteOne({ _id: mentor._id });
 });
 
 test('the QR encodes the verification URL on the real origin', async () => {

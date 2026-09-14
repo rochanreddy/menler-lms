@@ -92,7 +92,9 @@ router.post('/issue', requireAuth, requireRole('admin'), async (req, res) => {
 
   const batch = await Batch.findById(batchId)
     .populate('programId', 'title')
-    .populate('studentIds', 'fullName email');
+    .populate('studentIds', 'fullName email')
+    // The mentor signs the certificate — see mentorFor() in utils/certificates.
+    .populate('mentorIds', 'fullName email professional');
   if (!batch) return res.status(404).json({ error: 'Batch not found.' });
   if (!batch.programId) return res.status(400).json({ error: 'That batch has no programme.' });
 
