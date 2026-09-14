@@ -8,6 +8,7 @@ import Register from './pages/Register.jsx';
 import ForcePasswordChange from './pages/ForcePasswordChange.jsx';
 import Blocked from './pages/Blocked.jsx';
 import SignedOutElsewhere from './pages/SignedOutElsewhere.jsx';
+import VerifyCertificate from './pages/VerifyCertificate.jsx';
 
 export default function App() {
   const [user, setUser] = useState(null);
@@ -62,6 +63,26 @@ export default function App() {
     setBlocked(null);
     setRevoked(null);
   };
+
+  /* Certificate verification is public and stands apart from the app.
+     It is opened by recruiters and admissions offices from a QR code on a
+     printed certificate — people with no account, who did not choose to come
+     here, and to whom every screen below this line is meaningless: the loading
+     gate waits on a /me they will never have, "account blocked" and "signed
+     out elsewhere" describe a session they do not hold, force-password-change
+     hijacks the URL outright, and the catch-all at the foot of the router
+     would bounce them to /login. So it is answered here, ahead of all of it.
+
+     Read off window.location rather than a route param because this decision
+     has to happen before the router renders anything. It is safe below the
+     hooks above and above every early return that follows. */
+  if (window.location.pathname.startsWith('/verify/')) {
+    return (
+      <Routes>
+        <Route path="/verify/:code" element={<VerifyCertificate />} />
+      </Routes>
+    );
+  }
 
   if (loading) return <div className="center">Loading…</div>;
 

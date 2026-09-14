@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
 import { Progress } from '../models/Progress.js';
 import { Program } from '../models/Program.js';
+import { issueCertificate, qrDataUri, verifyUrl } from '../utils/certificates.js';
 import { Batch } from '../models/Batch.js';
 
 const router = Router();
@@ -58,12 +59,33 @@ router.get('/certificate', requireAuth, async (req, res) => {
   if (!(total > 0 && completed >= total)) return res.json({ eligible: false, completed, total });
   let issuedAt = p.certificateIssuedAt;
   if (!issuedAt) { p.certificateIssuedAt = new Date(); await p.save(); issuedAt = p.certificateIssuedAt; }
+
+  /* The id here used to be MNLR- plus the tail of the progress ObjectId,
+     computed on the way out and stored nowhere. That made it a decoration:
+     there was nothing to look up, so nobody outside the app could check the
+     certificate was real — and an ObjectId's tail is near enough sequential
+     that holding one would have let you guess other people's.
+
+     Both paths now go through the same issuer, so a certificate claimed by
+     finishing the course and one issued to a cohort are the same object, with
+     a stored random code and a QR that resolves.
+
+     The batch is whichever cohort of this programme the student sits in. It is
+     there for the certificate to name, not to gate on: someone who worked
+     through the curriculum without a batch row has still earned this, the
+     certificate just does not carry a cohort line. */
+  const batch = await Batch.findOne({ programId: program._id, studentIds: req.user._id });
+  const { cert } = await issueCertificate({ student: req.user, program, batch });
+
   res.json({
     eligible: true,
     program: program.title,
-    name: req.user.fullName || req.user.email,
-    issuedAt,
-    certId: `MNLR-${String(p._id).slice(-8).toUpperCase()}`,
+    name: cert.studentName,
+    batch: cert.batchName || null,
+    issuedAt: cert.issuedAt,
+    certId: cert.code,
+    verifyUrl: verifyUrl(cert.code),
+    qr: await qrDataUri(cert.code),
   });
 });
 

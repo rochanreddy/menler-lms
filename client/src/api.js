@@ -151,6 +151,30 @@ async function send(path, method, body) {
   throw lastErr;
 }
 
+/**
+ * A GET with no credentials attached, for the one page that has no user.
+ *
+ * Certificate verification is opened by recruiters, admissions offices and
+ * anyone else holding a printed certificate — people with no account and no
+ * reason to have one. Going through api() would send a stale Bearer token if
+ * the browser happened to have one, try to refresh it on the 401, and fire the
+ * blocked / session-revoked events at an app shell that is not even mounted.
+ * None of that belongs in a public lookup, so this talks to fetch directly.
+ *
+ * Errors come back as data, not exceptions: the caller renders "not found" and
+ * "could not reach the server" as two different screens, and a rejected promise
+ * loses the distinction.
+ */
+export async function publicGet(path) {
+  try {
+    const res = await fetch(`${API}${path}`, { headers: { Accept: 'application/json' } });
+    const data = await res.json().catch(() => ({}));
+    return { ok: res.ok, status: res.status, data };
+  } catch {
+    return { ok: false, status: 0, data: {} };
+  }
+}
+
 export async function api(path, { method = 'GET', body } = {}) {
   let { res, data } = await send(path, method, body);
 

@@ -7,8 +7,13 @@
 // Images are hot-linked from menler.in (public/email-banner.jpg,
 // public/email-logo.png) — same as the marketing mailers.
 
-// Where the button points. Same env the password-reset link is built from.
-export const loginUrl = () => `${(process.env.LMS_APP_URL || 'http://localhost:5174').replace(/\/+$/, '')}/login`;
+import { appUrl } from './appUrl.js';
+
+// Where the button points. Same env the password-reset link is built from —
+// read through appUrl.js, because LMS_APP_URL is a comma-separated list in
+// production, and pasting it into a URL whole produces a host of
+// "lms.menler.in,https" that resolves nowhere.
+export const loginUrl = () => appUrl('/login');
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -404,6 +409,62 @@ function paragraphHtml(text) {
     return out + esc(line.slice(last));
   });
   return lines.join('<br />');
+}
+
+// The certificate mail. Unlike the account mails this one carries nothing
+// secret — the whole point of a credential is that it can be shown to a
+// stranger — so it is safe to forward, and the copy says so rather than
+// warning against it the way the password mails do.
+//
+// Two ways in, deliberately. The button opens the certificate on the site; the
+// code is also spelled out in plain text, because a certificate gets printed,
+// photographed and pasted into an application form, and a verifier holding
+// only the picture needs something they can type.
+export function certificateEmail({ fullName, email, programme, batchName, code, verifyUrl }) {
+  const first = firstNameOf(fullName, email);
+  const subject = `Your ${programme} certificate`;
+  const where = batchName ? `${programme} · ${batchName}` : programme;
+
+  const row = (k, v) => `<tr>
+    <td style="padding:10px 16px; font-size:13px; color:#6B6F80; white-space:nowrap; border-top:1px solid #E6E4F2;">${k}</td>
+    <td style="padding:10px 16px; font-size:15px; color:#1F2430; border-top:1px solid #E6E4F2; font-family:Consolas,Menlo,monospace;">${v}</td>
+  </tr>`;
+  const details = `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:22px; background:#F6F5FB; border:1px solid #E6E4F2; border-radius:8px;">
+    <tr><td colspan="2" style="padding:12px 16px 4px; font-size:11px; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:#534AB7;">Your certificate</td></tr>
+    ${row('Name', esc(fullName || email))}
+    ${row('Programme', esc(where))}
+    ${row('Certificate ID', esc(code))}
+  </table>`;
+
+  const html = shell({
+    title: subject,
+    preview: `Your ${programme} certificate is ready.`,
+    greeting: first,
+    body: [
+      P(`Congratulations — you have completed <strong>${esc(where)}</strong>, and your certificate is ready.`),
+      details,
+      P('Anyone can check it is genuine by scanning the QR code on the certificate, or by opening the link below. They see your name, the programme and the date it was issued — nothing else.'),
+    ].join('\n'),
+    cta: { label: 'View your certificate', href: verifyUrl },
+    why: `You're receiving this because you completed a Menler programme as ${esc(email)}. Questions? Write to ${mailtoLink('#8E82F5')}.`,
+    closing: 'Well done!',
+  });
+
+  const text = [
+    `Dear ${first},`, '',
+    `Congratulations - you have completed ${where}, and your certificate is ready.`, '',
+    `Name:           ${fullName || email}`,
+    `Programme:      ${where}`,
+    `Certificate ID: ${code}`, '',
+    'Anyone can check it is genuine by scanning the QR code on the certificate,',
+    'or by opening this link:', '',
+    verifyUrl, '',
+    `Questions? Write to ${SUPPORT_EMAIL}.`, '',
+    'Well done!', '',
+    SIGN_OFF,
+  ].join('\n');
+
+  return { subject, text, html };
 }
 
 export function bodyToHtml(text) {

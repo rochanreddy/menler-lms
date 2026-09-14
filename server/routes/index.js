@@ -28,6 +28,7 @@ import lessonVideoRoutes from './lessonVideos.js';
 import playbackRoutes from './playback.js';
 import supportRoutes from './support.js';
 import mailRoutes from './mail.js';
+import certificateRoutes from './certificates.js';
 
 const router = Router();
 
@@ -54,6 +55,9 @@ router.use('/stats', statsRoutes);
 router.use('/uploads', uploadRoutes);
 router.use('/zoom', zoomRoutes); // public webhook (signature-verified)
 router.use('/progress', progressRoutes);
+// /certificates/verify/:code is public — a credential nobody can check
+// without an account is not a credential. See the file for what that exposes.
+router.use('/certificates', certificateRoutes);
 router.use('/notifications', notificationRoutes);
 router.use('/announcements', announcementRoutes);
 router.use('/doubt-sessions', doubtSessionRoutes); // slot-booked doubt clearing, admin-announced
