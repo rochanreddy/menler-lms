@@ -40,11 +40,65 @@ export function segmentFor(program) {
   return `${(letters.slice(0, 2) || 'XX').padEnd(2, 'X')}FEL`;
 }
 
-/** MMYY, from the date the certificate is issued. */
+/** MMYY of a given date. */
 export function monthStamp(date = new Date()) {
   const mm = String(date.getMonth() + 1).padStart(2, '0');
   const yy = String(date.getFullYear()).slice(-2);
   return `${mm}${yy}`;
+}
+
+const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+
+/**
+ * The month and year written into a batch's name.
+ *
+ * Batches are named "Kickstarter · Sept 2026", "Demo: Kickstarter · Jun 2026".
+ * That is a convention rather than a schema, so this is a fallback and not the
+ * first choice — startDate is. It exists because the cohorts that actually
+ * need certificates were created without a start date, and reading the month
+ * off the name beats silently stamping them with today's.
+ *
+ * Written as a token scan rather than one regex: the name is punctuated in
+ * whatever way whoever created it felt like ("·", "—", ",", nothing), and a
+ * pattern that tries to describe all of that is harder to read than splitting
+ * on punctuation and looking at the words.
+ *
+ * Returns null on anything it cannot read, so the caller falls back again
+ * rather than being handed a confidently wrong date.
+ */
+export function monthFromName(name) {
+  const tokens = String(name || '').toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+
+  let month = -1;
+  let year = 0;
+  for (const t of tokens) {
+    // "sept" and "september" both start with the three-letter key.
+    if (month < 0) {
+      const hit = MONTHS.findIndex((m) => t.startsWith(m));
+      if (hit >= 0) { month = hit; continue; }
+    }
+    if (!year && t.length === 4 && Number(t) >= 2000 && Number(t) <= 2100) year = Number(t);
+  }
+  if (month < 0 || !year) return null;
+  return new Date(year, month, 1);
+}
+
+/**
+ * Which month the code is stamped with: the BATCH's, not the issue date's.
+ *
+ * A cohort that ran in September gets September codes even when the
+ * certificates are handed out in November, so every certificate from one
+ * intake shares a stamp and they sort together. The "Issued on" line on the
+ * certificate still shows the real issue date — the two are allowed to differ,
+ * and on a late issue they will.
+ *
+ * startDate first, then the month written into the name, then the issue date.
+ * The last is a genuine last resort: it is the only one that cannot be wrong
+ * about a batch, because it is not about the batch at all.
+ */
+export function stampDateFor(batch, issuedAt = new Date()) {
+  if (batch?.startDate) return new Date(batch.startDate);
+  return monthFromName(batch?.name) || issuedAt;
 }
 
 /**
@@ -65,9 +119,9 @@ export function monthStamp(date = new Date()) {
  * matters more than legibility, the fix is a random token in the QR URL
  * alongside this code, not a change to the code itself.
  */
-export async function nextCode(program, issuedAt = new Date()) {
+export async function nextCode(program, batch = null, issuedAt = new Date()) {
   const segment = segmentFor(program);
-  const stamp = monthStamp(issuedAt);
+  const stamp = monthStamp(stampDateFor(batch, issuedAt));
   const n = await nextSeq(`cert:${segment}:${stamp}`);
   /* padStart, not slice: the 10000th certificate in one month grows the code
      to five digits rather than wrapping round to 0000 and colliding with the
@@ -150,7 +204,7 @@ export async function issueCertificate({ student, program, batch = null, issuedB
     try {
       const cert = await Certificate.create({
         ...filter,
-        code: await nextCode(program),
+        code: await nextCode(program, batch),
         // Snapshots. See the model for why these are copied rather than joined.
         studentName: student.fullName || student.email,
         programTitle: program.title,

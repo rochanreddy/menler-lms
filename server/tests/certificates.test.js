@@ -17,7 +17,7 @@ import { Program } from '../models/Program.js';
 import { Batch } from '../models/Batch.js';
 import { User } from '../models/User.js';
 import { Certificate } from '../models/Certificate.js';
-import { issueCertificate, monthStamp, nextCode, publicView, qrDataUri, segmentFor, verifyUrl } from '../utils/certificates.js';
+import { issueCertificate, monthFromName, monthStamp, nextCode, publicView, qrDataUri, segmentFor, stampDateFor, verifyUrl } from '../utils/certificates.js';
 import { Counter } from '../models/Counter.js';
 import { certificateEmail } from '../utils/emailTemplates.js';
 
@@ -72,26 +72,60 @@ test('the month stamp is MMYY of the issue date', () => {
   assert.equal(monthStamp(new Date(2027, 0, 1)), '0127');   // January, year rolls
 });
 
-test('codes run in sequence, per programme and per month', async () => {
+test('the month comes from the batch, not the day it was issued', () => {
+  // A cohort that ran in September keeps September codes even when the
+  // certificates go out in November. This is the whole point of the stamp:
+  // one intake, one number series.
+  const november = new Date(2026, 10, 14);
+
+  assert.equal(monthStamp(stampDateFor({ startDate: new Date(2026, 8, 4) }, november)), '0926',
+    'startDate did not win');
+  assert.equal(monthStamp(stampDateFor({ name: 'Kickstarter · Sept 2026' }, november)), '0926',
+    'the month written in the name was not read');
+  assert.equal(monthStamp(stampDateFor({ startDate: new Date(2026, 2, 4), name: 'Kickstarter · Sept 2026' }, november)), '0326',
+    'the name overrode an explicit startDate');
+  // Only when the batch says nothing at all does the issue date get used.
+  assert.equal(monthStamp(stampDateFor({ name: 'Autumn cohort' }, november)), '1126');
+  assert.equal(monthStamp(stampDateFor(null, november)), '1126');
+});
+
+test('a batch name is read in whatever way it happens to be punctuated', () => {
+  const cases = [
+    ['Kickstarter · Sept 2026', '0926'],
+    ['Demo: Kickstarter · Jun 2026', '0626'],
+    ['Generalist — November 2026', '1126'],
+    ['AI Kickstarter Jan 2027', '0127'],
+    ['Generalist, May 2026', '0526'],
+  ];
+  for (const [name, want] of cases) {
+    assert.equal(monthStamp(monthFromName(name)), want, name);
+  }
+  for (const junk of ['Autumn cohort', 'Batch 3', '', null, 'Kickstarter 1999', 'March']) {
+    assert.equal(monthFromName(junk), null, String(junk));
+  }
+});
+
+test('codes run in sequence, per programme and per batch month', async () => {
   const gen = await Program.create({ title: 'Generalist', type: 'cohort', published: true });
-  const sep = new Date(2026, 8, 20);
+  const sep = { name: 'Kickstarter · Sept 2026' };
+  const oct = { name: 'Kickstarter · Oct 2026' };
 
   const a = await nextCode(program, sep);   // Kickstarter
   const b = await nextCode(program, sep);
   const c = await nextCode(gen, sep);       // Generalist — its own run
-  const d = await nextCode(program, new Date(2026, 9, 1)); // October — restarts
+  const d = await nextCode(program, oct);   // a different intake — restarts
 
   assert.equal(a, 'MNLR-AKFEL-0926-0001');
   assert.equal(b, 'MNLR-AKFEL-0926-0002');
   assert.equal(c, 'MNLR-AGFEL-0926-0001', 'the two programmes share a counter');
-  assert.equal(d, 'MNLR-AKFEL-1026-0001', 'the month did not restart the run');
+  assert.equal(d, 'MNLR-AKFEL-1026-0001', 'a second intake did not restart the run');
 
   await Program.deleteOne({ _id: gen._id });
   await Counter.deleteMany({});
 });
 
 test('numbers do not collide when issued at the same moment', async () => {
-  const when = new Date(2026, 11, 1);
+  const when = { name: 'Kickstarter · Dec 2026' };
   // Fifty at once through the same counter: if the increment were a read then
   // a write, this is where two of them would come back the same.
   const codes = await Promise.all(Array.from({ length: 50 }, () => nextCode(program, when)));
