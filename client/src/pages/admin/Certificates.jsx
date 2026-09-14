@@ -61,6 +61,7 @@ export default function AdminCertificates() {
   }, [batchId, reloadKey(report)]);
 
   const issued = certs.filter((c) => !c.revoked).length;
+  const sent = certs.filter((c) => !c.revoked && c.sentAt).length;
 
   async function run(send) {
     setBusy(send ? 'send' : 'issue');
@@ -105,9 +106,14 @@ export default function AdminCertificates() {
     {
       key: 'status',
       header: 'Status',
-      cell: (r) => (r.revoked
-        ? <Text as="span" role="label" tone="destructive">Revoked</Text>
-        : <a href={r.verifyUrl} target="_blank" rel="noreferrer">Verify ↗</a>),
+      /* Whether the student has been told, which is also whether they can see
+         it — an unsent certificate exists but is invisible to them, so this
+         column is the difference between "minted" and "delivered". */
+      cell: (r) => {
+        if (r.revoked) return <Text as="span" role="label" tone="destructive">Revoked</Text>;
+        if (!r.sentAt) return <Text as="span" role="label" tone="muted">Not sent — hidden from the student</Text>;
+        return <a href={r.verifyUrl} target="_blank" rel="noreferrer">Verify ↗</a>;
+      },
     },
     {
       key: 'actions',
@@ -149,8 +155,9 @@ export default function AdminCertificates() {
           />
 
           <Text role="caption">
-            {issued} issued in this batch. Issue first, open one with <strong>View</strong> to check it reads
-            correctly, then email. Issuing again is safe — anyone who already has one keeps the same code.
+            {issued} issued, {sent} emailed. A certificate stays hidden from the student until it is
+            emailed — so issue first, open one with <strong>View</strong> to check it reads correctly,
+            then email. Issuing again is safe: anyone who already has one keeps the same code.
           </Text>
 
           {/* Stack is column-only; the app-wide .row is what puts two

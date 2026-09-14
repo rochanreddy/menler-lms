@@ -421,6 +421,8 @@ function paragraphHtml(text) {
 // photographed and pasted into an application form, and a verifier holding
 // only the picture needs something they can type.
 export function certificateEmail({ fullName, email, programme, batchName, code, verifyUrl }) {
+  // Where the printable certificate itself lives, behind their login.
+  const certificatesUrl = appUrl('/app/profile');
   const first = firstNameOf(fullName, email);
   const subject = `Your ${programme} certificate`;
   /* Batches are named after their programme — "Kickstarter · Sept 2026" — so
@@ -451,9 +453,15 @@ export function certificateEmail({ fullName, email, programme, batchName, code, 
     body: [
       P(`Congratulations — you have completed <strong>${esc(where)}</strong>, and your certificate is ready.`),
       details,
-      P('Anyone can check it is genuine by scanning the QR code on the certificate, or by opening the link below. They see your name, the programme and the date it was issued — nothing else.'),
+      P('Sign in to open it, download it, or print it.'),
+      /* The certificate is released to the student when this mail goes, so
+         this is the first moment they can open it — which makes "where do I
+         find it" the question the mail has to answer first. The public check
+         comes second: that is what they forward to somebody else, not what
+         they do next. */
+      P(`Anyone you show it to can confirm it is genuine — by scanning the QR code printed on it, or at <a href="${verifyUrl}" style="color:#534AB7; text-decoration:underline;">this link</a>. They see your name, the programme and the date it was issued, and nothing else.`),
     ].join('\n'),
-    cta: { label: 'View your certificate', href: verifyUrl },
+    cta: { label: 'Open your certificate', href: certificatesUrl },
     /* shell()'s default help line is about signing in, which is right for the
        account mails and meaningless here — nobody is being asked to log in. */
     help: `Questions about your certificate? Write to ${mailtoLink()}.`,
@@ -467,8 +475,10 @@ export function certificateEmail({ fullName, email, programme, batchName, code, 
     `Name:           ${fullName || email}`,
     `Programme:      ${where}`,
     `Certificate ID: ${code}`, '',
-    'Anyone can check it is genuine by scanning the QR code on the certificate,',
-    'or by opening this link:', '',
+    'Sign in to open it, download it, or print it:', '',
+    certificatesUrl, '',
+    'Anyone you show it to can confirm it is genuine by scanning the QR code',
+    'printed on it, or at this link:', '',
     verifyUrl, '',
     `Questions? Write to ${SUPPORT_EMAIL}.`, '',
     'Well done!', '',

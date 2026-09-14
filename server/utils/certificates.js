@@ -227,6 +227,22 @@ export async function issueCertificate({ student, program, batch = null, issuedB
 }
 
 /**
+ * Whether the student is allowed to know this certificate exists yet.
+ *
+ * Issuing a cohort's certificates and telling that cohort about them are two
+ * different acts, and an admin does the first in order to check the second is
+ * worth doing. So a certificate an admin minted stays invisible to the student
+ * until the mail goes — otherwise someone refreshing their profile finds out
+ * before the announcement, and an admin who spots a wrong name has already
+ * lost the chance to fix it quietly.
+ *
+ * A certificate with no issuedBy was claimed by the student themselves by
+ * finishing the programme. Nobody is going to email them about a thing they
+ * just clicked a button to produce, so there is nothing to wait for.
+ */
+export const studentCanSee = (cert) => Boolean(cert.sentAt) || !cert.issuedBy;
+
+/**
  * Exactly what a stranger is allowed to see.
  *
  * An allowlist built by hand, not the document with a few fields deleted: the

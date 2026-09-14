@@ -40,6 +40,12 @@ const certificateSchema = new mongoose.Schema(
     mentorRole: { type: String, default: '' },
 
     issuedAt: { type: Date, default: Date.now },
+    /* When the certificate mail actually went out. Null means it has been
+       minted but not yet delivered — which is also the thing that keeps it
+       hidden from the student, see studentCanSee() in utils/certificates.js.
+       Recorded rather than inferred so the admin table can say who has been
+       told and who has not, long after the issue run that did it. */
+    sentAt: { type: Date, default: null },
     // Who pressed the button. Null means the student claimed it themselves by
     // completing the programme.
     issuedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },

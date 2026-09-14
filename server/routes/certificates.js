@@ -4,7 +4,7 @@ import { Batch } from '../models/Batch.js';
 import { Certificate } from '../models/Certificate.js';
 import { certificateEmail } from '../utils/emailTemplates.js';
 import { trySendMail } from '../utils/email.js';
-import { issueCertificate, publicView, qrDataUri, verifyUrl } from '../utils/certificates.js';
+import { issueCertificate, publicView, qrDataUri, studentCanSee, verifyUrl } from '../utils/certificates.js';
 import { rateLimit } from '../utils/rateLimit.js';
 
 const router = Router();
@@ -44,7 +44,9 @@ router.get('/verify/:code', async (req, res) => {
 
 // GET /api/lms/certificates/mine — what I hold, with the QR to print.
 router.get('/mine', requireAuth, async (req, res) => {
-  const certs = await Certificate.find({ studentId: req.user._id }).sort({ issuedAt: -1 });
+  const certs = (await Certificate.find({ studentId: req.user._id }).sort({ issuedAt: -1 }))
+    // A minted-but-unsent certificate is not yet the student's news to have.
+    .filter(studentCanSee);
   const out = await Promise.all(
     certs.map(async (c) => ({
       ...publicView(c),
@@ -74,6 +76,7 @@ router.get('/', requireAuth, requireRole('admin'), async (req, res) => {
       programme: c.programTitle,
       batch: c.batchName,
       issuedAt: c.issuedAt,
+      sentAt: c.sentAt,
       revoked: Boolean(c.revokedAt),
       verifyUrl: verifyUrl(c.code),
     })),
@@ -173,7 +176,15 @@ router.post('/issue', requireAuth, requireRole('admin'), async (req, res) => {
          configured at all — which logs the message and sends nothing. That
          last case has to be reported as not-sent, or an admin on a server with
          no Resend key reads "sent 30" and believes it. */
-      if (mail.emailed) { row.sent = true; sent++; }
+      if (mail.emailed) {
+        row.sent = true;
+        sent++;
+        /* Stamped only on a real send. This is what releases the certificate
+           to the student, so a failed or unconfigured send must leave it
+           hidden rather than quietly revealing something nobody was told
+           about. */
+        await Certificate.updateOne({ code: row.code }, { sentAt: new Date() });
+      }
       else if (mail.dev) row.error = 'Mail is not configured on this server — the message was logged, not sent.';
       else row.error = mail.error || 'Send failed.';
     }

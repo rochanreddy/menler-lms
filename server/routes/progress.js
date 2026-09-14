@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
 import { Progress } from '../models/Progress.js';
 import { Program } from '../models/Program.js';
-import { issueCertificate, qrDataUri, verifyUrl } from '../utils/certificates.js';
+import { issueCertificate, qrDataUri, studentCanSee, verifyUrl } from '../utils/certificates.js';
 import { Certificate } from '../models/Certificate.js';
 import { Batch } from '../models/Batch.js';
 
@@ -65,7 +65,13 @@ router.get('/certificate', requireAuth, async (req, res) => {
      certificate without having ticked every topic, and before this they could
      be emailed a code for a certificate the app then refused to show them. */
   const held = await Certificate.findOne({ studentId: req.user._id, programId });
-  if (held) {
+
+  /* Two ways this is theirs to see: the mail has gone, or they finished the
+     programme. The second matters because an admin can mint a cohort's
+     certificates before sending them, and a student who completes everything
+     in that window must not be told "not eligible" about a certificate that
+     already has their name on it. */
+  if (held && (studentCanSee(held) || (total > 0 && completed >= total))) {
     return res.json({
       eligible: true,
       program: program.title,

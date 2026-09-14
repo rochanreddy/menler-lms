@@ -17,7 +17,7 @@ import { Program } from '../models/Program.js';
 import { Batch } from '../models/Batch.js';
 import { User } from '../models/User.js';
 import { Certificate } from '../models/Certificate.js';
-import { issueCertificate, monthFromName, monthStamp, nextCode, publicView, qrDataUri, segmentFor, stampDateFor, verifyUrl } from '../utils/certificates.js';
+import { issueCertificate, monthFromName, monthStamp, nextCode, publicView, qrDataUri, segmentFor, stampDateFor, studentCanSee, verifyUrl } from '../utils/certificates.js';
 import { Counter } from '../models/Counter.js';
 import { certificateEmail } from '../utils/emailTemplates.js';
 
@@ -204,6 +204,28 @@ test('the signing mentor is taken from the batch and then frozen', async () => {
   await Certificate.deleteMany({ batchId: { $in: [b._id, solo._id] } });
   await Batch.deleteMany({ _id: { $in: [b._id, solo._id] } });
   await User.deleteOne({ _id: mentor._id });
+});
+
+test('an admin-issued certificate is hidden from the student until it is emailed', async () => {
+  const admin = await User.create({ email: 'boss@test.in', fullName: 'An Admin', role: 'admin', passwordHash: 'x' });
+  const b = await Batch.create({ programId: program._id, name: 'Kickstarter · Nov 2026', studentIds: [students[0]._id], status: 'ongoing' });
+
+  const { cert } = await issueCertificate({ student: students[0], program, batch: b, issuedBy: admin._id });
+  assert.equal(cert.sentAt, null, 'issuing should not mark it sent');
+  assert.equal(studentCanSee(cert), false, 'the student can see it before anyone told them');
+
+  // Sending is what releases it.
+  cert.sentAt = new Date();
+  assert.equal(studentCanSee(cert), true, 'sending did not release it');
+
+  // A certificate the student claimed themselves has nobody to wait for.
+  const own = await issueCertificate({ student: students[1], program, batch: b });
+  assert.equal(own.cert.issuedBy, null);
+  assert.equal(studentCanSee(own.cert), true, 'a self-claimed certificate was withheld');
+
+  await Certificate.deleteMany({ batchId: b._id });
+  await Batch.deleteOne({ _id: b._id });
+  await User.deleteOne({ _id: admin._id });
 });
 
 test('the QR encodes the verification URL on the real origin', async () => {
