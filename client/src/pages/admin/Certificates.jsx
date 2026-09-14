@@ -38,7 +38,7 @@ export default function AdminCertificates() {
       .then((d) => {
         const list = d.batches || [];
         setBatches(list);
-        if (list.length) setBatchId((cur) => cur || list[0]._id);
+        if (list.length) setBatchId((cur) => cur || list[0].id);
       })
       .catch((e) => setErr(e.message || 'Could not load the batches.'));
   }, []);
@@ -123,7 +123,7 @@ export default function AdminCertificates() {
             label="Batch"
             value={batchId}
             onChange={(e) => setBatchId(e.target.value)}
-            options={batches.map((b) => ({ value: b._id, label: b.name }))}
+            options={batches.map((b) => ({ value: b.id, label: b.name }))}
           />
 
           <Text role="caption">
