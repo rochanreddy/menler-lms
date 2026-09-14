@@ -1,8 +1,5 @@
-import anthropicLogo from '../assets/certificate/anthropic.webp';
-import msmeLogo from '../assets/certificate/msme.webp';
-// The cut-out version. The webp on the marketing site is a 200x200 solid
-// rectangle with no alpha at all, so forcing it white produced a white box
-// where the logo should be — this one is the same mark on transparency.
+import anthropicLogo from '../assets/certificate/anthropic.png';
+import msmeLogo from '../assets/certificate/msme.png';
 import sarvamLogo from '../assets/certificate/sarvam.png';
 import startupIndiaLogo from '../assets/certificate/startup-india.png';
 
@@ -51,11 +48,22 @@ const SIGNATORIES = [
   { name: 'Sachin Roy', role: 'Founder, Menler' },
 ];
 
+/* Per-logo height, because a shared one does not make a row look even.
+   These four marks have wildly different proportions once their transparent
+   padding is trimmed off — Anthropic is a 9:1 wordmark, sarvam a 1:1 symbol —
+   so setting them all to the same height leaves the wordmark a thin sliver
+   beside a chunky square. The numbers below are tuned by eye for equal
+   optical weight, the same way LogoStrip does it on the marketing site.
+
+   The files are pre-trimmed, so the height here is the artwork itself rather
+   than the artwork plus whatever whitespace its exporter happened to bake in. */
 const PARTNERS = [
-  { src: anthropicLogo, alt: 'Anthropic' },
-  { src: msmeLogo, alt: 'Ministry of MSME, Government of India' },
-  { src: sarvamLogo, alt: 'Sarvam AI' },
-  { src: startupIndiaLogo, alt: 'Startup India' },
+  { src: anthropicLogo, alt: 'Anthropic', h: 13 },
+  { src: msmeLogo, alt: 'Ministry of MSME, Government of India', h: 34 },
+  // A symbol, not a wordmark, and a square mark always reads smaller than a
+  // line of type at the same height — so it gets close to the tallest.
+  { src: sarvamLogo, alt: 'Sarvam AI', h: 32 },
+  { src: startupIndiaLogo, alt: 'Startup India', h: 17 },
 ];
 
 function CertificateModal({ cert, onClose }) {
@@ -66,7 +74,15 @@ function CertificateModal({ cert, onClose }) {
 
           <header className="cert-head">
             <div className="cert-brandblock">
-              <div className="cert-brand">menler<span className="cert-brand-dot">•</span></div>
+                {/* The wordmark exactly as merdian- draws it (MenlerWordmark.jsx):
+                  the purple rule runs under "menle" only, not the whole word,
+                  and the dot is the brand green #1D9E75 rather than the violet
+                  accent. Rebuilt here rather than imported because that
+                  component lives in a different repo. */}
+              <div className="cert-brand">
+                <span className="cert-brand-ruled">menle</span>r
+                <span className="cert-brand-dot" />
+              </div>
               <div className="cert-tagline">Your turning point in the AI era.</div>
             </div>
             {/* Every mark is forced to flat white. Two of the four source files
@@ -74,7 +90,7 @@ function CertificateModal({ cert, onClose }) {
                 other two are already light but in different tints, and a row of
                 partner logos in four different colours reads as clip-art. */}
             <div className="cert-partners">
-              {PARTNERS.map((p) => <img key={p.alt} src={p.src} alt={p.alt} />)}
+              {PARTNERS.map((p) => <img key={p.alt} src={p.src} alt={p.alt} style={{ height: p.h }} />)}
             </div>
           </header>
 

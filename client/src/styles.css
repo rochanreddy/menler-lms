@@ -735,14 +735,22 @@ a:focus-visible,
 /* Header: wordmark left, partners right. */
 .cert-brandblock { flex: 0 1 auto; }
 .cert-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 28px; flex-wrap: wrap; }
-.cert-brand { font-family: var(--display); font-weight: 800; font-size: 26px; color: var(--c-ink); letter-spacing: -0.03em; line-height: 1; }
-.cert-brand-dot { color: var(--c-accent); font-size: 18px; vertical-align: super; margin-left: 1px; }
+/* The wordmark, matching MenlerWordmark.jsx on the marketing site: the rule
+   sits under "menle" only — the descender-free part of the word — and the
+   dot is the brand green, not the violet accent. Sized in em off the word so
+   the rule and the dot scale with it. */
+.cert-brand { position: relative; display: inline-block; font-family: var(--display); font-weight: 900; font-size: 28px; color: var(--c-ink); letter-spacing: -0.025em; line-height: 1; padding-bottom: 0.2em; }
+.cert-brand-ruled { position: relative; }
+.cert-brand-ruled::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0.04em; height: 0.0625em; min-height: 2px; border-radius: 3px; background: #6F63D8; }
+.cert-brand-dot { position: absolute; top: 0.06em; right: -0.1em; width: 0.175em; height: 0.175em; border-radius: 50%; background: #1D9E75; }
 .cert-tagline { font-family: var(--serif); font-style: italic; font-size: 12px; color: var(--c-accent); margin-top: 7px; }
-.cert-partners { display: flex; align-items: center; gap: 22px; flex-wrap: wrap; }
+.cert-partners { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
 /* Flat white, every mark. Two of the four are dark artwork and would vanish
    into the card; the other two are light but in different tints, and a row of
    partner logos in four colours reads as clip-art rather than as endorsement. */
-.cert-partners img { height: 26px; width: auto; object-fit: contain; filter: brightness(0) invert(1); opacity: .88; }
+/* Height comes from the component, per logo — see PARTNERS there for why a
+   shared height does not make this row look even. Width follows the artwork. */
+.cert-partners img { width: auto; object-fit: contain; filter: brightness(0) invert(1); opacity: .9; }
 .cert-rule { height: 1px; background: var(--c-line); margin: 22px 0 30px; }
 
 .cert-kicker { text-transform: uppercase; letter-spacing: .34em; font-size: 13px; font-weight: 600; color: var(--c-accent); }
