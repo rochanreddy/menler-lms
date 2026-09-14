@@ -423,7 +423,15 @@ function paragraphHtml(text) {
 export function certificateEmail({ fullName, email, programme, batchName, code, verifyUrl }) {
   const first = firstNameOf(fullName, email);
   const subject = `Your ${programme} certificate`;
-  const where = batchName ? `${programme} · ${batchName}` : programme;
+  /* Batches are named after their programme — "Kickstarter · Sept 2026" — so
+     prefixing the programme onto the batch produced "Kickstarter · Kickstarter
+     · Sept 2026". Use the batch name alone when it already carries the
+     programme, and only compose the two when it does not. */
+  const where = !batchName
+    ? programme
+    : batchName.toLowerCase().includes(programme.toLowerCase())
+      ? batchName
+      : `${programme} · ${batchName}`;
 
   const row = (k, v) => `<tr>
     <td style="padding:10px 16px; font-size:13px; color:#6B6F80; white-space:nowrap; border-top:1px solid #E6E4F2;">${k}</td>
@@ -446,6 +454,9 @@ export function certificateEmail({ fullName, email, programme, batchName, code, 
       P('Anyone can check it is genuine by scanning the QR code on the certificate, or by opening the link below. They see your name, the programme and the date it was issued — nothing else.'),
     ].join('\n'),
     cta: { label: 'View your certificate', href: verifyUrl },
+    /* shell()'s default help line is about signing in, which is right for the
+       account mails and meaningless here — nobody is being asked to log in. */
+    help: `Questions about your certificate? Write to ${mailtoLink()}.`,
     why: `You're receiving this because you completed a Menler programme as ${esc(email)}. Questions? Write to ${mailtoLink('#8E82F5')}.`,
     closing: 'Well done!',
   });
