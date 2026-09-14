@@ -60,6 +60,10 @@ export default function VerifyCertificate() {
               <div><dt>Name</dt><dd>{cert.name}</dd></div>
               <div><dt>Programme</dt><dd>{cert.programme}</dd></div>
               {cert.batch && <div><dt>Batch</dt><dd>{cert.batch}</dd></div>}
+              {/* Who signed it is printed on the certificate, so a verifier
+                  holding the paper can check this row against it — which is
+                  the whole job of this page. */}
+              {cert.mentorName && <div><dt>Signed by</dt><dd>{cert.mentorName}</dd></div>}
               <div><dt>Issued</dt><dd>{issued}</dd></div>
               <div><dt>Certificate ID</dt><dd className="vfy-code">{cert.code}</dd></div>
             </dl>
