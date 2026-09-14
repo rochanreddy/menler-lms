@@ -102,6 +102,21 @@ export function stampDateFor(batch, issuedAt = new Date()) {
 }
 
 /**
+ * A code for a sample certificate: MNLR-AGFEL-0926-0000.
+ *
+ * The 0000 is the point. The counter behind nextCode() starts at 1 and only
+ * ever goes up, so no certificate that was actually issued can end in 0000 —
+ * which means a sample can never be mistaken for a credential, and a verifier
+ * handed one gets an honest "no certificate with that ID" rather than a record
+ * that half-exists. It also costs the real sequence nothing: sampling does not
+ * touch the counter, so a dozen test sends do not push a cohort's first
+ * certificate to 0013.
+ */
+export function sampleCode(program, batch = null) {
+  return `MNLR-${segmentFor(program)}-${monthStamp(stampDateFor(batch))}-0000`;
+}
+
+/**
  * The next code for a programme in a given month: MNLR-AGFEL-0926-0001.
  *
  * The number is drawn from an atomic counter keyed on programme and month, so

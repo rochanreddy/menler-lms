@@ -420,11 +420,14 @@ function paragraphHtml(text) {
 // code is also spelled out in plain text, because a certificate gets printed,
 // photographed and pasted into an application form, and a verifier holding
 // only the picture needs something they can type.
-export function certificateEmail({ fullName, email, programme, batchName, code, verifyUrl }) {
+export function certificateEmail({ fullName, email, programme, batchName, code, verifyUrl, sample = false }) {
   // Where the printable certificate itself lives, behind their login.
   const certificatesUrl = appUrl('/app/profile');
   const first = firstNameOf(fullName, email);
-  const subject = `Your ${programme} certificate`;
+  /* A sample says so in the subject. These go to a team inbox that also
+     receives the real thing, and the two must not be told apart only by
+     reading the body. */
+  const subject = sample ? `[Sample] ${programme} certificate` : `Your ${programme} certificate`;
   /* Batches are named after their programme — "Kickstarter · Sept 2026" — so
      prefixing the programme onto the batch produced "Kickstarter · Kickstarter
      · Sept 2026". Use the batch name alone when it already carries the
@@ -451,6 +454,10 @@ export function certificateEmail({ fullName, email, programme, batchName, code, 
     preview: `Your ${programme} certificate is ready.`,
     greeting: first,
     body: [
+      /* Said before anything else, because someone skimming a sample in a
+         shared inbox should not have to reach the footer to learn it is one.
+         The id ends 0000, which no issued certificate ever can. */
+      sample ? P(`<strong>This is a sample.</strong> It was sent to check how the certificate email looks. The certificate ID below ends 0000, which no real certificate does, and it will not verify.`, 0) : '',
       P(`Congratulations — you have completed <strong>${esc(where)}</strong>, and your certificate is ready.`),
       details,
       P('Sign in to open it, download it, or print it.'),
@@ -460,7 +467,7 @@ export function certificateEmail({ fullName, email, programme, batchName, code, 
          comes second: that is what they forward to somebody else, not what
          they do next. */
       P(`Anyone you show it to can confirm it is genuine — by scanning the QR code printed on it, or at <a href="${verifyUrl}" style="color:#534AB7; text-decoration:underline;">this link</a>. They see your name, the programme and the date it was issued, and nothing else.`),
-    ].join('\n'),
+    ].filter(Boolean).join('\n'),
     cta: { label: 'Open your certificate', href: certificatesUrl },
     /* shell()'s default help line is about signing in, which is right for the
        account mails and meaningless here — nobody is being asked to log in. */
@@ -471,6 +478,7 @@ export function certificateEmail({ fullName, email, programme, batchName, code, 
 
   const text = [
     `Dear ${first},`, '',
+    ...(sample ? ['This is a sample, sent to check how the certificate email looks.', 'The certificate ID below ends 0000, which no real certificate does, and it', 'will not verify.', ''] : []),
     `Congratulations - you have completed ${where}, and your certificate is ready.`, '',
     `Name:           ${fullName || email}`,
     `Programme:      ${where}`,

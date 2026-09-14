@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { api } from '../../api.js';
-import { Alert, Button, Card, CardHeader, Select, Stack, Table, Text } from '../../components/ui/index.js';
+import { Alert, Button, Card, CardHeader, Input, Select, Stack, Table, Text } from '../../components/ui/index.js';
 import Empty from '../../components/Empty.jsx';
 import CertificateModal from '../../components/CertificateModal.jsx';
 
@@ -192,6 +192,8 @@ export default function AdminCertificates() {
         </Stack>
       </Card>
 
+      <SampleCertificate batchId={batchId} onPreview={setPreview} />
+
       {preview && <CertificateModal cert={preview} onClose={() => setPreview(null)} />}
 
       <Card padding="none">
@@ -215,4 +217,78 @@ export default function AdminCertificates() {
 function reloadKey(report) {
   if (!report) return 'none';
   return report.revoked || `${report.issued}-${report.existing}-${report.sent}`;
+}
+
+
+/**
+ * Try the certificate on for size, with any name and any address.
+ *
+ * Nothing here writes: no certificate row, no counter increment, no student is
+ * released. The sample's id ends 0000, which the real counter can never
+ * produce because it starts at 1 — so a sample cannot be mistaken for a
+ * credential, and the verification page tells anyone who opens it exactly
+ * that.
+ *
+ * It exists because the only other way to see what a cohort is about to
+ * receive is to send it to them.
+ */
+function SampleCertificate({ batchId, onPreview }) {
+  const [name, setName] = useState('Test Person');
+  const [email, setEmail] = useState('team@menler.in');
+  const [busy, setBusy] = useState('');
+  const [note, setNote] = useState(null);
+
+  async function look() {
+    setBusy('look');
+    setNote(null);
+    try {
+      const { certificate } = await api('/certificates/sample', { method: 'POST', body: { name, batchId } });
+      onPreview(certificate);
+    } catch (e) {
+      setNote({ tone: 'error', text: e.message || 'Could not build a sample.' });
+    } finally {
+      setBusy('');
+    }
+  }
+
+  async function send() {
+    setBusy('send');
+    setNote(null);
+    try {
+      const r = await api('/certificates/sample-email', { method: 'POST', body: { name, email, batchId } });
+      setNote(r.sent
+        ? { tone: 'success', text: `Sample sent to ${r.to}. Its id is ${r.code} — it ends 0000, so it will not verify.` }
+        : { tone: 'warning', text: r.error });
+    } catch (e) {
+      setNote({ tone: 'error', text: e.message || 'Could not send the sample.' });
+    } finally {
+      setBusy('');
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <Text role="heading-3">Try a sample</Text>
+        <Text role="caption">
+          See the certificate and the email with any name on them. Nothing is issued and no student is emailed.
+        </Text>
+      </CardHeader>
+      <Stack gap="4">
+        <div className="row">
+          <Input label="Name on the certificate" value={name} onChange={(e) => setName(e.target.value)} />
+          <Input label="Send the sample email to" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+        </div>
+        <div className="row">
+          <Button variant="secondary" onClick={look} disabled={!name.trim() || Boolean(busy)} loading={busy === 'look'}>
+            Preview certificate
+          </Button>
+          <Button variant="secondary" onClick={send} disabled={!name.trim() || !email.trim() || Boolean(busy)} loading={busy === 'send'}>
+            Send sample email
+          </Button>
+        </div>
+        {note && <Alert tone={note.tone}>{note.text}</Alert>}
+      </Stack>
+    </Card>
+  );
 }

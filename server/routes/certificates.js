@@ -1,10 +1,11 @@
 import { Router } from 'express';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { Batch } from '../models/Batch.js';
+import { Program } from '../models/Program.js';
 import { Certificate } from '../models/Certificate.js';
 import { certificateEmail } from '../utils/emailTemplates.js';
 import { trySendMail } from '../utils/email.js';
-import { issueCertificate, publicView, qrDataUri, studentCanSee, verifyUrl } from '../utils/certificates.js';
+import { issueCertificate, publicView, qrDataUri, sampleCode, studentCanSee, verifyUrl } from '../utils/certificates.js';
 import { rateLimit } from '../utils/rateLimit.js';
 
 const router = Router();
@@ -198,6 +199,86 @@ router.post('/issue', requireAuth, requireRole('admin'), async (req, res) => {
     existing: results.filter((r) => !r.created).length,
     sent,
     results,
+  });
+});
+
+/* ─────────────────── sampling ───────────────────
+   Both routes below write nothing: no certificate row, no counter increment,
+   no sentAt. A sample exists to answer "does this read correctly" before a
+   cohort is emailed, and a check that alters the thing it is checking is not
+   one. */
+
+/** Resolve a programme and batch by id, tolerating either being absent. */
+async function sampleContext({ programId, batchId }) {
+  const batch = batchId ? await Batch.findById(batchId).populate('programId', 'title') : null;
+  const program = batch?.programId || (programId ? await Program.findById(programId).select('title') : null);
+  return { program: program || { title: 'Generalist' }, batch };
+}
+
+// POST /api/lms/certificates/sample { name, programId, batchId }
+// The sheet, with any name on it, for looking at.
+router.post('/sample', requireAuth, requireRole('admin'), async (req, res) => {
+  const name = String(req.body?.name || '').trim().slice(0, 120);
+  if (!name) return res.status(400).json({ error: 'A name is required.' });
+  const { program, batch } = await sampleContext(req.body || {});
+  const code = sampleCode(program, batch);
+  const { mentorFor } = await import('../utils/certificates.js');
+  const { mentorName, mentorRole } = await mentorFor(batch);
+
+  res.json({
+    certificate: {
+      name,
+      program: program.title,
+      batch: batch?.name || null,
+      issuedAt: new Date(),
+      certId: code,
+      mentorName: mentorName || null,
+      mentorRole: mentorRole || null,
+      sample: true,
+      verifyUrl: verifyUrl(code),
+      qr: await qrDataUri(code),
+    },
+  });
+});
+
+// POST /api/lms/certificates/sample-email { name, email, programId, batchId }
+// The same sample, delivered, so the mail can be read in a real inbox.
+router.post('/sample-email', requireAuth, requireRole('admin'), async (req, res) => {
+  const name = String(req.body?.name || '').trim().slice(0, 120);
+  const email = String(req.body?.email || '').trim().toLowerCase();
+  if (!name || !email) return res.status(400).json({ error: 'A name and an email address are required.' });
+  if (!/^[^@s]+@[^@s]+.[^@s]+$/.test(email)) return res.status(400).json({ error: 'That does not look like an email address.' });
+
+  // It sends mail, so it is worth a ceiling — a test button is exactly the
+  // kind of thing that gets pressed twenty times in a row.
+  if (!(await rateLimit(`sample-mail:${req.user._id}`, 10, 10 * 60_000))) {
+    return res.status(429).json({ error: 'Too many test emails. Try again in a few minutes.' });
+  }
+
+  const { program, batch } = await sampleContext(req.body || {});
+  const code = sampleCode(program, batch);
+  const mail = await trySendMail({
+    to: email,
+    ...certificateEmail({
+      fullName: name,
+      email,
+      programme: program.title,
+      batchName: batch?.name || '',
+      code,
+      verifyUrl: verifyUrl(code),
+      sample: true,
+    }),
+  });
+
+  if (mail.emailed) return res.json({ ok: true, sent: true, to: email, code });
+  return res.json({
+    ok: false,
+    sent: false,
+    to: email,
+    code,
+    error: mail.dev
+      ? 'No mail transport is configured on this server — the message was logged, not sent.'
+      : mail.error || 'Send failed.',
   });
 });
 
