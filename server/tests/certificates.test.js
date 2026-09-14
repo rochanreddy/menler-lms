@@ -17,7 +17,7 @@ import { Program } from '../models/Program.js';
 import { Batch } from '../models/Batch.js';
 import { User } from '../models/User.js';
 import { Certificate } from '../models/Certificate.js';
-import { issueCertificate, monthFromName, monthStamp, nextCode, publicView, qrDataUri, segmentFor, stampDateFor, studentCanSee, verifyUrl } from '../utils/certificates.js';
+import { issueCertificate, monthFromName, monthStamp, nextCode, publicView, qrDataUri, segmentFor, signingRole, stampDateFor, studentCanSee, verifyUrl } from '../utils/certificates.js';
 import { Counter } from '../models/Counter.js';
 import { certificateEmail } from '../utils/emailTemplates.js';
 
@@ -226,6 +226,46 @@ test('an admin-issued certificate is hidden from the student until it is emailed
   await Certificate.deleteMany({ batchId: b._id });
   await Batch.deleteOne({ _id: b._id });
   await User.deleteOne({ _id: admin._id });
+});
+
+test('the signing line prefers what an admin typed over what a profile guesses', () => {
+  // Nothing known: the floor, true of everyone who signs, rather than a blank
+  // line under a rule.
+  assert.equal(signingRole({}), 'Mentor, Menler');
+  // A profile is a decent guess.
+  assert.equal(
+    signingRole({ professional: { title: 'AI Generalist', company: 'Ex-Microsoft' } }),
+    'AI Generalist, Ex-Microsoft | Mentor, Menler',
+  );
+  // What somebody typed wins over the guess, whatever the profile says.
+  assert.equal(
+    signingRole({ certificateRole: 'Head of Curriculum, Menler', professional: { title: 'AI Generalist', company: 'Ex-Microsoft' } }),
+    'Head of Curriculum, Menler',
+  );
+});
+
+test('a signer passed at issue is used and then frozen', async () => {
+  const mentor = await User.create({ email: 'sign@test.in', fullName: 'Real Mentor', role: 'mentor', passwordHash: 'x' });
+  const b = await Batch.create({ programId: program._id, name: 'Kickstarter · Feb 2027', studentIds: [students[0]._id], mentorIds: [mentor._id], status: 'ongoing' });
+
+  const { cert } = await issueCertificate({
+    student: students[0], program, batch: b, issuedBy: students[1]._id,
+    signer: { name: 'Someone Else', role: 'Guest Mentor, Menler' },
+  });
+  assert.equal(cert.mentorName, 'Someone Else', 'the typed name was ignored');
+  assert.equal(cert.mentorRole, 'Guest Mentor, Menler', 'the typed designation was ignored');
+
+  // An empty override falls back rather than printing a blank line.
+  await Certificate.deleteMany({ batchId: b._id });
+  const { cert: c2 } = await issueCertificate({
+    student: students[0], program, batch: b, signer: { name: '  ', role: '' },
+  });
+  assert.equal(c2.mentorName, 'Real Mentor');
+  assert.equal(c2.mentorRole, 'Mentor, Menler');
+
+  await Certificate.deleteMany({ batchId: b._id });
+  await Batch.deleteOne({ _id: b._id });
+  await User.deleteOne({ _id: mentor._id });
 });
 
 test('the QR encodes the verification URL on the real origin', async () => {

@@ -789,6 +789,11 @@ a:focus-visible,
 }
 
 
+/* The signing line on the issue screen. Boxed so it reads as one decision
+   rather than two more fields in the form above it. */
+.signer { display: grid; gap: 10px; padding: 14px; border: 1px solid var(--violet-line); border-radius: var(--radius); }
+.signer .row { align-items: flex-start; }
+.signer .ui-field { flex: 1 1 240px; }
 /* A student's own certificates, on the profile. One row each: the QR small
    enough to be a marker rather than the subject, the programme as the thing
    you read, and the two actions on the right. */

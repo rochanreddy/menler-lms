@@ -5,7 +5,8 @@ import { Program } from '../models/Program.js';
 import { Certificate } from '../models/Certificate.js';
 import { certificateEmail } from '../utils/emailTemplates.js';
 import { trySendMail } from '../utils/email.js';
-import { issueCertificate, publicView, qrDataUri, sampleCode, studentCanSee, verifyUrl } from '../utils/certificates.js';
+import { issueCertificate, mentorFor, publicView, qrDataUri, sampleCode, studentCanSee, verifyUrl } from '../utils/certificates.js';
+import { User } from '../models/User.js';
 import { rateLimit } from '../utils/rateLimit.js';
 
 const router = Router();
@@ -88,6 +89,27 @@ router.get('/', requireAuth, requireRole('admin'), async (req, res) => {
   });
 });
 
+// GET /api/lms/certificates/signer?batchId= — who will sign, and how they read.
+//
+// The issue screen shows this before anything is minted, so an admin sees the
+// line that is about to be printed rather than discovering it afterwards on a
+// certificate somebody has already been emailed.
+router.get('/signer', requireAuth, requireRole('admin'), async (req, res) => {
+  const batch = req.query.batchId ? await Batch.findById(req.query.batchId) : null;
+  const signer = await mentorFor(batch);
+  res.json({
+    signer: {
+      mentorId: signer.mentorId || null,
+      name: signer.mentorName || '',
+      role: signer.mentorRole || '',
+      // True when nothing better than the floor is known, so the screen can
+      // say so rather than presenting "Mentor, Menler" as a considered answer.
+      isDefault: signer.mentorRole === 'Mentor, Menler',
+      hasMentor: Boolean(signer.mentorId),
+    },
+  });
+});
+
 // GET /api/lms/certificates/:id — one certificate, as the student will see it.
 //
 // Separate from the list because the QR is ~2.6 KB of inline SVG each: putting
@@ -116,6 +138,7 @@ router.get('/:id', requireAuth, requireRole('admin'), async (req, res) => {
   });
 });
 
+
 // POST /api/lms/certificates/issue { batchId, send } — issue to a whole cohort.
 //
 // Issuing and emailing are separate switches on purpose. Issuing is reversible
@@ -123,8 +146,12 @@ router.get('/:id', requireAuth, requireRole('admin'), async (req, res) => {
 // people have the mail you cannot unsend it. So the default is to mint the
 // certificates, let the admin read the list back, and send as a second act.
 router.post('/issue', requireAuth, requireRole('admin'), async (req, res) => {
-  const { batchId, send = false } = req.body || {};
+  const { batchId, send = false, mentorName, mentorRole } = req.body || {};
   if (!batchId) return res.status(400).json({ error: 'batchId is required.' });
+  const signer = {
+    name: String(mentorName || '').trim().slice(0, 120),
+    role: String(mentorRole || '').trim().slice(0, 160),
+  };
 
   const batch = await Batch.findById(batchId)
     .populate('programId', 'title')
@@ -137,6 +164,15 @@ router.post('/issue', requireAuth, requireRole('admin'), async (req, res) => {
   const students = batch.studentIds || [];
   if (!students.length) return res.json({ ok: true, issued: 0, sent: 0, results: [] });
 
+  /* An edited signing line is saved back onto the mentor, so the next cohort
+     is prefilled with it and nobody retypes it per batch. Certificates already
+     issued keep their own snapshot and are untouched — this changes what the
+     next one will say, not what an existing one does. */
+  const mentorId = (batch.mentorIds || [])[0]?._id;
+  if (mentorId && signer.role) {
+    await User.updateOne({ _id: mentorId }, { certificateRole: signer.role });
+  }
+
   const results = [];
   for (const student of students) {
     const { cert, created } = await issueCertificate({
@@ -144,6 +180,7 @@ router.post('/issue', requireAuth, requireRole('admin'), async (req, res) => {
       program: batch.programId,
       batch,
       issuedBy: req.user._id,
+      signer,
     });
     results.push({
       email: student.email,
@@ -226,8 +263,11 @@ router.post('/sample', requireAuth, requireRole('admin'), async (req, res) => {
   if (!name) return res.status(400).json({ error: 'A name is required.' });
   const { program, batch } = await sampleContext(req.body || {});
   const code = sampleCode(program, batch);
-  const { mentorFor } = await import('../utils/certificates.js');
-  const { mentorName, mentorRole } = await mentorFor(batch);
+  const resolved = await mentorFor(batch);
+  // Same override the issue screen carries, so a preview shows what would
+  // actually be printed rather than what is currently stored.
+  const mentorName = String(req.body?.mentorName || '').trim() || resolved.mentorName;
+  const mentorRole = String(req.body?.mentorRole || '').trim() || resolved.mentorRole;
 
   res.json({
     certificate: {

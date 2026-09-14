@@ -19,6 +19,16 @@ const userSchema = new mongoose.Schema(
     professional: { type: mongoose.Schema.Types.Mixed, default: {} },  // { title, company, experience }
     resumeUrl: { type: String, default: '' },
 
+    /* The line printed under this person's name where they sign a certificate,
+       e.g. "AI Generalist, Ex-Microsoft | Mentor, Menler".
+       Its own field rather than something composed from `professional`,
+       because the two are not the same sentence: a profile records a job, a
+       certificate records the standing in which somebody signed. Composing it
+       also cannot be reversed — an admin correcting the printed line would
+       have to have it split back into title and company, and there is no
+       honest way to do that. Empty falls back to the composed form. */
+    certificateRole: { type: String, default: '' },
+
     batchIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Batch' }],
 
     // Last authenticated request, stamped (throttled) by requireAuth. Drives the

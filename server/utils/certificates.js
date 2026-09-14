@@ -191,23 +191,43 @@ export async function mentorFor(batch) {
   const id = (batch?.mentorIds || [])[0];
   if (!id) return { mentorName: '', mentorRole: '' };
   // The id may already be a populated document, depending on the caller.
-  const user = id.fullName ? id : await User.findById(id).select('fullName email professional');
+  const user = id.fullName ? id : await User.findById(id).select('fullName email professional certificateRole');
   if (!user) return { mentorName: '', mentorRole: '' };
 
-  const p = user.professional || {};
-  const who = [p.title, p.company].filter(Boolean).join(', ');
   return {
+    mentorId: String(user._id),
     mentorName: user.fullName || user.email || '',
-    mentorRole: who ? `${who} | Mentor, Menler` : 'Mentor, Menler',
+    mentorRole: signingRole(user),
   };
 }
 
-export async function issueCertificate({ student, program, batch = null, issuedBy = null }) {
+/**
+ * The line under a signature.
+ *
+ * certificateRole is what an admin typed and is therefore right. Falling back
+ * to the profile's job title is a guess that happens to be a good one, and
+ * "Mentor, Menler" — true of everyone who signs — is the floor rather than a
+ * blank line, because a rule under an empty space reads as a missing
+ * signature.
+ */
+export function signingRole(user) {
+  if (user?.certificateRole) return user.certificateRole;
+  const p = user?.professional || {};
+  const who = [p.title, p.company].filter(Boolean).join(', ');
+  return who ? `${who} | Mentor, Menler` : 'Mentor, Menler';
+}
+
+export async function issueCertificate({ student, program, batch = null, issuedBy = null, signer = null }) {
   const filter = { studentId: student._id, programId: program._id, batchId: batch?._id || null };
   const existing = await Certificate.findOne(filter);
   if (existing) return { cert: existing, created: false };
 
-  const { mentorName, mentorRole } = await mentorFor(batch);
+  /* A signer passed in wins over the batch's mentor. It is what the admin had
+     in front of them on the issue screen, and it is the only version anyone
+     actually read before pressing the button. */
+  const resolved = await mentorFor(batch);
+  const mentorName = signer?.name?.trim() || resolved.mentorName;
+  const mentorRole = signer?.role?.trim() || resolved.mentorRole;
 
   /* The counter behind nextCode() is atomic, so two issues racing get two
      different numbers and the loop below should never run twice. It stays

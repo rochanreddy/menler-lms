@@ -33,6 +33,11 @@ export default function AdminCertificates() {
   // certificates — an admin about to issue needs to see who that is, and
   // "Nothing issued for this batch" answers a question nobody asked.
   const [roster, setRoster] = useState([]);
+  /* Who signs, shown before anything is minted. It starts as whatever the
+     batch's mentor resolves to and is editable, because the line under a
+     signature is the one field on this certificate that nothing else in the
+     app is a good source for. */
+  const [signer, setSigner] = useState({ name: '', role: '', isDefault: false, hasMentor: false });
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState('');
   const [err, setErr] = useState('');
@@ -60,11 +65,13 @@ export default function AdminCertificates() {
     Promise.all([
       api(`/certificates?batchId=${batchId}`),
       api(`/batches/${batchId}`),
+      api(`/certificates/signer?batchId=${batchId}`),
     ])
-      .then(([c, b]) => {
+      .then(([c, b, s]) => {
         if (!live) return;
         setCerts(c.certificates || []);
         setRoster(b.batch?.studentIds || []);
+        setSigner({ name: s.signer.name, role: s.signer.role, isDefault: s.signer.isDefault, hasMentor: s.signer.hasMentor });
       })
       .catch((e) => { if (live) setErr(e.message || 'Could not load the batch.'); })
       .finally(() => { if (live) setLoading(false); });
@@ -99,7 +106,10 @@ export default function AdminCertificates() {
     setBusy(send ? 'send' : 'issue');
     setErr('');
     try {
-      setReport(await api('/certificates/issue', { method: 'POST', body: { batchId, send } }));
+      setReport(await api('/certificates/issue', {
+        method: 'POST',
+        body: { batchId, send, mentorName: signer.name, mentorRole: signer.role },
+      }));
     } catch (e) {
       setErr(e.message || 'That did not work.');
     } finally {
@@ -201,6 +211,29 @@ export default function AdminCertificates() {
             options={batches.map((b) => ({ value: b.id, label: b.name }))}
           />
 
+          <div className="signer">
+            <Text role="label">Signed by</Text>
+            <div className="row">
+              <Input
+                label="Name"
+                value={signer.name}
+                onChange={(e) => setSigner((s) => ({ ...s, name: e.target.value }))}
+                placeholder={signer.hasMentor ? '' : 'No mentor assigned to this batch'}
+              />
+              <Input
+                label="Designation"
+                value={signer.role}
+                onChange={(e) => setSigner((s) => ({ ...s, role: e.target.value }))}
+                placeholder="AI Generalist, Ex-Microsoft | Mentor, Menler"
+              />
+            </div>
+            <Text role="caption">
+              {signer.hasMentor
+                ? "Taken from this batch's mentor. Edit it and it is saved to them, so the next cohort is already filled in. Certificates already issued keep the line they were issued with."
+                : "This batch has no mentor assigned, so the certificate would carry the founder's signature alone. Assign one under Batches, or type a name here."}
+            </Text>
+          </div>
+
           <Text role="caption">
             {roster.length} {roster.length === 1 ? 'student' : 'students'} in this batch · {issued} issued · {sent} emailed.
             A certificate stays hidden from the student until it is emailed — so issue first, open one
@@ -290,7 +323,12 @@ function SampleCertificate({ batchId, onPreview }) {
     setBusy('look');
     setNote(null);
     try {
-      const { certificate } = await api('/certificates/sample', { method: 'POST', body: { name, batchId } });
+      const { certificate } = await api('/certificates/sample', {
+        method: 'POST',
+        // Carry whatever is typed into the signing fields, so a preview shows
+        // what would be printed rather than what is currently stored.
+        body: { name, batchId, mentorName: signer.name, mentorRole: signer.role },
+      });
       onPreview(certificate);
     } catch (e) {
       setNote({ tone: 'error', text: e.message || 'Could not build a sample.' });
