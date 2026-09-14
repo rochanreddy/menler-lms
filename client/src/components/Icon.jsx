@@ -33,6 +33,11 @@ const PATHS = {
   // An envelope, flap drawn: mail is what goes out to a batch, not what comes in.
   mail: <><rect x="3" y="5.5" width="18" height="13" rx="2" /><path className="ico-draw" pathLength="1" d="m3.5 7 8.5 6 8.5-6" /></>,
   support: <><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="3.6" /><path className="ico-draw" pathLength="1" d="m5.6 5.6 3.9 3.9" /><path className="ico-draw" pathLength="1" d="m14.5 14.5 3.9 3.9" /><path className="ico-draw" pathLength="1" d="m18.4 5.6-3.9 3.9" /><path className="ico-draw" pathLength="1" d="m9.5 14.5-3.9 3.9" /></>,
+  // A medal: the seal stays, the ribbon is what draws. Deliberately the same
+  // shape LineIcon calls "award", which is already on the "View certificate"
+  // button inside the Classroom — the tab and the button should not look like
+  // two different things.
+  certificates: <><circle cx="12" cy="9" r="5.5" /><path className="ico-draw" pathLength="1" d="m8.4 13.6-1.6 7.4 5.2-3 5.2 3-1.6-7.4" /></>,
 };
 
 const ALIAS = {
@@ -40,6 +45,7 @@ const ALIAS = {
   'Profile': 'profile', 'Programs': 'programs', 'Batches': 'batches',
   'Mentors': 'mentors', 'Students': 'students', 'Webinar': 'webinar', 'Account': 'account', 'Grades': 'grades',
   'Feedback': 'feedback', 'Doubts': 'doubts', 'Support': 'support', 'Mail': 'mail',
+  'Certificates': 'certificates',
 };
 
 export default function Icon({ name }) {
