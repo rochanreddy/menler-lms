@@ -3,6 +3,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { Progress } from '../models/Progress.js';
 import { Program } from '../models/Program.js';
 import { issueCertificate, qrDataUri, verifyUrl } from '../utils/certificates.js';
+import { Certificate } from '../models/Certificate.js';
 import { Batch } from '../models/Batch.js';
 
 const router = Router();
@@ -56,6 +57,28 @@ router.get('/certificate', requireAuth, async (req, res) => {
   const total = totalTopics(program);
   const p = await Progress.findOne({ studentId: req.user._id, programId });
   const completed = Math.min(p?.completedTopics?.length || 0, total);
+
+  /* A certificate that has already been issued is always viewable, whatever
+     the progress bar says. The completion gate decides who EARNS one; it has
+     no business deciding who may look at one they already hold. An admin
+     issuing to a cohort is exactly that case — those students are handed a
+     certificate without having ticked every topic, and before this they could
+     be emailed a code for a certificate the app then refused to show them. */
+  const held = await Certificate.findOne({ studentId: req.user._id, programId });
+  if (held) {
+    return res.json({
+      eligible: true,
+      program: program.title,
+      name: held.studentName,
+      batch: held.batchName || null,
+      issuedAt: held.issuedAt,
+      certId: held.code,
+      revoked: Boolean(held.revokedAt),
+      verifyUrl: verifyUrl(held.code),
+      qr: await qrDataUri(held.code),
+    });
+  }
+
   if (!(total > 0 && completed >= total)) return res.json({ eligible: false, completed, total });
   let issuedAt = p.certificateIssuedAt;
   if (!issuedAt) { p.certificateIssuedAt = new Date(); await p.save(); issuedAt = p.certificateIssuedAt; }

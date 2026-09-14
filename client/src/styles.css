@@ -736,6 +736,16 @@ a:focus-visible,
 .cert-id { font-family: Consolas, Menlo, monospace; font-variant-numeric: tabular-nums; letter-spacing: .02em; }
 .cert-verify { font-size: 10.5px; opacity: .75; word-break: break-all; }
 
+/* A student's own certificates, on the profile. One row each: the QR small
+   enough to be a marker rather than the subject, the programme as the thing
+   you read, and the two actions on the right. */
+.mycert-list { display: grid; gap: 10px; margin-top: 14px; }
+.mycert { display: flex; align-items: center; gap: 14px; padding: 12px 14px; border: 1px solid var(--violet-line); border-radius: var(--radius); flex-wrap: wrap; }
+.mycert-qr { flex: none; background: #fff; padding: 4px; border-radius: 4px; }
+.mycert-body { flex: 1 1 200px; min-width: 0; }
+.mycert-title { font-weight: 600; color: var(--indigo); }
+.mycert-meta { font-size: 12.5px; margin-top: 3px; }
+.mycert-revoked { color: #B3261E; font-weight: 600; }
 /* ── Public certificate verification (/verify/:code) ──────────────────────
    Its own small world: no app shell, no nav, no user. Opened by a stranger
    with one question, so the verdict is the largest thing on the page and the

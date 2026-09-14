@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLocation, useOutletContext } from 'react-router-dom';
 import { api, uploadFile, isStoredFile, openStoredFile, listSessions, revokeSession } from '../api.js';
+import CertificateModal from '../components/CertificateModal.jsx';
 
 // Fully wired against GET/PATCH /api/lms/me. Sections from the spec:
 // Personal · Educational · Professional · Resume.
@@ -165,10 +166,80 @@ export default function Profile() {
       </div>
       </form>
 
+      {/* Students only: a mentor holds no certificates, and an empty panel on
+          their profile is just a question they have to answer for themselves. */}
+      {user.role === 'student' && <MyCertificates />}
+
       <ChangePassword />
 
       <SignedInDevices />
     </div>
+  );
+}
+
+/**
+ * The certificates this student holds.
+ *
+ * This exists because the Classroom's "View certificate" button only appears
+ * at 100% progress, which is the wrong gate for a certificate an admin issued
+ * to a whole cohort — those students were handed a credential and then had
+ * nowhere in the app to see it. Here it is always visible, whatever the
+ * progress ring says.
+ *
+ * The panel hides itself when there is nothing to show. A student who has not
+ * finished anything yet does not need a permanent empty box reminding them.
+ */
+function MyCertificates() {
+  const [certs, setCerts] = useState(null);
+  const [open, setOpen] = useState(null);
+
+  useEffect(() => {
+    api('/certificates/mine')
+      .then((d) => setCerts(d.certificates || []))
+      .catch(() => setCerts([]));
+  }, []);
+
+  if (!certs || certs.length === 0) return null;
+
+  /* /certificates/mine speaks the public vocabulary — `programme`, `code` —
+     while the modal was written against /progress/certificate's `program` and
+     `certId`. Mapped here rather than changing either API: the public shape is
+     what a stranger's verification page reads, and it should not be reworded to
+     suit an internal component. */
+  const forModal = (c) => ({
+    name: c.name,
+    program: c.programme,
+    batch: c.batch,
+    issuedAt: c.issuedAt,
+    certId: c.code,
+    verifyUrl: c.verifyUrl,
+    qr: c.qr,
+  });
+
+  return (
+    <section className="panel">
+      <h3>Certificates</h3>
+      <p className="muted">Anyone can confirm these are genuine by scanning the QR code or opening the link.</p>
+      <div className="mycert-list">
+        {certs.map((c) => (
+          <div className="mycert" key={c.code}>
+            {c.qr && <img className="mycert-qr" src={c.qr} alt="" width="64" height="64" />}
+            <div className="mycert-body">
+              <div className="mycert-title">{c.programme}{c.batch ? ` · ${c.batch}` : ''}</div>
+              <div className="muted mycert-meta">
+                <span className="cert-id">{c.code}</span>
+                {c.revoked && <span className="mycert-revoked"> · Revoked</span>}
+              </div>
+            </div>
+            <div className="row">
+              <button type="button" className="btn quiet sm" onClick={() => setOpen(forModal(c))}>View</button>
+              <a className="btn quiet sm" href={c.verifyUrl} target="_blank" rel="noreferrer">Verify</a>
+            </div>
+          </div>
+        ))}
+      </div>
+      {open && <CertificateModal cert={open} onClose={() => setOpen(null)} />}
+    </section>
   );
 }
 
