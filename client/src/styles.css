@@ -766,12 +766,19 @@ a:focus-visible,
 /* White ground behind the modules whatever the card does — a scanner reads a
    tinted QR as low contrast and gives up. */
 .cert-qr { display: block; background: #fff; padding: 5px; border-radius: 5px; flex: none; }
-/* The id block is built like a signature block: the code sits where a name
+/* The three things that sit above a rule share one line-height and one
+   padding, and that is the only way they end up level. min-height does not
+   do it: box-sizing is border-box here, so the padding is inside the
+   minimum and each box falls back to its own text height — 12.5px mono and
+   13.5px bold are four pixels apart, which is exactly how far out the rules
+   were.
+
+   The id block is built like a signature block: the code sits where a name
    does, the rule under it, the dates where the designation does. That is
    what puts all three rules in the footer at the same height — a line under
    only one of them reads as an accident. */
 .cert-idtext { display: grid; gap: 0; }
-.cert-idtext .cert-id { display: flex; align-items: flex-end; min-height: 19px; padding-bottom: 8px; border-bottom: 1px solid var(--c-line); }
+.cert-idtext .cert-id { line-height: 16px; padding-bottom: 6px; border-bottom: 1px solid var(--c-line); }
 .cert-idtext .cert-issued:first-of-type { margin-top: 8px; }
 .cert-idtext .cert-issued + .cert-issued { margin-top: 3px; }
 .cert-id { font-family: Consolas, Menlo, monospace; font-variant-numeric: tabular-nums; font-size: 12.5px; letter-spacing: .04em; color: var(--c-read); }
@@ -782,7 +789,7 @@ a:focus-visible,
    it reads as the signature line the name is written on, which is what a
    rule above the name cannot do. */
 .cert-sign { min-width: 168px; }
-.cert-sign-name { display: flex; align-items: flex-end; min-height: 19px; font-size: 13.5px; font-weight: 700; color: var(--c-ink); padding-bottom: 8px; border-bottom: 1px solid var(--c-line); }
+.cert-sign-name { line-height: 16px; font-size: 13.5px; font-weight: 700; color: var(--c-ink); padding-bottom: 6px; border-bottom: 1px solid var(--c-line); }
 .cert-sign-role { font-size: 10.5px; color: var(--c-dim); margin-top: 8px; }
 
 .cert-actions { display: flex; gap: 10px; justify-content: flex-end; padding: 0 18px 18px; }
