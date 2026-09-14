@@ -273,7 +273,10 @@ export default function AdminCertificates() {
         </Stack>
       </Card>
 
-      <SampleCertificate batchId={batchId} onPreview={setPreview} />
+      {/* The signing line is passed down, not read from a closure: the sample
+          has to show what is currently typed above it, and that state lives up
+          here. */}
+      <SampleCertificate batchId={batchId} signer={signer} onPreview={setPreview} />
 
       {preview && <CertificateModal cert={preview} onClose={() => setPreview(null)} />}
 
@@ -313,7 +316,7 @@ function reloadKey(report) {
  * It exists because the only other way to see what a cohort is about to
  * receive is to send it to them.
  */
-function SampleCertificate({ batchId, onPreview }) {
+function SampleCertificate({ batchId, signer, onPreview }) {
   const [name, setName] = useState('Test Person');
   const [email, setEmail] = useState('team@menler.in');
   const [busy, setBusy] = useState('');
