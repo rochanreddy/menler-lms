@@ -80,6 +80,34 @@ router.get('/', requireAuth, requireRole('admin'), async (req, res) => {
   });
 });
 
+// GET /api/lms/certificates/:id — one certificate, as the student will see it.
+//
+// Separate from the list because the QR is ~2.6 KB of inline SVG each: putting
+// it on every row would push a 200-student cohort past half a megabyte for a
+// table that shows none of them. So the list stays text and the sheet is
+// fetched when an admin actually opens one.
+//
+// Declared after /mine and /verify/:code, which are literal paths and would
+// otherwise be swallowed by :id.
+router.get('/:id', requireAuth, requireRole('admin'), async (req, res) => {
+  const cert = await Certificate.findById(req.params.id);
+  if (!cert) return res.status(404).json({ error: 'Certificate not found.' });
+  res.json({
+    certificate: {
+      name: cert.studentName,
+      program: cert.programTitle,
+      batch: cert.batchName || null,
+      issuedAt: cert.issuedAt,
+      certId: cert.code,
+      mentorName: cert.mentorName || null,
+      mentorRole: cert.mentorRole || null,
+      revoked: Boolean(cert.revokedAt),
+      verifyUrl: verifyUrl(cert.code),
+      qr: await qrDataUri(cert.code),
+    },
+  });
+});
+
 // POST /api/lms/certificates/issue { batchId, send } — issue to a whole cohort.
 //
 // Issuing and emailing are separate switches on purpose. Issuing is reversible

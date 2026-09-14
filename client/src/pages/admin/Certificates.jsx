@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { api } from '../../api.js';
 import { Alert, Button, Card, CardHeader, Select, Stack, Table, Text } from '../../components/ui/index.js';
 import Empty from '../../components/Empty.jsx';
+import CertificateModal from '../../components/CertificateModal.jsx';
 
 /**
  * Admin: certificates, by cohort.
@@ -32,6 +33,9 @@ export default function AdminCertificates() {
   const [busy, setBusy] = useState('');
   const [err, setErr] = useState('');
   const [report, setReport] = useState(null);
+  // The sheet an admin is looking at, fetched on demand — see the note on the
+  // GET /:id route for why the QR is not on every row of the list.
+  const [preview, setPreview] = useState(null);
 
   useEffect(() => {
     api('/batches')
@@ -70,6 +74,16 @@ export default function AdminCertificates() {
     }
   }
 
+  async function openPreview(row) {
+    setErr('');
+    try {
+      const { certificate } = await api(`/certificates/${row.id}`);
+      setPreview(certificate);
+    } catch (e) {
+      setErr(e.message || 'Could not load that certificate.');
+    }
+  }
+
   async function revoke(cert) {
     const reason = window.prompt(
       `Revoke ${cert.code}?\n\nIt stays verifiable and will read as revoked to anyone who scans it. Reason (optional):`,
@@ -98,7 +112,15 @@ export default function AdminCertificates() {
     {
       key: 'actions',
       header: '',
-      cell: (r) => (r.revoked ? null : <Button size="sm" variant="ghost" onClick={() => revoke(r)}>Revoke</Button>),
+      cell: (r) => (
+        <div className="row">
+          {/* View comes first and is available on revoked certificates too —
+              seeing what was issued is exactly what you want when deciding
+              whether a revocation was right. */}
+          <Button size="sm" variant="ghost" onClick={() => openPreview(r)}>View</Button>
+          {!r.revoked && <Button size="sm" variant="ghost" onClick={() => revoke(r)}>Revoke</Button>}
+        </div>
+      ),
     },
   ]), []);
 
@@ -127,7 +149,8 @@ export default function AdminCertificates() {
           />
 
           <Text role="caption">
-            {issued} issued in this batch. Issuing again is safe — anyone who already has one keeps the same code.
+            {issued} issued in this batch. Issue first, open one with <strong>View</strong> to check it reads
+            correctly, then email. Issuing again is safe — anyone who already has one keeps the same code.
           </Text>
 
           {/* Stack is column-only; the app-wide .row is what puts two
@@ -137,7 +160,7 @@ export default function AdminCertificates() {
               Issue certificates
             </Button>
             <Button variant="secondary" onClick={() => run(true)} disabled={!batchId || Boolean(busy)} loading={busy === 'send'}>
-              Issue and email
+              Email certificates
             </Button>
           </div>
 
@@ -161,6 +184,8 @@ export default function AdminCertificates() {
           )}
         </Stack>
       </Card>
+
+      {preview && <CertificateModal cert={preview} onClose={() => setPreview(null)} />}
 
       <Card padding="none">
         <Table
