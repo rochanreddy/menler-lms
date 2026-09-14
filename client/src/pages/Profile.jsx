@@ -212,6 +212,7 @@ function MyCertificates() {
     batch: c.batch,
     issuedAt: c.issuedAt,
     certId: c.code,
+    revoked: c.revoked,
     verifyUrl: c.verifyUrl,
     qr: c.qr,
   });
