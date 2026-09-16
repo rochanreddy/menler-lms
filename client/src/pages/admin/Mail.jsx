@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { api } from '../../api.js';
-import { Alert, Badge, Button, Card, Checkbox, Dialog, Input, Radio, Select, Skeleton, Stack, Tabs, TabPanel, Text, Textarea } from '../../components/ui/index.js';
+import { Alert, Button, Card, Checkbox, Input, Radio, Select, Skeleton, Stack, StatusPill, Tabs, TabPanel, Text, Textarea } from '../../components/ui/index.js';
 import DateTimePicker from '../../components/DateTimePicker.jsx';
 import Empty from '../../components/Empty.jsx';
 
@@ -13,6 +13,12 @@ import Empty from '../../components/Empty.jsx';
 // shell every account mail is on (utils/emailTemplates.js) and are not
 // editable here — that is what keeps a reminder from a hurried Friday looking
 // like the same company as the welcome mail.
+//
+// The form is three numbered steps down the left (who, what, when) with the
+// rendered mail live on the right, so a placeholder that came out empty is
+// seen while typing, not in an inbox. Nothing is disabled silently: pressing
+// Schedule with a step missing says which one, because a button that does
+// nothing is how two mails were once "scheduled" without a batch ticked.
 //
 // No saved templates, on purpose: "Reuse" on any past mail refills the form,
 // which is the whole of what a template did without a second list to tend.
@@ -29,6 +35,7 @@ const when = (d) => (d ? new Date(d).toLocaleString([], { weekday: 'short', day:
 const timeOnly = (d) => new Date(d).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 const MAX_TIMES = 12;
 const TEST_TO_KEY = 'lms_mail_test_to';
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // Copy to start from. Not saved templates — there are none, on purpose — just
 // three worked examples that show what a placeholder looks like in a
@@ -79,15 +86,32 @@ function nextTimeAfter(values) {
   return toLocalValue(d);
 }
 
-const STATUS_LABEL = {
-  scheduled: 'Scheduled',
-  sending: 'Sending…',
-  sent: 'Sent',
-  failed: 'Failed',
-  cancelled: 'Cancelled',
+// A campaign's lifecycle on the StatusPill scale, so the five states are told
+// apart by glyph as well as colour.
+const STATUS = {
+  scheduled: { pill: 'in-progress', label: 'Scheduled' },
+  sending: { pill: 'submitted', label: 'Sending…' },
+  sent: { pill: 'graded', label: 'Sent' },
+  failed: { pill: 'overdue', label: 'Failed' },
+  cancelled: { pill: 'not-started', label: 'Cancelled' },
 };
 
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+
+function Section({ step, title, hint, children }) {
+  return (
+    <section className="mail-section">
+      <div className="mail-section-head">
+        <span className="mail-step" aria-hidden="true">{step}</span>
+        <div>
+          <Text role="heading-3">{title}</Text>
+          {hint && <Text role="caption" tone="muted">{hint}</Text>}
+        </div>
+      </div>
+      <div className="mail-section-body">{children}</div>
+    </section>
+  );
+}
 
 export default function AdminMail() {
   const { user } = useOutletContext();
@@ -101,13 +125,14 @@ export default function AdminMail() {
   const [programId, setProgramId] = useState('');
   const [picked, setPicked] = useState([]);
   const [includeMentors, setIncludeMentors] = useState(false);
+  const [example, setExample] = useState('');
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
   const [mode, setMode] = useState('later'); // 'now' | 'later'
   const [times, setTimes] = useState(() => [tomorrowMorning()]); // picker values, local
   const [reach, setReach] = useState(null); // { count, sample }
   const [preview, setPreview] = useState(null); // { subject, html }
-  const [example, setExample] = useState('');
+  const [previewBusy, setPreviewBusy] = useState(false);
   // Where the test copy goes. The admin account's address is rarely the inbox
   // the admin actually reads, so this is typed once and remembered.
   const [testTo, setTestTo] = useState(() => {
@@ -154,9 +179,32 @@ export default function AdminMail() {
     return () => { live = false; clearTimeout(t); };
   }, [picked, includeMentors]);
 
+  // The rendered mail, kept current as the admin types. Debounced, and a
+  // stale reply is dropped so fast typing cannot leave an old render behind.
+  const sampleBatchId = picked[0] || '';
+  useEffect(() => {
+    if (!subject.trim() && !body.trim()) { setPreview(null); setPreviewBusy(false); return undefined; }
+    let live = true;
+    setPreviewBusy(true);
+    const t = setTimeout(() => {
+      api('/mail/preview', { method: 'POST', body: { subject, body, batchId: sampleBatchId } })
+        .then((r) => { if (live) { setPreview(r); setPreviewBusy(false); } })
+        .catch(() => { if (live) setPreviewBusy(false); });
+    }, 400);
+    return () => { live = false; clearTimeout(t); };
+  }, [subject, body, sampleBatchId]);
+
   const campaigns = data?.campaigns || [];
   const placeholders = data?.placeholders || [];
   const mailOff = data && !data.mail.configured;
+
+  function applyExample(key) {
+    setExample(key);
+    const ex = EXAMPLES.find((x) => x.key === key);
+    if (!ex) return;
+    setSubject(ex.subject);
+    setBody(ex.body);
+  }
 
   // Drop a placeholder where the caret is, or at the end if the box has not
   // been focused yet.
@@ -171,17 +219,13 @@ export default function AdminMail() {
     requestAnimationFrame(() => { el.focus(); el.setSelectionRange(start + token.length, start + token.length); });
   }
 
-  function applyExample(key) {
-    setExample(key);
-    const ex = EXAMPLES.find((x) => x.key === key);
-    if (!ex) return;
-    setSubject(ex.subject);
-    setBody(ex.body);
-  }
-
   function fillFrom(c) {
-    loadingRef.current = true;
-    setProgramId(batches.find((b) => c.batchIds.includes(b.id))?.programId || programId);
+    const nextProgram = batches.find((b) => c.batchIds.includes(b.id))?.programId || programId;
+    // The programme effect resets the selection; only skip it when the
+    // programme actually changes, or the skip is left armed for a later
+    // change that should reset.
+    if (nextProgram !== programId) loadingRef.current = true;
+    setProgramId(nextProgram);
     setPicked(c.batchIds.filter((id) => batches.some((b) => b.id === id)));
     setIncludeMentors(!!c.includeMentors);
     setSubject(c.subject);
@@ -217,14 +261,27 @@ export default function AdminMail() {
   const addTime = () => setTimes((ts) => (ts.length < MAX_TIMES ? [...ts, nextTimeAfter(ts)] : ts));
 
   const validTimes = times.filter((v) => v && !Number.isNaN(new Date(v).getTime()));
-  const timesOk = mode === 'now' || (validTimes.length === times.length && times.length > 0);
   const sendCount = mode === 'now' ? 1 : new Set(validTimes.map((v) => new Date(v).getTime())).size;
   const totalMails = (reach?.count || 0) * sendCount;
-  const canSubmit = !!subject.trim() && !!body.trim() && picked.length > 0 && timesOk && !busy;
+  const testToOk = EMAIL_RE.test(testTo.trim());
+
+  // What stands between this form and a send. Shown on submit, in order,
+  // rather than greying the button out with no explanation.
+  function problems() {
+    const out = [];
+    if (!picked.length) out.push('Tick at least one batch under “Who gets it”.');
+    else if (reach && reach.count === 0) out.push('The batches ticked have nobody to send to.');
+    if (!subject.trim()) out.push('Write a subject.');
+    if (!body.trim()) out.push('Write the body of the mail.');
+    if (mode === 'later' && (validTimes.length !== times.length || !times.length)) out.push('Every send time needs a date and a time.');
+    return out;
+  }
 
   async function submit(e) {
     e.preventDefault();
-    if (!canSubmit) return;
+    if (busy) return;
+    const p = problems();
+    if (p.length) { setNote(''); setErr(p[0]); return; }
     setErr(''); setNote(''); setBusy(true);
     try {
       const base = { batchIds: picked, includeMentors, subject, body };
@@ -253,20 +310,12 @@ export default function AdminMail() {
     } catch (e2) { setErr(e2.message); } finally { setBusy(false); }
   }
 
-  async function openPreview() {
-    setErr('');
-    try {
-      const r = await api('/mail/preview', { method: 'POST', body: { subject, body, batchId: picked[0] || '' } });
-      setPreview(r);
-    } catch (e2) { setErr(e2.message); }
-  }
-
-  const testToOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(testTo.trim());
-
   async function sendTest() {
     setErr(''); setNote('');
+    if (!subject.trim() || !body.trim()) { setErr('Write a subject and a body first.'); return; }
+    if (!testToOk) { setErr('Type the address the test copy should go to.'); return; }
     try {
-      const r = await api('/mail/test', { method: 'POST', body: { subject, body, batchId: picked[0] || '', to: testTo.trim() } });
+      const r = await api('/mail/test', { method: 'POST', body: { subject, body, batchId: sampleBatchId, to: testTo.trim() } });
       try { localStorage.setItem(TEST_TO_KEY, testTo.trim()); } catch { /* private mode */ }
       setNote(`A test copy is on its way to ${r.to}.`);
     } catch (e2) { setErr(e2.message); }
@@ -296,6 +345,12 @@ export default function AdminMail() {
   const upcoming = campaigns.filter((c) => c.status === 'scheduled' || c.status === 'sending');
   const past = campaigns.filter((c) => c.status !== 'scheduled' && c.status !== 'sending');
 
+  const submitLabel = editingId
+    ? 'Save changes'
+    : mode === 'now'
+      ? `Send now${reach ? ` to ${reach.count}` : ''}`
+      : sendCount > 1 ? `Schedule ${sendCount} sends` : 'Schedule';
+
   return (
     <Stack gap="6">
       <div className="page-head">
@@ -317,7 +372,7 @@ export default function AdminMail() {
         onChange={setTab}
         tabs={[
           { value: 'compose', label: editingId ? 'Editing a scheduled mail' : 'Compose' },
-          { value: 'history', label: `Scheduled & sent${campaigns.length ? ` (${campaigns.length})` : ''}` },
+          { value: 'history', label: `Scheduled & sent${upcoming.length ? ` · ${upcoming.length} waiting` : ''}` },
         ]}
       />
 
@@ -326,192 +381,221 @@ export default function AdminMail() {
       {/* ── Compose ─────────────────────────────────────────────────── */}
       <TabPanel value="compose" selected={tab}>
         {data && (
-          <form onSubmit={submit}>
-            <Card>
-              <Stack gap="5">
-                <div className="fb-class-head">
-                  <Text role="heading-3">{editingId ? 'Change the scheduled mail' : 'New mail'}</Text>
-                  {editingId && <Button size="sm" variant="ghost" onClick={resetForm}>Discard changes</Button>}
-                </div>
-
-                <div className="ds-row">
-                  <Select label="Programme" value={programId} onChange={(e) => setProgramId(e.target.value)} options={programmes} />
-                  <Select
-                    label="Start from an example"
-                    value={example}
-                    onChange={(e) => applyExample(e.target.value)}
-                    options={[{ value: '', label: 'Blank' }, ...EXAMPLES.map((x) => ({ value: x.key, label: x.label }))]}
-                    help="Fills the subject and body below; edit them as you like."
-                  />
-                </div>
-
-                <div>
-                  <Text role="label">Who gets it</Text>
-                  <div className="ds-batches">
-                    {batchesHere.length === 0 && <Text role="caption" tone="muted">This programme has no batches yet.</Text>}
-                    {batchesHere.map((b) => (
-                      <Checkbox
-                        key={b.id}
-                        label={`${b.name} · ${plural(b.students, 'student')}`}
-                        checked={picked.includes(b.id)}
-                        onChange={(e) => setPicked((p) => (e.target.checked ? [...p, b.id] : p.filter((x) => x !== b.id)))}
-                      />
-                    ))}
-                  </div>
-                  <div className="ds-batches">
-                    <Checkbox
-                      label="Also send to the batch mentors"
-                      checked={includeMentors}
-                      onChange={(e) => setIncludeMentors(e.target.checked)}
-                    />
-                  </div>
-                  <Text role="caption">
-                    {reach
-                      ? `Will reach ${plural(reach.count, 'person')}${reach.sample?.length ? ` · ${reach.sample.join(', ')}${reach.count > reach.sample.length ? '…' : ''}` : ''}`
-                      : 'Counting recipients…'}
-                    {' '}— blocked accounts are skipped, and a student in two batches gets one mail.
-                  </Text>
-                </div>
-
-                <Input label="Subject" value={subject} onChange={(e) => setSubject(e.target.value)} maxLength={200} required placeholder="Class tonight · {{batch}}" />
-
-                <div>
-                  <Textarea
-                    id={bodyId}
-                    label="Body"
-                    help="Plain text. A blank line starts a new paragraph, links become clickable. The greeting, signature and footer are added for you."
-                    value={body}
-                    onChange={(e) => setBody(e.target.value)}
-                    rows={10}
-                    maxLength={20000}
-                    required
-                  />
-                  <div className="mail-placeholders">
-                    <span className="mail-placeholders-label">Insert</span>
-                    {placeholders.map((p) => (
-                      <button type="button" key={p.key} className="mail-chip" onClick={() => insertPlaceholder(p.key)} title={`e.g. ${p.example}`}>
-                        {p.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <Text role="label">When</Text>
-                  <div className="ds-batches">
-                    <Radio name="mail-when" label="Send now" checked={mode === 'now'} onChange={() => setMode('now')} />
-                    <Radio name="mail-when" label={editingId ? 'Send at a time' : 'Send at these times'} checked={mode === 'later'} onChange={() => setMode('later')} />
-                  </div>
-                  {mode === 'later' && (
-                    <div className="mail-times">
-                      {times.map((v, i) => (
-                        <div className="mail-time-row" key={i}>
-                          <DateTimePicker value={v} onChange={(nv) => setTimeAt(i, nv)} placeholder="Date & time" />
-                          {!editingId && times.length > 1 && (
-                            <Button size="sm" variant="ghost" onClick={() => removeTimeAt(i)} ariaLabel="Remove this time">Remove</Button>
-                          )}
-                        </div>
-                      ))}
-                      {!editingId && (
-                        <div className="inline-form">
-                          <Button size="sm" variant="secondary" onClick={addTime} disabled={times.length >= MAX_TIMES}>Add another time</Button>
-                          <Text role="caption" tone="muted">
-                            {sendCount > 1
-                              ? `${sendCount} sends · ${validTimes.map((v) => timeOnly(v)).join(', ')} · ${plural(totalMails, 'mail')} in all.`
-                              : 'Your local time. The server checks once a minute, so it goes out within a minute of this.'}
-                          </Text>
-                        </div>
-                      )}
-                      {editingId && <Text role="caption" tone="muted">Your local time. Each scheduled send is its own row; to add more times, schedule a new mail.</Text>}
+          <form onSubmit={submit} noValidate>
+            <div className="mail-layout">
+              <Card>
+                <Stack gap="6">
+                  {editingId && (
+                    <div className="mail-editing">
+                      <Text role="body">You are changing a mail that is waiting to go out.</Text>
+                      <Button size="sm" variant="ghost" onClick={resetForm}>Discard changes</Button>
                     </div>
                   )}
-                  {totalMails > 90 && data.mail.provider === 'resend' && (
-                    <Text role="caption" tone="muted">Resend&rsquo;s free tier sends 100 mails a day. Past that, the rest fail until tomorrow.</Text>
-                  )}
-                </div>
 
-                <div className="inline-form">
-                  <Button type="submit" loading={busy} disabled={!canSubmit}>
-                    {editingId
-                      ? 'Save changes'
-                      : mode === 'now'
-                        ? `Send now to ${reach?.count ?? '…'}`
-                        : sendCount > 1 ? `Schedule ${sendCount} sends` : 'Schedule'}
-                  </Button>
-                  <Button variant="secondary" onClick={openPreview} disabled={!subject.trim() && !body.trim()}>Preview</Button>
-                </div>
+                  <Section step="1" title="Who gets it" hint="Every student of the ticked batches. Blocked accounts are skipped, and a student in two batches gets one mail.">
+                    <div className="mail-programme">
+                      <Select label="Programme" value={programId} onChange={(e) => setProgramId(e.target.value)} options={programmes} />
+                    </div>
+                    <div className="mail-batches">
+                      {batchesHere.length === 0 && <Text role="caption" tone="muted">This programme has no batches yet.</Text>}
+                      {batchesHere.map((b) => (
+                        <Checkbox
+                          key={b.id}
+                          label={`${b.name} · ${plural(b.students, 'student')}`}
+                          checked={picked.includes(b.id)}
+                          onChange={(e) => setPicked((p) => (e.target.checked ? [...p, b.id] : p.filter((x) => x !== b.id)))}
+                        />
+                      ))}
+                      <Checkbox
+                        label="Also send to the batch mentors"
+                        checked={includeMentors}
+                        onChange={(e) => setIncludeMentors(e.target.checked)}
+                      />
+                    </div>
+                    <div className={`mail-reach${reach && reach.count === 0 ? ' is-empty' : ''}`}>
+                      {!reach && 'Counting recipients…'}
+                      {reach && reach.count === 0 && (picked.length ? 'Nobody to send to in the batches ticked.' : 'Nobody yet — tick a batch above.')}
+                      {reach && reach.count > 0 && (
+                        <>
+                          <strong>Reaches {plural(reach.count, 'person')}</strong>
+                          {reach.sample?.length ? ` · ${reach.sample.join(', ')}${reach.count > reach.sample.length ? '…' : ''}` : ''}
+                        </>
+                      )}
+                    </div>
+                  </Section>
 
-                {/* A real copy to a real inbox — the placeholders filled with
-                    the admin's own name and the first batch picked. Any
-                    address, because the admin account's is rarely the inbox
-                    the admin reads. */}
-                <div className="inline-form">
-                  <Input
-                    type="email"
-                    value={testTo}
-                    onChange={(e) => setTestTo(e.target.value)}
-                    placeholder="you@example.com"
-                    ariaLabel="Send a test copy to"
-                  />
-                  <Button variant="secondary" onClick={sendTest} disabled={!subject.trim() || !body.trim() || mailOff || !testToOk}>Send a test copy</Button>
-                  <Text role="caption" tone="muted">One real mail to that address, marked [Test]. Ten an hour.</Text>
-                </div>
+                  <Section step="2" title="The message" hint="Plain text. A blank line starts a new paragraph, links become clickable. The greeting, signature and footer are added for you.">
+                    <div className="mail-programme">
+                      <Select
+                        label="Start from an example"
+                        value={example}
+                        onChange={(e) => applyExample(e.target.value)}
+                        options={[{ value: '', label: 'Blank' }, ...EXAMPLES.map((x) => ({ value: x.key, label: x.label }))]}
+                      />
+                    </div>
+                    <Input label="Subject" value={subject} onChange={(e) => setSubject(e.target.value)} maxLength={200} placeholder="Class tonight · {{batch}}" />
+                    <div>
+                      <Textarea
+                        id={bodyId}
+                        label="Body"
+                        value={body}
+                        onChange={(e) => setBody(e.target.value)}
+                        rows={9}
+                        maxLength={20000}
+                        placeholder="“Dear …,” is added for you. Start with the first sentence."
+                      />
+                      <div className="mail-placeholders">
+                        <span className="mail-placeholders-label">Insert</span>
+                        {placeholders.map((p) => (
+                          <button type="button" key={p.key} className="mail-chip" onClick={() => insertPlaceholder(p.key)} title={`e.g. ${p.example}`}>
+                            {p.label}
+                          </button>
+                        ))}
+                        <span className="mail-placeholders-hint">Filled per person when it is sent.</span>
+                      </div>
+                    </div>
+                  </Section>
 
-                {/* The outcome sits under the buttons that caused it, where the
-                    eye already is — not at the top of a page that has been
-                    scrolled past. */}
-                {err && <Alert tone="error">{err}</Alert>}
-                {note && <Alert tone="success">{note}</Alert>}
-              </Stack>
-            </Card>
+                  <Section step="3" title="When" hint="Your local time. The server checks once a minute, so a mail goes out within a minute of its time.">
+                    <div className="mail-batches">
+                      <Radio name="mail-when" label="Send now" checked={mode === 'now'} onChange={() => setMode('now')} />
+                      <Radio name="mail-when" label={editingId ? 'Send at a time' : 'Send at these times'} checked={mode === 'later'} onChange={() => setMode('later')} />
+                    </div>
+                    {mode === 'later' && (
+                      <div className="mail-times">
+                        {times.map((v, i) => (
+                          <div className="mail-time-row" key={i}>
+                            <span className="mail-time-n" aria-hidden="true">{i + 1}</span>
+                            <DateTimePicker value={v} onChange={(nv) => setTimeAt(i, nv)} placeholder="Date & time" />
+                            {!editingId && times.length > 1 && (
+                              <Button size="sm" variant="ghost" onClick={() => removeTimeAt(i)} ariaLabel="Remove this time">Remove</Button>
+                            )}
+                          </div>
+                        ))}
+                        {!editingId && (
+                          <div className="mail-time-foot">
+                            <Button size="sm" variant="secondary" onClick={addTime} disabled={times.length >= MAX_TIMES}>+ Add another time</Button>
+                            {sendCount > 1 && (
+                              <Text role="caption" tone="muted">
+                                {sendCount} sends · {validTimes.map((v) => timeOnly(v)).join(', ')} · {plural(totalMails, 'mail')} in all
+                              </Text>
+                            )}
+                          </div>
+                        )}
+                        {editingId && <Text role="caption" tone="muted">Each scheduled send is its own row. To add more times, schedule a new mail.</Text>}
+                      </div>
+                    )}
+                    {totalMails > 90 && data.mail.provider === 'resend' && (
+                      <Alert tone="warning">Resend’s free tier sends 100 mails a day. Past that, the rest fail until tomorrow.</Alert>
+                    )}
+                  </Section>
+
+                  <div className="mail-actions">
+                    <div className="mail-actions-main">
+                      <Button type="submit" loading={busy} size="lg">{submitLabel}</Button>
+                      {!editingId && mode === 'later' && reach?.count > 0 && (
+                        <Text role="caption" tone="muted">
+                          {sendCount > 1 ? `${sendCount} sends to ${plural(reach.count, 'person')}` : `To ${plural(reach.count, 'person')} at ${validTimes[0] ? when(validTimes[0]) : '…'}`}
+                        </Text>
+                      )}
+                    </div>
+
+                    {/* A real copy to a real inbox — the placeholders filled
+                        with the admin's own name and the first batch ticked.
+                        Any address, because the admin account's is rarely
+                        the inbox the admin reads. */}
+                    <div className="mail-test">
+                      <Text role="label">Send a test copy to</Text>
+                      <div className="mail-test-row">
+                        <Input
+                          type="email"
+                          value={testTo}
+                          onChange={(e) => setTestTo(e.target.value)}
+                          placeholder="you@example.com"
+                          ariaLabel="Send a test copy to"
+                        />
+                        <Button variant="secondary" onClick={sendTest} disabled={mailOff}>Send test</Button>
+                      </div>
+                      <Text role="caption" tone="muted">One real mail, marked [Test]. Ten an hour.</Text>
+                    </div>
+
+                    {err && <Alert tone="error">{err}</Alert>}
+                    {note && <Alert tone="success">{note}</Alert>}
+                  </div>
+                </Stack>
+              </Card>
+
+              <aside className="mail-side">
+                <Card>
+                  <Stack gap="3">
+                    <div className="mail-side-head">
+                      <Text role="heading-3">Preview</Text>
+                      <Text role="caption" tone="muted">
+                        {previewBusy ? 'Rendering…' : preview ? 'As it lands, with your own name in the placeholders.' : 'Appears as you type.'}
+                      </Text>
+                    </div>
+                    {preview ? (
+                      <>
+                        <div className="mail-side-subject">
+                          <span className="mail-side-k">Subject</span>
+                          <span className="mail-side-v">{preview.subject || <em>empty</em>}</span>
+                        </div>
+                        {/* sandbox with no flags: the mail's own markup renders, nothing in it can run. */}
+                        <iframe className="mail-preview-frame" title="Mail preview" sandbox="" srcDoc={preview.html} />
+                      </>
+                    ) : (
+                      <div className="mail-preview-empty">
+                        <Text role="caption" tone="muted">Pick an example or write a subject, and the finished mail shows here.</Text>
+                      </div>
+                    )}
+                  </Stack>
+                </Card>
+              </aside>
+            </div>
           </form>
         )}
       </TabPanel>
 
       {/* ── History ─────────────────────────────────────────────────── */}
       <TabPanel value="history" selected={tab}>
-        {err && <Alert tone="error">{err}</Alert>}
-        {note && <Alert tone="success">{note}</Alert>}
-        {data && campaigns.length === 0 && (
-          <Empty icon="mail" title="Nothing scheduled or sent yet." hint="Mails you schedule on the Compose tab show up here, with what happened to them." />
-        )}
+        <Stack gap="5">
+          {err && <Alert tone="error">{err}</Alert>}
+          {note && <Alert tone="success">{note}</Alert>}
 
-        {data && upcoming.length > 0 && (
-          <Stack gap="4">
-            <Text role="heading-3">Waiting to go out</Text>
-            {upcoming.map((c) => <CampaignCard key={c._id} c={c} onSendNow={sendNow} onEdit={fillFrom} onRemove={removeCampaign} />)}
-          </Stack>
-        )}
+          {data && campaigns.length === 0 && (
+            <Empty icon="mail" title="Nothing scheduled or sent yet." hint="Mails you schedule on the Compose tab show up here, with what happened to them." action={{ label: 'Write one', onClick: () => setTab('compose') }} />
+          )}
 
-        {data && past.length > 0 && (
-          <Stack gap="4">
-            <Text role="heading-3">Sent</Text>
-            {past.map((c) => <CampaignCard key={c._id} c={c} onReuse={fillFrom} onRemove={removeCampaign} />)}
-          </Stack>
-        )}
+          {data && upcoming.length > 0 && (
+            <Stack gap="3">
+              <div className="mail-list-head">
+                <Text role="heading-3">Waiting to go out</Text>
+                <Text role="caption" tone="muted">{plural(upcoming.length, 'send')}</Text>
+              </div>
+              {upcoming.map((c) => <CampaignCard key={c._id} c={c} onSendNow={sendNow} onEdit={fillFrom} onRemove={removeCampaign} />)}
+            </Stack>
+          )}
+
+          {data && past.length > 0 && (
+            <Stack gap="3">
+              <div className="mail-list-head">
+                <Text role="heading-3">Done</Text>
+                <Text role="caption" tone="muted">{plural(past.length, 'send')}</Text>
+              </div>
+              {past.map((c) => <CampaignCard key={c._id} c={c} onReuse={fillFrom} onRemove={removeCampaign} />)}
+            </Stack>
+          )}
+        </Stack>
       </TabPanel>
-
-      <Dialog
-        open={!!preview}
-        onClose={() => setPreview(null)}
-        title={preview ? `Preview · ${preview.subject}` : 'Preview'}
-        footer={<Button variant="secondary" onClick={() => setPreview(null)}>Close</Button>}
-      >
-        {preview && (
-          <div className="mail-preview">
-            <Text role="caption" tone="muted">Rendered for you, so the placeholders are filled with your own name and the first batch picked.</Text>
-            {/* sandbox with no flags: the mail's own markup renders, nothing in it can run. */}
-            <iframe title="Mail preview" sandbox="" srcDoc={preview.html} />
-          </div>
-        )}
-      </Dialog>
     </Stack>
   );
 }
 
 function CampaignCard({ c, onSendNow, onEdit, onReuse, onRemove }) {
+  const [showBody, setShowBody] = useState(false);
   const [showFailures, setShowFailures] = useState(false);
   const live = c.status === 'scheduled' || c.status === 'sending';
+  const st = STATUS[c.status] || { pill: 'not-started', label: c.status };
   const line = (() => {
     if (c.status === 'scheduled') return `Goes out ${when(c.sendAt)} · ${plural(c.recipients, 'recipient')}`;
     if (c.status === 'sending') return `Sending since ${when(c.startedAt)} · ${plural(c.recipients, 'recipient')}`;
@@ -522,38 +606,37 @@ function CampaignCard({ c, onSendNow, onEdit, onReuse, onRemove }) {
 
   return (
     <Card>
-      <Stack gap="3">
-        <div className="fb-class-head">
-          <div>
-            <Text role="heading-3">{c.subject}</Text>
-            <Text role="caption">
-              {c.batches.join(', ') || 'No batch'}{c.includeMentors ? ' + mentors' : ''}
-            </Text>
+      <div className="mail-card">
+        <div className="mail-card-main">
+          <div className="mail-card-top">
+            <StatusPill status={st.pill} label={st.label} />
+            <Text role="caption" tone="muted">{c.batches.join(', ') || 'No batch'}{c.includeMentors ? ' + mentors' : ''}</Text>
           </div>
-          <div className="ds-actions">
-            <Badge>{STATUS_LABEL[c.status] || c.status}</Badge>
-            {c.status === 'scheduled' && onSendNow && <Button size="sm" onClick={() => onSendNow(c._id)}>Send now</Button>}
-            {c.status === 'scheduled' && onEdit && <Button size="sm" variant="secondary" onClick={() => onEdit(c)}>Edit</Button>}
-            {!live && onReuse && <Button size="sm" variant="secondary" onClick={() => onReuse(c)}>Reuse</Button>}
-            {c.status !== 'sending' && <Button size="sm" variant="ghost" onClick={() => onRemove(c)}>{c.status === 'scheduled' ? 'Cancel' : 'Remove'}</Button>}
-          </div>
-        </div>
-        <Text role="caption" tone="muted">{line}</Text>
-        {c.error && <Alert tone="error">{c.error}</Alert>}
-        {c.failures?.length > 0 && (
-          <div>
-            <Button size="sm" variant="ghost" onClick={() => setShowFailures((v) => !v)}>
-              {showFailures ? 'Hide' : 'Show'} the {plural(c.failures.length, 'address')} that failed
-            </Button>
-            {showFailures && (
-              <ul className="mail-failures">
-                {c.failures.map((f) => <li key={f.email}><strong>{f.email}</strong> — {f.error || 'send failed'}</li>)}
-              </ul>
+          <Text role="heading-3">{c.subject}</Text>
+          <Text role="caption" tone="muted">{line}</Text>
+          {c.error && <Alert tone="error">{c.error}</Alert>}
+          <div className="mail-card-links">
+            <button type="button" className="mail-link" onClick={() => setShowBody((v) => !v)}>{showBody ? 'Hide the text' : 'Show the text'}</button>
+            {c.failures?.length > 0 && (
+              <button type="button" className="mail-link" onClick={() => setShowFailures((v) => !v)}>
+                {showFailures ? 'Hide' : 'Show'} the {plural(c.failures.length, 'address')} that failed
+              </button>
             )}
           </div>
-        )}
-        <pre className="mail-body-preview">{c.body}</pre>
-      </Stack>
+          {showBody && <pre className="mail-body-preview">{c.body}</pre>}
+          {showFailures && (
+            <ul className="mail-failures">
+              {c.failures.map((f) => <li key={f.email}><strong>{f.email}</strong> — {f.error || 'send failed'}</li>)}
+            </ul>
+          )}
+        </div>
+        <div className="mail-card-actions">
+          {c.status === 'scheduled' && onSendNow && <Button size="sm" onClick={() => onSendNow(c._id)}>Send now</Button>}
+          {c.status === 'scheduled' && onEdit && <Button size="sm" variant="secondary" onClick={() => onEdit(c)}>Edit</Button>}
+          {!live && onReuse && <Button size="sm" variant="secondary" onClick={() => onReuse(c)}>Reuse</Button>}
+          {c.status !== 'sending' && <Button size="sm" variant="ghost" onClick={() => onRemove(c)}>{c.status === 'scheduled' ? 'Cancel' : 'Remove'}</Button>}
+        </div>
+      </div>
     </Card>
   );
 }

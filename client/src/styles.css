@@ -1248,8 +1248,13 @@ a:focus-visible,
 /* Search hits stay visible through the transparent text colour. */
 .textLayer .pdfr-hit { background: rgba(240,180,20,.45); color: transparent; border-radius: 2px; }
 
-.pdfr-linklayer { position: absolute; inset: 0; z-index: 2; }
-.pdfr-link { position: absolute; display: block; padding: 0; border: 0; background: transparent; cursor: pointer; border-radius: 2px; }
+/* The link layer sits above the text layer so links stay clickable, but it
+   must not take the mouse itself: a full-page div that catches every press
+   is a page where nothing can be selected or copied, which is exactly what a
+   student reported about a prompt sheet. Only the links themselves are hit
+   targets. */
+.pdfr-linklayer { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
+.pdfr-link { position: absolute; display: block; padding: 0; border: 0; background: transparent; cursor: pointer; border-radius: 2px; pointer-events: auto; }
 .pdfr-link:hover { background: rgba(83,74,183,.16); outline: 1px solid var(--violet); }
 
 /* Toolbar sits above the pages and stays put while they scroll under it. */
@@ -1269,6 +1274,9 @@ a:focus-visible,
 .pdfr-btn:hover:not(:disabled) { background: var(--violet-soft); color: var(--violet); }
 .pdfr-btn:disabled { opacity: .3; cursor: not-allowed; }
 .pdfr-fit { font-size: 14px; }
+/* "Copy text" is a word, not a glyph, so it takes the width it needs. */
+.pdfr-copy { width: auto; padding: 0 11px; font-size: 12.5px; font-weight: 600; white-space: nowrap; border-color: var(--line); }
+.pdfr-copy.is-done { background: var(--status-graded-bg, #e7f6ec); color: var(--role-student, #1f7a3e); border-color: transparent; }
 .pdfr-count { font-size: 12.5px; color: var(--muted); text-align: center; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .pdfr-zoom { min-width: 44px; }
 @media (max-width: 720px) { .pdfr-bar { gap: 8px; padding: 8px 10px; } .pdfr-find { order: 3; flex-basis: 100%; } .pdfr-stage { padding: 12px 10px 28px; } }
@@ -2835,18 +2843,72 @@ input:hover:not(:disabled):not(:focus), select:hover:not(:disabled):not(:focus),
 .rp-go { flex: none; color: var(--muted); }
 
 /* ── Admin mail desk ─────────────────────────────────────────────────────── */
+/* Compose: the form down the left, the rendered mail pinned on the right, so
+   an empty placeholder is seen while typing rather than in an inbox. Stacks
+   on narrow screens. */
+.mail-layout { display: grid; grid-template-columns: minmax(0, 1fr) 420px; gap: var(--space-5); align-items: start; }
+.mail-side { position: sticky; top: 16px; }
+@media (max-width: 1180px) {
+  .mail-layout { grid-template-columns: 1fr; }
+  .mail-side { position: static; }
+}
+.mail-editing { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap; padding: 10px 14px; background: var(--violet-soft); border: 1px solid var(--violet-line); border-radius: 10px; }
+
+/* The three numbered steps. A hairline between them, not a card each: one
+   form, three parts. */
+.mail-section + .mail-section { border-top: 1px solid var(--line-soft); padding-top: var(--space-6); }
+.mail-section-head { display: flex; align-items: flex-start; gap: 12px; margin-bottom: var(--space-4); }
+.mail-section-head p { margin: 2px 0 0; max-width: 60ch; }
+.mail-step { flex: none; width: 26px; height: 26px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: var(--violet); color: #fff; font-size: 12.5px; font-weight: 700; margin-top: 1px; }
+.mail-section-body { display: flex; flex-direction: column; gap: var(--space-4); padding-left: 38px; }
+@media (max-width: 640px) { .mail-section-body { padding-left: 0; } }
+.mail-programme { max-width: 420px; }
+.mail-batches { display: flex; flex-wrap: wrap; gap: var(--space-3) var(--space-5); }
+.mail-reach { font-size: 13.5px; color: var(--ink-2); padding: 10px 14px; background: var(--bg-soft, #f7f6fb); border-radius: 10px; border: 1px solid var(--line-soft); }
+.mail-reach strong { color: var(--ink); font-weight: 650; }
+.mail-reach.is-empty { color: var(--a4, #b4232c); background: var(--a4-soft, #fdf1f1); border-color: transparent; }
+
 /* Placeholder chips under the body box: press one to drop {{first_name}} at
    the caret. Chips, not a select, because the admin is mid-sentence. */
 .mail-placeholders { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; }
 .mail-placeholders-label { font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin-right: 4px; }
+.mail-placeholders-hint { font-size: 12.5px; color: var(--muted); margin-left: 4px; }
 .mail-chip { font: inherit; font-size: 12.5px; padding: 4px 10px; border: 1px solid var(--line); border-radius: 999px; background: #fff; color: var(--ink); cursor: pointer; font-family: var(--font); }
 .mail-chip:hover { border-color: var(--violet); color: var(--violet); }
 .mail-chip:focus-visible { outline: 2px solid var(--violet); outline-offset: 2px; }
+
+/* One row per send time. */
+.mail-times { display: flex; flex-direction: column; gap: 8px; }
+.mail-time-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.mail-time-n { flex: none; width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: var(--violet-soft); color: var(--violet); font-size: 12px; font-weight: 700; }
+.mail-time-foot { display: flex; align-items: center; gap: var(--space-4); flex-wrap: wrap; margin-top: 4px; }
+
+/* The foot of the form: the send, then the test row, then the outcome, all
+   where the eye already is. */
+.mail-actions { display: flex; flex-direction: column; gap: var(--space-4); border-top: 1px solid var(--line-soft); padding-top: var(--space-5); }
+.mail-actions-main { display: flex; align-items: center; gap: var(--space-4); flex-wrap: wrap; }
+.mail-test { display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; background: var(--bg-soft, #f7f6fb); border-radius: 10px; }
+.mail-test-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.mail-test-row .ui-field { flex: 1 1 240px; }
+
+/* The preview card. */
+.mail-side-head p { margin-top: 2px; }
+.mail-side-subject { display: flex; gap: 10px; align-items: baseline; padding: 8px 12px; background: var(--bg-soft, #f7f6fb); border-radius: 8px; font-size: 13.5px; }
+.mail-side-k { flex: none; font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.mail-side-v { color: var(--ink); font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+.mail-side-v em { color: var(--muted); font-weight: 400; }
+.mail-preview-frame { width: 100%; height: min(70vh, 720px); border: 1px solid var(--line); border-radius: 10px; background: #fff; }
+.mail-preview-empty { display: flex; align-items: center; justify-content: center; text-align: center; padding: 48px 20px; border: 1px dashed var(--line); border-radius: 10px; }
+
+/* Scheduled & sent. */
+.mail-list-head { display: flex; align-items: baseline; gap: var(--space-3); }
+.mail-card { display: flex; gap: var(--space-4); align-items: flex-start; justify-content: space-between; flex-wrap: wrap; }
+.mail-card-main { display: flex; flex-direction: column; gap: 6px; min-width: 0; flex: 1 1 320px; }
+.mail-card-top { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
+.mail-card-actions { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.mail-card-links { display: flex; gap: var(--space-4); flex-wrap: wrap; margin-top: 2px; }
+.mail-link { font: inherit; font-size: 13px; color: var(--violet); background: none; border: 0; padding: 0; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; font-family: var(--font); }
+.mail-link:hover { color: var(--violet-dark); }
 /* The saved body, as typed: line breaks kept, no monospace — it is prose. */
-.mail-body-preview { margin: 0; padding: 12px 14px; background: var(--bg-soft, #f7f6fb); border: 1px solid var(--line); border-radius: 10px; font-family: var(--font); font-size: 14px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; color: var(--ink); max-height: 220px; overflow: auto; }
-.mail-preview { display: flex; flex-direction: column; gap: 10px; }
-.mail-preview iframe { width: 100%; min-width: min(640px, 80vw); height: 70vh; border: 1px solid var(--line); border-radius: 10px; background: #fff; }
-.mail-failures { margin: 8px 0 0; padding-left: 18px; font-size: 13px; line-height: 1.6; color: var(--muted); }
-/* One row per send time on the compose form. */
-.mail-times { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
-.mail-time-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.mail-body-preview { margin: 4px 0 0; padding: 12px 14px; background: var(--bg-soft, #f7f6fb); border: 1px solid var(--line); border-radius: 10px; font-family: var(--font); font-size: 14px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; color: var(--ink); max-height: 220px; overflow: auto; }
+.mail-failures { margin: 4px 0 0; padding-left: 18px; font-size: 13px; line-height: 1.6; color: var(--muted); }
