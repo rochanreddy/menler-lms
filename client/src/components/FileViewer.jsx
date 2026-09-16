@@ -280,6 +280,7 @@ function PdfReader({ url }) {
   const [hits, setHits] = useState([]);   // page number per match, in reading order
   const [hitIdx, setHitIdx] = useState(0);
   const [reloadKey, setReloadKey] = useState(0); // bump to retry a failed load
+  const [copied, setCopied] = useState(''); // 'done' | 'none' | 'fail', briefly, after Copy text
 
   // Open the document once per URL.
   useEffect(() => {
@@ -399,6 +400,33 @@ function PdfReader({ url }) {
     const room = (stageRef.current?.clientWidth || base.w) - 56;
     setZoom(Math.min(3, Math.max(0.5, +(room / base.w).toFixed(2))));
   };
+  // Copy the page on screen as plain text. Selecting across a text layer works
+  // but is fiddly on a prompt sheet laid out in boxes, and a student who wants
+  // a prompt to practise with wants the words, not a drag that misses a line.
+  // The reader owns the chrome precisely so it can offer this while still
+  // withholding download and print.
+  const copyPage = async () => {
+    const doc = docRef.current;
+    if (!doc) return;
+    try {
+      const page = await doc.getPage(currentRef.current);
+      const tc = await page.getTextContent();
+      let out = '';
+      for (const it of tc.items) {
+        if (!('str' in it)) continue;
+        out += it.str;
+        if (it.hasEOL) out += '\n';
+        else if (it.str && !it.str.endsWith(' ')) out += ' ';
+      }
+      const text = out.replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+      if (!text) { setCopied('none'); }
+      else { await navigator.clipboard.writeText(text); setCopied('done'); }
+    } catch {
+      setCopied('fail');
+    }
+    setTimeout(() => setCopied(''), 1800);
+  };
+
   const commitPageBox = () => {
     const n = parseInt(pageBox, 10);
     if (Number.isFinite(n)) scrollToPage(n);
@@ -467,6 +495,15 @@ function PdfReader({ url }) {
           <span className="pdfr-count pdfr-zoom">{Math.round(zoom * 100)}%</span>
           <button className="pdfr-btn" onClick={() => setZoom((z) => Math.min(3, +(z + 0.15).toFixed(2)))} disabled={!ready || zoom >= 3} aria-label="Zoom in">+</button>
           <button className="pdfr-btn pdfr-fit" onClick={fitWidth} disabled={!ready} title="Fit width" aria-label="Fit width">⤢</button>
+          <button
+            className={`pdfr-btn pdfr-copy${copied === 'done' ? ' is-done' : ''}`}
+            onClick={copyPage}
+            disabled={!ready}
+            title="Copy the text of this page"
+            aria-live="polite"
+          >
+            {copied === 'done' ? 'Copied' : copied === 'none' ? 'No text on this page' : copied === 'fail' ? 'Could not copy' : 'Copy text'}
+          </button>
         </div>
       </div>
 
