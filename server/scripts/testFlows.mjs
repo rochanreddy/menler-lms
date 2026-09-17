@@ -97,8 +97,9 @@ async function run() {
   // ────────────────────────────────────────────────────────────── ADMIN
   section('ADMIN FLOW');
   const aPrograms = await call('/programs', { token: admin.token });
-  const kick = aPrograms.json.programs.find((p) => p.title === 'Kickstarter');
-  const gen = aPrograms.json.programs.find((p) => p.title === 'Generalist');
+  // Either spelling: the fixture says "AI Kickstarter", an older test database "Kickstarter".
+  const kick = aPrograms.json.programs.find((p) => /kickstarter/i.test(p.title));
+  const gen = aPrograms.json.programs.find((p) => /generalist/i.test(p.title));
   ok('sees both programmes', !!kick && !!gen);
 
   // Exact lesson counts are NOT asserted: Kickstarter carries the real authored
@@ -141,8 +142,8 @@ async function run() {
     `got ${aPrograms.json.programs.map((p) => p.title).join(', ')}`);
 
   const aBatches = await call('/batches', { token: admin.token });
-  const bK = aBatches.json.batches.find((b) => b.name.startsWith('Kickstarter'));
-  const bG = aBatches.json.batches.find((b) => b.name.startsWith('Generalist'));
+  const bK = aBatches.json.batches.find((b) => /^(AI )?Kickstarter/.test(b.name));
+  const bG = aBatches.json.batches.find((b) => /^(AI )?Generalist/.test(b.name));
   ok('sees both batches', !!bK && !!bG);
 
   const bKdetail = await call(`/batches/${bK.id}`, { token: admin.token });
@@ -175,7 +176,7 @@ async function run() {
 
   const mgBatches = await call('/batches', { token: mentorGen.token });
   ok('Generalist-only mentor sees exactly 1 batch', mgBatches.json.batches.length === 1, `got ${mgBatches.json.batches.length}`);
-  ok('…and it is the Generalist one', mgBatches.json.batches[0]?.name.startsWith('Generalist'));
+  ok('…and it is the Generalist one', /^(AI )?Generalist/.test(mgBatches.json.batches[0]?.name || ''));
 
   // RBAC: the Generalist-only mentor must not reach the Kickstarter batch.
   const crossBatch = await call(`/batches/${bK.id}`, { token: mentorGen.token });

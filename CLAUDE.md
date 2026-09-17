@@ -147,6 +147,19 @@ lesson **body** costs nothing; renaming a lesson, its chapter or its module
 retires that lesson and its progress, which is the honest outcome. Any other
 code path that rewrites `Program.modules` owes the same two steps.
 
+### Programme names
+
+The programmes read **AI Kickstarter** and **AI Generalist** on every screen,
+and that text is data: `Program.title`, and the batch names built from it
+("AI Kickstarter · Sept 2026"). A rename is therefore
+`node scripts/renameProgrammes.js` (dry run; `--apply` with `CONFIRM_DB`),
+not a UI change. Every lookup by title in the seeds goes through
+`titleQuery()` in [utils/programmes.js](server/utils/programmes.js), which
+matches the bare "Kickstarter" a database seeded before the rename still
+carries — otherwise a seed on such a database would create a second
+programme beside the first. Issued certificates keep the title they were
+issued with.
+
 ### Test fixtures
 
 `npm run seed:full` builds a complete mid-cohort world and is the fixture every
@@ -154,7 +167,7 @@ role flow is tested against. It **never deletes a User** — accounts are upsert
 by email so logins survive reruns — and its randomness is seeded, so two runs
 produce the same data.
 
-- **Programmes** Kickstarter (38 lessons) · Generalist (22 lessons) — the real
+- **Programmes** AI Kickstarter (38 lessons) · AI Generalist (22 lessons) — the real
   curricula, not placeholders (see below) — every lesson carrying a reading PDF,
   teacher-notes PDF and a class link.
 - **Batches** one per programme, started 8 weeks ago, ending in 6 — so progress,

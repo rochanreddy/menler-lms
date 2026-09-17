@@ -15,6 +15,7 @@ import { Message } from '../models/Message.js';
 import { Doubt } from '../models/Doubt.js';
 import { hashPassword } from '../utils/password.js';
 import { assertSeedTarget } from './seedGuard.js';
+import { PROGRAMME_TITLES, titleQuery } from '../utils/programmes.js';
 
 const DEMO_DOMAIN = '@demo.menler.in';
 const STUDENTS = [
@@ -55,8 +56,8 @@ async function run() {
   console.log(`✓ mentor: mentor@menler.in / ${mentorPass}`);
 
   // ── Program ──
-  let program = await Program.findOne({ title: 'Kickstarter' });
-  if (!program) program = await Program.create({ title: 'Kickstarter', type: 'cohort', published: true });
+  let program = await Program.findOne(titleQuery(PROGRAMME_TITLES.kickstarter));
+  if (!program) program = await Program.create({ title: PROGRAMME_TITLES.kickstarter, type: 'cohort', published: true });
 
   // ── Batches: Jul + Jun cohorts ──
   const julBatch = await Batch.create({ programId: program._id, name: 'Demo: Kickstarter · Jul 2026', status: 'ongoing', mentorIds: [mentor._id] });

@@ -34,6 +34,7 @@ import { Progress } from '../models/Progress.js';
 import { BatchLessonVideo } from '../models/BatchLessonVideo.js';
 import { User } from '../models/User.js';
 import { loadCurriculumPdfUrls, applyCurriculumEbooks, liftSharedMedia, isPlaceholder } from '../utils/curriculumPdfAssets.js';
+import { PROGRAMME_TITLES, titleQuery } from '../utils/programmes.js';
 import {
   kickstarterModules,
   generalistModules,
@@ -45,8 +46,8 @@ import {
 // against ('Kickstarter', 'Generalist') or the fixture cohort lands on an
 // empty tree and refills it with its own placeholder lessons.
 const PROGRAMS = [
-  { title: 'Kickstarter', description: KICKSTARTER_DESCRIPTION, build: kickstarterModules },
-  { title: 'Generalist', description: GENERALIST_DESCRIPTION, build: generalistModules },
+  { title: PROGRAMME_TITLES.kickstarter, description: KICKSTARTER_DESCRIPTION, build: kickstarterModules },
+  { title: PROGRAMME_TITLES.generalist, description: GENERALIST_DESCRIPTION, build: generalistModules },
 ];
 
 // A lesson's identity is its position in the tree plus its title — stable
@@ -194,7 +195,9 @@ async function run() {
   for (const { title, description, build } of PROGRAMS) {
     const fresh = build();
 
-    let program = await Program.findOne({ title });
+    // Either spelling: a database seeded before the "AI …" rename still says
+    // "Kickstarter", and finding it is what stops a second programme appearing.
+    let program = await Program.findOne(titleQuery(title));
     if (!program) program = await Program.create({ title, type: 'cohort', published: true });
 
     const { modules, kept, media, was } = preserveIds(program.modules, fresh);
@@ -220,7 +223,7 @@ async function run() {
   }
   const blocks = await pruneModuleBlocks();
   console.log(`\n  module blocks ${blocks} stale id(s) cleared`);
-  console.log('\n✅ Kickstarter and Generalist curricula authored from the PDFs.');
+  console.log('\n✅ AI Kickstarter and AI Generalist curricula authored from the PDFs.');
   process.exit(0);
 }
 

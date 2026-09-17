@@ -53,7 +53,7 @@ export default function AdminBatches() {
             <option value="">Program…</option>
             {programs.map((p) => <option key={p._id} value={p._id}>{p.title}</option>)}
           </select>
-          <input placeholder="Batch name (e.g. Kickstarter · July 2026)" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} required />
+          <input placeholder="Batch name (e.g. AI Kickstarter · July 2026)" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} required />
           <select value={form.status} onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}>
             <option value="upcoming">Upcoming</option><option value="ongoing">Ongoing</option><option value="past">Past</option>
           </select>

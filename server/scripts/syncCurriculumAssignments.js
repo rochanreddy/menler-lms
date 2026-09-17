@@ -34,6 +34,7 @@ import { assertSeedTarget } from './seedGuard.js';
 import { Program } from '../models/Program.js';
 import { Batch } from '../models/Batch.js';
 import { Assignment } from '../models/Assignment.js';
+import { PROGRAMME_TITLES, titleQuery } from '../utils/programmes.js';
 
 const APPLY = process.argv.includes('--apply');
 const ONLY = process.argv.slice(2).find((x) => !x.startsWith('--')) || '';
@@ -99,13 +100,13 @@ function kickstarterItems(program) {
 }
 
 const PROGRAMS = [
-  { title: 'Generalist', build: generalistItems },
-  { title: 'Kickstarter', build: kickstarterItems },
+  { title: PROGRAMME_TITLES.generalist, build: generalistItems },
+  { title: PROGRAMME_TITLES.kickstarter, build: kickstarterItems },
 ];
 
 async function syncProgram({ title, build }) {
   const tally = { created: 0, updated: 0, unchanged: 0 };
-  const program = await Program.findOne({ title });
+  const program = await Program.findOne(titleQuery(title));
   if (!program) { console.log(`\n${title}: no such programme, skipped.`); return tally; }
   const items = build(program);
   const batches = await Batch.find({ programId: program._id });

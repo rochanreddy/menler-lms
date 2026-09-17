@@ -19,8 +19,8 @@ export const PLACEHOLDERS = [
   { key: 'first_name', label: 'First name', example: 'Aarav' },
   { key: 'name', label: 'Full name', example: 'Aarav Sharma' },
   { key: 'email', label: 'Email', example: 'aarav@example.com' },
-  { key: 'batch', label: 'Batch', example: 'Kickstarter — Sept 2026' },
-  { key: 'programme', label: 'Programme', example: 'Kickstarter' },
+  { key: 'batch', label: 'Batch', example: 'AI Kickstarter · Sept 2026' },
+  { key: 'programme', label: 'Programme', example: 'AI Kickstarter' },
 ];
 
 export function fillPlaceholders(text, vars) {

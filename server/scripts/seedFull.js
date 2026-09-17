@@ -34,6 +34,7 @@ import { LibraryItem } from '../models/LibraryItem.js';
 import { Notification } from '../models/Notification.js';
 import { SupportTicket } from '../models/SupportTicket.js';
 import { hashPassword } from '../utils/password.js';
+import { PROGRAMME_TITLES, bareTitle, titleQuery } from '../utils/programmes.js';
 import {
   kickstarterModules,
   generalistModules,
@@ -76,10 +77,10 @@ const intBetween = (lo, hi) => lo + Math.floor(rnd() * (hi - lo + 1));
 
 // ── People ───────────────────────────────────────────────────────────────────
 const MENTORS = [
-  { name: 'Rahul Verma', email: 'rahul.verma@menler.in', programs: ['Kickstarter', 'Generalist'] },
-  { name: 'Priya Nambiar', email: 'priya.nambiar@menler.in', programs: ['Kickstarter', 'Generalist'] },
-  { name: 'Imran Qureshi', email: 'imran.qureshi@menler.in', programs: ['Kickstarter', 'Generalist'] },
-  { name: 'Sneha Kulkarni', email: 'sneha.kulkarni@menler.in', programs: ['Generalist'] },
+  { name: 'Rahul Verma', email: 'rahul.verma@menler.in', programs: ['K', 'G'] },
+  { name: 'Priya Nambiar', email: 'priya.nambiar@menler.in', programs: ['K', 'G'] },
+  { name: 'Imran Qureshi', email: 'imran.qureshi@menler.in', programs: ['K', 'G'] },
+  { name: 'Sneha Kulkarni', email: 'sneha.kulkarni@menler.in', programs: ['G'] },
 ];
 
 // 6 Kickstarter-only + 6 Generalist-only + 4 in BOTH = 10 per batch, with four
@@ -214,10 +215,11 @@ async function upsertUser({ email, fullName, role }) {
 }
 
 async function upsertProgram(title, buildModules, description, pdfUrls) {
-  let p = await Program.findOne({ title });
+  let p = await Program.findOne(titleQuery(title)); // either spelling, see utils/programmes.js
   if (!p) p = new Program({ title });
+  p.title = title;
   p.type = 'cohort';
-  p.slug = title.toLowerCase();
+  p.slug = bareTitle(title).toLowerCase();
   p.published = true;
 
   // NEVER clobber an authored curriculum. This used to assign p.modules
@@ -241,7 +243,7 @@ const topicIdsOf = (program) =>
 
 async function run() {
   await connectDb();
-  assertSeedTarget('seed:full', 'It invents sixteen students and four mentors, and deletes and rebuilds every "Kickstarter · …" and "Generalist · …" batch along with its sessions, assignments and submissions.');
+  assertSeedTarget('seed:full', 'It invents sixteen students and four mentors, and deletes and rebuilds every "AI Kickstarter · …" and "AI Generalist · …" batch along with its sessions, assignments and submissions.');
   console.log('\n─────────── seeding a full LMS, mid-cohort ───────────\n');
 
   // ── Admin ──
@@ -258,8 +260,8 @@ async function run() {
 
   // ── Programmes ──
   const pdfUrls = await loadCurriculumPdfUrls(admin._id);
-  const kickR = await upsertProgram('Kickstarter', kickstarterModules, KICKSTARTER_DESCRIPTION, pdfUrls);
-  const genR = await upsertProgram('Generalist', generalistModules, GENERALIST_DESCRIPTION, pdfUrls);
+  const kickR = await upsertProgram(PROGRAMME_TITLES.kickstarter, kickstarterModules, KICKSTARTER_DESCRIPTION, pdfUrls);
+  const genR = await upsertProgram(PROGRAMME_TITLES.generalist, generalistModules, GENERALIST_DESCRIPTION, pdfUrls);
   const kick = kickR.doc;
   const gen = genR.doc;
   const progByTag = { K: kick, G: gen };
@@ -272,7 +274,7 @@ async function run() {
     const u = await upsertUser({ email: m.email, fullName: m.name, role: 'mentor' });
     mentors.push({ ...m, doc: u });
   }
-  const mentorsOf = (tag) => mentors.filter((m) => m.programs.includes(tag === 'K' ? 'Kickstarter' : 'Generalist'));
+  const mentorsOf = (tag) => mentors.filter((m) => m.programs.includes(tag));
 
   // Programme-level assignment grants curriculum visibility; batch-level (below)
   // grants management. access.js keeps these deliberately separate, so both are
@@ -292,7 +294,7 @@ async function run() {
   console.log(`✓ people          ${mentors.length} mentors · ${students.length} students (no user was deleted)`);
 
   // ── Tear down the previous run's batch-scoped content (never users) ──
-  const oldBatches = await Batch.find({ name: /^(Kickstarter|Generalist) · / }).select('_id');
+  const oldBatches = await Batch.find({ name: /^(AI )?(Kickstarter|Generalist) · / }).select('_id');
   const oldIds = oldBatches.map((b) => b._id);
   if (oldIds.length) {
     const oldSessions = await Session.find({ batchId: { $in: oldIds } }).select('_id');
@@ -315,7 +317,7 @@ async function run() {
 
   // ── Batches: eight weeks in, six to go ──
   const batches = {};
-  for (const [tag, label] of [['K', 'Kickstarter · Jul 2026'], ['G', 'Generalist · Jul 2026']]) {
+  for (const [tag, label] of [['K', `${PROGRAMME_TITLES.kickstarter} · Jul 2026`], ['G', `${PROGRAMME_TITLES.generalist} · Jul 2026`]]) {
     const enrolled = students.filter((s) => s.in.includes(tag));
     const b = await Batch.create({
       programId: progByTag[tag]._id,
@@ -671,7 +673,7 @@ async function run() {
   console.log(`  admin    ${ADMIN_EMAIL}  (password unchanged: ${ADMIN_PASSWORD})`);
   for (const m of mentors) console.log(`  mentor   ${m.email.padEnd(34)} ${m.programs.join(' + ')}`);
   console.log('');
-  for (const s of students) console.log(`  student  ${emailFor(s.name).padEnd(34)} ${s.in.map((t) => (t === 'K' ? 'Kickstarter' : 'Generalist')).join(' + ')}`);
+  for (const s of students) console.log(`  student  ${emailFor(s.name).padEnd(34)} ${s.in.map((t) => (t === 'K' ? PROGRAMME_TITLES.kickstarter : PROGRAMME_TITLES.generalist)).join(' + ')}`);
   console.log('\nDone.\n');
 
   await mongoose.disconnect();

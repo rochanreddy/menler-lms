@@ -59,13 +59,14 @@ import { DeviceSession } from '../models/DeviceSession.js';
 import { PlaybackLease } from '../models/PlaybackLease.js';
 import { FileAsset } from '../models/FileAsset.js';
 import { hashPassword } from '../utils/password.js';
+import { titleQuery } from '../utils/programmes.js';
 
 const STUDENT_EMAIL = (process.env.LMS_LAUNCH_STUDENT_EMAIL || 'team@menler.in').toLowerCase().trim();
 const STUDENT_NAME = process.env.LMS_LAUNCH_STUDENT_NAME || 'Menler Team';
 const STUDENT_PASSWORD = process.env.LMS_LAUNCH_STUDENT_PASSWORD || '';
-const KEEP_BATCHES = (process.env.LMS_KEEP_BATCHES || 'Kickstarter · Sept 2026,Generalist · Sept 2026')
+const KEEP_BATCHES = (process.env.LMS_KEEP_BATCHES || 'AI Kickstarter · Sept 2026,AI Generalist · Sept 2026')
   .split(',').map((s) => s.trim()).filter(Boolean);
-const STUDENT_BATCH = process.env.LMS_LAUNCH_STUDENT_BATCH || 'Generalist · Sept 2026';
+const STUDENT_BATCH = process.env.LMS_LAUNCH_STUDENT_BATCH || 'AI Generalist · Sept 2026';
 
 // Real accounts that must survive the cull, as a comma-separated list of
 // `email` or `email=Batch Name`. They keep their id, password and provisioning
@@ -131,7 +132,7 @@ async function run() {
   const missing = KEEP_BATCHES.filter((n) => !keep.some((x) => x.name === n));
   for (const name of missing) {
     const programTitle = name.split('·')[0].trim();
-    const program = await Program.findOne({ title: programTitle });
+    const program = await Program.findOne(titleQuery(programTitle));
     if (!program) fail(`Batch "${name}" does not exist and no programme is called "${programTitle}", so it cannot be created.`);
     await Batch.create({
       programId: program._id,

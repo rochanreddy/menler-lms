@@ -98,7 +98,7 @@ export default function ProgramsManage() {
 
       {isAdmin && (
         <form className="panel row" onSubmit={create}>
-          <input placeholder="New PROGRAMME title (e.g. Kickstarter). For a new month, use “Add cohort” below" value={title} onChange={(e) => setTitle(e.target.value)} required />
+          <input placeholder="New PROGRAMME title (e.g. AI Kickstarter). For a new month, use “Add cohort” below" value={title} onChange={(e) => setTitle(e.target.value)} required />
           <button className="btn">Create</button>
           {err && <span className="error">{err}</span>}
         </form>

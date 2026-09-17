@@ -253,7 +253,7 @@ router.post('/issue', requireAuth, requireRole('admin'), async (req, res) => {
 async function sampleContext({ programId, batchId }) {
   const batch = batchId ? await Batch.findById(batchId).populate('programId', 'title') : null;
   const program = batch?.programId || (programId ? await Program.findById(programId).select('title') : null);
-  return { program: program || { title: 'Generalist' }, batch };
+  return { program: program || { title: 'AI Generalist' }, batch };
 }
 
 // POST /api/lms/certificates/sample { name, programId, batchId }
