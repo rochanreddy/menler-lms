@@ -12,7 +12,10 @@
     "seed:content": "node scripts/seedContent.js",
     "seed:library": "node scripts/seedLibrary.js",
     "seed:full": "node scripts/seedFull.js",
-    "test:flows": "node scripts/testFlows.mjs"
+    "test:flows": "node scripts/testFlows.mjs",
+    "test:rubric": "node scripts/testRubric.mjs",
+    "calibrate": "node scripts/calibrate.mjs",
+    "test:quality": "node scripts/testGradingQuality.mjs"
   },
   "dependencies": {
     "bcryptjs": "^3.0.2",

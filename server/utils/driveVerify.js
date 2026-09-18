@@ -17,8 +17,14 @@ const DANGEROUS_EXTENSIONS = new Set([
 
 // HTML is dangerous by default (it can carry scripts), but a mentor can
 // legitimately ask for a web page as the deliverable. So it's blocked unless
-// the assignment explicitly lists 'html' as a required type — an opt-in
-// relaxation, never a global one.
+// the assignment opts in — an opt-in relaxation, never a global one.
+//
+// Opting in is `allowHtml`, which is separate from requiring an .html file.
+// It used to be the same flag: listing 'html' in requiredDriveTypes was the
+// only way to accept one, and it also made one mandatory. That is wrong for
+// the six Kickstarter assignments whose deliverable is a Claude Artifact,
+// because an Artifact arrives just as often as a PDF export or a shared link,
+// and demanding the .html rejected work that was perfectly complete.
 const HTML_EXTENSIONS = new Set(['html', 'htm']);
 
 const DOC_MIME_TYPES = new Set([
@@ -131,10 +137,10 @@ async function driveGet(path, apiKey) {
 }
 
 /**
- * verifyDriveFolder(driveLink, { requiredTypes }) -> { status, errorDetail, files }
+ * verifyDriveFolder(driveLink, { requiredTypes, allowHtml }) -> { status, errorDetail, files }
  * status: 'READY' | 'NEEDS_FIXES' | 'CHECK_FAILED'
  */
-export async function verifyDriveFolder(driveLink, { requiredTypes = ['video', 'image', 'doc'] } = {}) {
+export async function verifyDriveFolder(driveLink, { requiredTypes = ['image', 'doc'], allowHtml = false } = {}) {
   if (!driveLink || typeof driveLink !== 'string') {
     return { status: 'NEEDS_FIXES', errorDetail: 'A Drive folder link is required.', files: [] };
   }
@@ -196,7 +202,7 @@ export async function verifyDriveFolder(driveLink, { requiredTypes = ['video', '
   }
 
   if (items.length === 0) {
-    return { status: 'NEEDS_FIXES', errorDetail: 'This Drive folder is empty. Add your video, screenshots, and write-up, then resubmit.', files: [] };
+    return { status: 'NEEDS_FIXES', errorDetail: 'This Drive folder is empty. Add the files this assignment asks for, then resubmit.', files: [] };
   }
 
   // 3. Classify + check individual access. Dangerous files block outright;
@@ -204,10 +210,12 @@ export async function verifyDriveFolder(driveLink, { requiredTypes = ['video', '
   const dangerousNames = [];
   const privateNames = [];
   const files = [];
-  const allowHtml = requiredTypes.includes('html');
+  // Required implies allowed: an assignment that demands an .html file plainly
+  // permits one, whichever way the caller said it.
+  const htmlOk = allowHtml || requiredTypes.includes('html');
 
   for (const item of items) {
-    const type = classifyFile(item.name, item.mimeType || '', { allowHtml });
+    const type = classifyFile(item.name, item.mimeType || '', { allowHtml: htmlOk });
     if (type === 'dangerous') { dangerousNames.push(item.name); continue; }
 
     // One call per file, so this is where a big folder runs away.

@@ -5,7 +5,12 @@ import mongoose from 'mongoose';
 const submissionFileSchema = new mongoose.Schema(
   {
     name: { type: String, required: true },
-    type: { type: String, enum: ['video', 'image', 'doc', 'other'], default: 'other' },
+    // Must stay in step with what classifyFile() in utils/driveVerify.js can
+    // return. It can return 'html' and 'slides', and when it did, saving the
+    // submission threw a validation error instead of storing the file — which
+    // is how an assignment that opted into HTML (a Claude Artifact, the named
+    // deliverable of six Kickstarter assignments) failed at the last step.
+    type: { type: String, enum: ['video', 'image', 'doc', 'slides', 'html', 'other'], default: 'other' },
     webViewLink: { type: String, default: '' },
     mimeType: { type: String, default: '' },
   },
@@ -40,15 +45,29 @@ const submissionSchema = new mongoose.Schema(
     files: { type: [submissionFileSchema], default: [] },
     checkedAt: { type: Date, default: null },
 
-    // Automated review (see utils/aiGrade.js). Null until an AI review has been
-    // run at least once. Each stage's raw JSON is kept as-is so the pipeline can
-    // change shape without a migration, and so a mentor can see what the model
-    // actually said rather than only the rolled-up number.
+    // Automated review (see utils/aiGrade.js, scored against utils/rubric.js).
+    // Null until a review has been run at least once. The result is kept as
+    // Mixed and as-is, so the rubric can change shape without a migration and
+    // so a mentor can see what the model actually said rather than only the
+    // rolled-up number.
+    //
+    // `final` holds the whole result: the six criteria with their weights, the
+    // deliverables checklist, red flags, the evidence manifest that was graded,
+    // and the prose. `writeup` and `screenshots` are the two stages of the
+    // pre-rubric pipeline, kept so reviews stored before the rubric landed
+    // still render instead of vanishing from the mentor's screen.
     aiReview: {
       status: { type: String, enum: ['running', 'done', 'failed', null], default: null },
-      writeup: { type: mongoose.Schema.Types.Mixed, default: null },   // stage 1
-      screenshots: { type: mongoose.Schema.Types.Mixed, default: null }, // stage 2
-      final: { type: mongoose.Schema.Types.Mixed, default: null },      // stage 3
+      final: { type: mongoose.Schema.Types.Mixed, default: null },
+
+      // A MinHash sketch of this submission's written text (utils/similarity.js),
+      // kept so the NEXT student reviewed on this assignment can be compared
+      // against it without re-downloading and re-parsing the whole Drive folder.
+      // Indexed only by the assignment query that reads it; it is a fixed 128
+      // integers, so it costs about a kilobyte per submission.
+      fingerprint: { type: mongoose.Schema.Types.Mixed, default: null },
+      writeup: { type: mongoose.Schema.Types.Mixed, default: null },     // legacy
+      screenshots: { type: mongoose.Schema.Types.Mixed, default: null }, // legacy
       model: { type: String, default: '' },
       error: { type: String, default: null },
       reviewedAt: { type: Date, default: null },
