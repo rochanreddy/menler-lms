@@ -218,6 +218,11 @@ export default function AssignmentCard({ a, onChange, onSubmissionChange, defaul
                 <ul className="sub-reqs-list">
                   <li>
                     <span className="sub-req-tick" aria-hidden="true" />
+                    Paste the link to a <strong>folder</strong>, not to a single file or a Google
+                    Doc. In Drive, open the folder holding your work, then Share → Copy link.
+                  </li>
+                  <li>
+                    <span className="sub-req-tick" aria-hidden="true" />
                     Share the folder as <strong>“Anyone with the link can view”</strong>, a private
                     folder fails the check even when everything is in it.
                   </li>

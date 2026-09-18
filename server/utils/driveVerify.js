@@ -48,15 +48,42 @@ const TYPE_LABELS = {
   html: 'an HTML file',
 };
 
-function extractFolderId(driveLink) {
+// Google hands out more shapes of share link than the folder URL we ask for,
+// and a student who pastes the wrong one deserves to be told WHICH wrong one
+// it is. So this parses rather than tests: the commonest mistake by far is
+// "Copy link" on a document or a file, which gives /file/d/… or
+// docs.google.com/document/d/… — neither carries /folders/, so both used to
+// come back as "that does not look like a valid Drive link", which reads as
+// "your link is broken" to someone whose link opens perfectly well.
+//
+// It is also forgiving about the paste itself. A link arrives from WhatsApp
+// or the Drive app wrapped in spaces, angle brackets or a trailing full stop,
+// and a scheme-less "drive.google.com/…" is still a Drive link; none of that
+// is the student getting it wrong.
+const FILE_PATH_RE = /\/(?:file|document|spreadsheets|presentation|forms)\/d\/([a-zA-Z0-9_-]+)/;
+
+export function parseDriveLink(driveLink) {
+  const none = { kind: null, id: null };
+  const raw = String(driveLink || '').trim().replace(/^<+|>+$/g, '').replace(/[.,;)\]]+$/, '');
+  if (!raw) return none;
+
   let url;
-  try { url = new URL(driveLink); } catch { return null; }
-  if (!/(^|\.)(drive|docs)\.google\.com$/.test(url.hostname)) return null;
-  const m = url.pathname.match(/\/folders\/([a-zA-Z0-9_-]+)/);
-  if (m) return m[1];
+  try { url = new URL(/^https?:\/\//i.test(raw) ? raw : `https://${raw}`); } catch { return none; }
+  if (!/(^|\.)(drive|docs)\.google\.com$/.test(url.hostname)) return none;
+
+  // /drive/folders/…, /drive/u/0/folders/…, /drive/mobile/folders/… all match.
+  const folder = url.pathname.match(/\/folders\/([a-zA-Z0-9_-]+)/);
+  if (folder) return { kind: 'folder', id: folder[1] };
+
+  const file = url.pathname.match(FILE_PATH_RE);
+  if (file) return { kind: 'file', id: file[1] };
+
+  // Legacy /open?id=… names either a file or a folder; the metadata call
+  // below is what settles it.
   const qid = url.searchParams.get('id');
-  if (qid) return qid;
-  return null;
+  if (qid) return { kind: 'unknown', id: qid };
+
+  return none;
 }
 
 function extOf(name) {
@@ -112,9 +139,20 @@ export async function verifyDriveFolder(driveLink, { requiredTypes = ['video', '
     return { status: 'NEEDS_FIXES', errorDetail: 'A Drive folder link is required.', files: [] };
   }
 
-  const folderId = extractFolderId(driveLink);
+  const { kind, id: folderId } = parseDriveLink(driveLink);
+  if (kind === 'file') {
+    return {
+      status: 'NEEDS_FIXES',
+      errorDetail: 'That link points to a single file (or a Google Doc), not to a folder. In Drive, put your work in a folder, open that folder, use Share → Copy link, and paste that link here.',
+      files: [],
+    };
+  }
   if (!folderId) {
-    return { status: 'NEEDS_FIXES', errorDetail: 'That does not look like a valid Google Drive folder link.', files: [] };
+    return {
+      status: 'NEEDS_FIXES',
+      errorDetail: 'That does not look like a Google Drive link. It should start with https://drive.google.com/drive/folders/ — open your folder in Drive, use Share → Copy link, and paste the whole link.',
+      files: [],
+    };
   }
 
   const deadline = Date.now() + DRIVE_BUDGET_MS;

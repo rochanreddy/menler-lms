@@ -42,7 +42,11 @@ async function runCheck(sub, assignment) {
 // POST /api/lms/submissions  { assignmentId, driveLink } — student creates/re-submits
 // a Drive-folder submission and it's verified synchronously.
 router.post('/', requireAuth, async (req, res) => {
-  const { assignmentId, driveLink } = req.body || {};
+  const { assignmentId } = req.body || {};
+  // Trimmed on the way in: a link pasted from WhatsApp or the Drive app
+  // arrives with whitespace around it, and a stored link with a trailing
+  // space is one the mentor cannot click.
+  const driveLink = typeof req.body?.driveLink === 'string' ? req.body.driveLink.trim() : req.body?.driveLink;
   if (!assignmentId || !driveLink) return res.status(400).json({ error: 'assignmentId and driveLink are required.' });
 
   const a = await Assignment.findById(assignmentId);
@@ -152,7 +156,7 @@ router.patch('/:id', requireAuth, async (req, res) => {
     assignment = newAssignment;
   }
 
-  if (driveLink) sub.driveLink = driveLink;
+  if (driveLink) sub.driveLink = String(driveLink).trim();
   sub.checkStatus = 'PENDING_CHECK';
   sub.errorDetail = null;
   sub.status = 'submitted';
