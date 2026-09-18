@@ -20,14 +20,48 @@ const assignmentSchema = new mongoose.Schema(
     // null start means "open immediately", null due means "no cutoff".
     startDate: { type: Date, default: null },
     dueDate: { type: Date, default: null },
+    // Which of the five rubric weightings this piece of work is graded on.
+    // See utils/rubric.js and docs/AI-GRADING-RUBRIC.md: the six criteria never
+    // change, the WEIGHTS do, because a thirty-minute drill and a shipped
+    // capstone are not the same kind of thing and scoring them on one
+    // distribution marks the drill down for documentation it was never asked
+    // for. Set by scripts/syncCurriculumAssignments.js from the curriculum.
+    rubricClass: { type: String, enum: ['A', 'B', 'C', 'D', 'E'], default: 'B' },
+
+    // The explicit checklist the rubric's C1 (brief compliance) is scored
+    // against. Every curriculum brief already ends in a "Submit: …" line; this
+    // is that line, split. Scoring against a list rather than against the brief
+    // as prose is the single largest accuracy gain in the review and it needs
+    // no better model: "is the Prompt Cheat Sheet here" is checkable, "is it
+    // complete" is a matter of opinion. Empty is allowed and the review says so.
+    deliverables: { type: [String], default: [] },
+
+    // What this session taught, so the rubric's C3 (AI craft) can check the
+    // student used the feature the way it was taught rather than just "used AI".
+    taught: { type: String, default: '' },
+
     // File types a Drive-folder submission must contain to pass verification.
     // Listing 'html' also opts this assignment out of the default HTML block.
     // See utils/driveVerify.js.
+    //
+    // The default demands a video of EVERY assignment, which is wrong for most
+    // of the curriculum: a brief that asks for a Claude Artifact and a
+    // screenshot was rejected as incomplete because no video was in the folder.
+    // Video is still required wherever a brief actually asks for one (a Loom
+    // walkthrough, a demo recording) — it is simply not required everywhere,
+    // and it is never sent to a model. scripts/syncCurriculumAssignments.js
+    // sets this per assignment from what the brief says.
     requiredDriveTypes: {
       type: [String],
       enum: ['video', 'image', 'doc', 'slides', 'html'],
-      default: ['video', 'image', 'doc'],
+      default: ['image', 'doc'],
     },
+
+    // Lifts driveVerify's default block on HTML files without making one
+    // mandatory. A Claude Artifact is the named deliverable of six Kickstarter
+    // assignments and arrives as an .html file about as often as it arrives as
+    // a PDF export, so both have to pass. See utils/driveVerify.js.
+    allowHtml: { type: Boolean, default: false },
   },
   { timestamps: true },
 );

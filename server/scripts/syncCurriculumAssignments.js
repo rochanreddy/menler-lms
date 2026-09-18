@@ -21,6 +21,13 @@
 // projects in a module of their own at the end. Hence one extractor each,
 // rather than one clever rule that fits neither.
 //
+// ── On grading ──────────────────────────────────────────────────────────
+// It also sets the rubric class, the deliverables checklist and which file
+// types the folder must hold, all read off the brief by
+// utils/curriculumRubric.js and all printed in the dry run so a human confirms
+// twenty-seven rows before anything is written. Video is required only where a
+// brief asks for one, and is never graded: a mentor watches it.
+//
 // ── On dates ────────────────────────────────────────────────────────────────
 // It sets none. The curriculum says an assignment belongs to week 3; it does
 // not say when week 3 falls for a batch that started in July, and guessing
@@ -35,6 +42,7 @@ import { Program } from '../models/Program.js';
 import { Batch } from '../models/Batch.js';
 import { Assignment } from '../models/Assignment.js';
 import { PROGRAMME_TITLES, titleQuery } from '../utils/programmes.js';
+import { classifyWork } from '../utils/curriculumRubric.js';
 
 const APPLY = process.argv.includes('--apply');
 const ONLY = process.argv.slice(2).find((x) => !x.startsWith('--')) || '';
@@ -57,13 +65,17 @@ function generalistItems(program) {
       const isWeekly = /^Weekly Assignment:/i.test(c.title);
       const isMilestone = /^Milestone Project\s*\d+\s*·/i.test(c.title);
       if (!isWeekly && !isMilestone) continue;
+      const description = [c.description?.trim(), headed((c.topics || []).map((t) => [t.title, t.body]))]
+        .filter(Boolean).join('\n\n');
       out.push({
         type: isMilestone ? 'project' : 'assignment',
         title: c.title,
-        description: [c.description?.trim(), headed((c.topics || []).map((t) => [t.title, t.body]))]
-          .filter(Boolean).join('\n\n'),
+        description,
         week,
         groupLabel: week ? `Week ${week}` : '',
+        // How it is graded and what the folder must hold, read off the brief.
+        // Every row is printed in the dry run so a human confirms it.
+        ...classifyWork({ title: c.title, description, moduleTitle: m.title, chapterTitle: c.title }),
       });
     }
   }
@@ -84,14 +96,16 @@ function kickstarterItems(program) {
       for (const t of c.topics || []) {
         const isProject = /^P\d+\s*·/.test(t.title);
         if (!isProject && !/^Assignment:/i.test(t.title)) continue;
+        const description = t.body || '';
         out.push({
           type: isProject ? 'project' : 'assignment',
           title: t.title,
-          description: t.body || '',
+          description,
           // Projects group after every session, which is how a portfolio
           // reads: the four things you finish the course holding.
           week: isProject ? 99 : session,
           groupLabel: isProject ? 'Portfolio projects' : `Session ${String(session).padStart(2, '0')}`,
+          ...classifyWork({ title: t.title, description, moduleTitle: m.title, chapterTitle: c.title }),
         });
       }
     }
@@ -111,7 +125,17 @@ async function syncProgram({ title, build }) {
   const items = build(program);
   const batches = await Batch.find({ programId: program._id });
   console.log(`\n═══ ${title}: ${items.length} pieces of work · ${batches.length} batch(es)`);
-  for (const it of items) console.log(`  ${it.type.padEnd(10)} ${it.groupLabel.padEnd(19)} ${it.title.slice(0, 62)}`);
+  for (const it of items) {
+    console.log(`  ${it.type.padEnd(10)} ${it.groupLabel.padEnd(19)} ${it.title.slice(0, 62)}`);
+    // The classifier reads all of this off the brief, so all of it is shown.
+    // "?" marks a title the rubric class table did not know, which is the row
+    // most worth a second look before --apply.
+    console.log(`${' '.repeat(14)}rubric ${it.rubricClass}${it.matchedByTitle ? ' ' : '?'} · needs ${it.requiredDriveTypes.join(', ')}${it.allowHtml ? ' · html allowed' : ''}`);
+    if (it.deliverables.length) it.deliverables.forEach((d, i) => console.log(`${' '.repeat(16)}${i + 1}. ${d}`));
+    else console.log(`${' '.repeat(16)}(no checklist found in the brief, so C1 will say so)`);
+  }
+  const unmatched = items.filter((i) => !i.matchedByTitle);
+  if (unmatched.length) console.log(`\n  ! ${unmatched.length} title(s) are not in the rubric class table and were guessed from the brief: ${unmatched.map((i) => i.title).join(' · ')}`);
   if (!items.length || !batches.length) return tally;
 
   for (const b of batches) {
@@ -131,15 +155,26 @@ async function syncProgram({ title, build }) {
             groupLabel: it.groupLabel,
             startDate: null,
             dueDate: null,
+            rubricClass: it.rubricClass,
+            deliverables: it.deliverables,
+            taught: it.taught,
+            requiredDriveTypes: it.requiredDriveTypes,
+            allowHtml: it.allowHtml,
           });
         }
         continue;
       }
       // Never touch a date, or the type a mentor may have corrected — only the
       // brief and the grouping, which are the things the curriculum owns.
+      const sameList = (a, b) => (a || []).length === (b || []).length && (a || []).every((x, i) => x === b[i]);
       const same = (existing.description || '') === it.description
         && (existing.week ?? null) === it.week
-        && (existing.groupLabel || '') === it.groupLabel;
+        && (existing.groupLabel || '') === it.groupLabel
+        && (existing.rubricClass || '') === it.rubricClass
+        && (existing.taught || '') === it.taught
+        && !!existing.allowHtml === !!it.allowHtml
+        && sameList(existing.deliverables, it.deliverables)
+        && sameList(existing.requiredDriveTypes, it.requiredDriveTypes);
       if (same) { tally.unchanged++; continue; }
       console.log(`   ~ ${it.type.padEnd(10)} ${it.title.slice(0, 62)}`);
       tally.updated++;
@@ -147,6 +182,14 @@ async function syncProgram({ title, build }) {
         existing.description = it.description;
         existing.week = it.week;
         existing.groupLabel = it.groupLabel;
+        // How a piece of work is graded, and what has to be in the folder, are
+        // facts about the curriculum, so this owns them the way it owns the
+        // brief. Dates and the type a mentor may have corrected stay theirs.
+        existing.rubricClass = it.rubricClass;
+        existing.deliverables = it.deliverables;
+        existing.taught = it.taught;
+        existing.requiredDriveTypes = it.requiredDriveTypes;
+        existing.allowHtml = it.allowHtml;
         await existing.save();
       }
     }

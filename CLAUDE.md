@@ -31,6 +31,15 @@ cd server && node scripts/syncCurriculumAssignments.js     # dry run; --apply to
                                # session assignments + 4 portfolio projects. Name one
                                # programme to limit it. Idempotent; sets no dates.
 cd server && npm run test:flows # drives all three roles against a RUNNING server
+cd server && npm run test:rubric # the grading rubric's arithmetic, the curriculum
+                               # classifier, the link checker's refusals and the
+                               # duplicate detector. No network, no DB, no API key.
+cd server && npm run calibrate  # does the rubric agree with the mentors? Compares
+                               # every submission that has BOTH an AI review and a
+                               # mentor grade. Read-only.
+cd server && npm run test:quality # does the model separate strong work from
+                               # fluent filler? Needs GEMINI_API_KEY. Pass model
+                               # ids to compare two.
 cd server && CONFIRM_DB=<db> LMS_LAUNCH_STUDENT_PASSWORD=… node scripts/resetForLaunch.js
                                # wipe to launch state: admin + one student, two named
                                # batches, lesson trees + real library kept. Backs up
@@ -469,6 +478,153 @@ in a sandboxed iframe, so the placeholders are checked before, not after.
 A scheduled mail can be edited, sent early or cancelled; a sent, failed or
 cancelled one is history and can only be reused (which refills the form) or
 removed. The per-address failures are kept on the row and listed on the card.
+
+### Grading a submission
+
+A mentor opens a verified submission and presses **Run AI review**. Everything
+it produces is **advisory**: nothing writes to `Submission.score`, `.feedback`
+or `.status`, and the only button on the panel fills the mentor's own form. The
+student is never shown it and is never notified — a verdict comes from their
+mentor, not a model. Full reasoning in
+[docs/AI-GRADING-RUBRIC.md](docs/AI-GRADING-RUBRIC.md).
+
+**Text and photos are evaluated; nothing else.** Documents, Claude Artifacts,
+HTML, PDFs and photos are read. Audio and slide decks are listed in the manifest
+for the mentor and never assessed. There are no late penalties: a due date is an
+admin fact, not a quality judgement.
+
+**Video is never graded.** Documents, Claude Artifacts, HTML, PDFs and photos
+are read; a video is listed in the manifest for the mentor to watch and verify,
+and its absence is never held against a student. It is still *required* where a
+brief actually asks for one (Week 4, Kickstarter 4.2, P04) — required to submit,
+not read by a model. Before this the schema default demanded a video of every
+assignment, so a perfect Artifact-and-screenshot folder was rejected as
+incomplete.
+
+**One rubric, six criteria, five weightings.** Twenty-seven pieces of work
+across the two curricula cannot share one distribution: "AI Audit" is a
+hundred-word Discord post and the Generalist capstone is a shipped product.
+So [utils/rubric.js](server/utils/rubric.js) fixes six criteria that never
+change — brief compliance, evidence of real work, AI craft, reasoning,
+artefact quality, outcome and transfer — and an assignment's `rubricClass`
+(A Drill · B Artefact · C System · D Creative · E Capstone) says how they are
+weighted. A mentor reads the same six rows all term. Weights are asserted to
+sum to 100 at import, because a weighting that does not silently rescales every
+grade in its class.
+
+**C1 is scored against a list, not against prose.** Every curriculum brief ends
+in a `Submit:` line; `scripts/syncCurriculumAssignments.js` splits it into
+`Assignment.deliverables` and the rubric checks against that. "Is the Prompt
+Cheat Sheet here" is checkable; "is it complete" is an opinion. This is the
+largest accuracy gain in the review and it needs no better model. Where a brief
+gives prose rather than a list (the four Generalist milestones), **nothing is
+derived** — splitting prose produced checklist rows like "or product idea", and
+a wrong checklist marks a student down for a deliverable that was never asked
+for.
+
+**Arithmetic lives in JS, never in the prompt.** The model returns six 1-5
+judgements and nothing else; totals, weights, the band and the letter grade are
+derived in `scoreSubmission()`. A criterion whose evidence could not be read
+leaves **both sides** of the weighted average rather than scoring zero, and the
+mentor is told which and why.
+
+**A failure on our side never costs a student marks.** If the image model
+cannot be reached, the criteria that rested on those images are **credited** at
+4/5 and labelled "credited, not assessed"
+([`CREDITED_SCORE`](server/utils/rubric.js)) rather than scored low or dropped.
+Not 5: a silent 5 is indistinguishable from one that was earned, and the mentor
+would have no way to know the work was never looked at. Where images were the
+*whole* submission (4.4 is "Submit: screenshot of your headline and About
+section"), all six are credited.
+
+**Links are checked, and "unreachable" is not "dead".**
+[utils/urlCheck.js](server/utils/urlCheck.js) tries every web address in a
+submission, which matters because four Class E assignments turn on a working
+public URL and nothing used to open them. Only a hard 404, a 410 or a
+non-existent domain counts as dead; a 401, 403, 429 or timeout is reported as
+"could not be checked, please open it yourself", and the prompt says outright
+never to mark a student down for it. Getting that backwards fails students for
+our own user agent. Private, loopback and cloud-metadata addresses are refused
+before any fetch, because a write-up is untrusted text running on our server.
+
+**Duplicates are measured, never scored.**
+[utils/similarity.js](server/utils/similarity.js) keeps a MinHash sketch on
+each submission and compares it against the others on the same assignment. A
+match raises a red flag naming the other student and the overlap, and moves no
+number, because collusion is something a mentor establishes. The assignment
+brief's own wording is subtracted from every sketch first, or a cohort all
+quoting the same four sentences would read as a cohort all copying each other.
+
+**The weights are a guess until `npm run calibrate` says otherwise.** They came
+from reading the two curricula, not from data. Every submission already carries
+the mentor's score and the rubric's side by side; the script compares them and
+breaks the bias down by rubric class, because a class *is* a weighting and a
+class out of line with the rest is a one-line fix.
+
+**One model, one call, no fallback.** Gemini Flash-Lite through Google's
+OpenAI-compatible endpoint (`GEMINI_API_KEY`, free key at
+aistudio.google.com/apikey), in [utils/aiProvider.js](server/utils/aiProvider.js).
+There is no provider abstraction and that is deliberate: it existed for Sarvam,
+whose text model `sarvam-105b` is blind and whose only seeing model was a
+whitelisted beta the account never got, on a different endpoint. That forced
+three calls, two clients and two base URLs. Flash-Lite reads a write-up and its
+screenshots in the SAME request, so all of it collapsed. Switching vendors again
+is a base URL, a key and a model id, which is cheaper to do when needed than to
+carry a second code path nobody exercises.
+
+**Flash-Lite, not Flash**, and it is not only about cost. Google's free tier
+rations by REQUESTS per day, roughly 500 for Flash-Lite against roughly 20 for
+Flash, and one review is one request; quotas reset at midnight Pacific, which is
+12:30 pm IST, and are per *project*, so extra keys in the same project add
+nothing. But `npm run test:quality` also found Flash-Lite **grades better here**:
+a 64-point gap between real work and fluent filler against full Flash's 45, in
+3.6s against 25s. The smaller model was not a compromise.
+
+**The model id is `gemini-3.5-flash-lite`** and the 2.5 ids are already retired
+for new keys: Google answers `gemini-2.5-flash-lite` with a 404 naming its
+replacement. Expect to move again; that is what `AI_MODEL` is for.
+
+**A Gemini key beginning `AQ.` is not interchangeable with an `AIza` one.**
+It authenticates as `Authorization: Bearer` on the OpenAI-compatible endpoint
+this code uses, but the NATIVE endpoint refuses it as Bearer and takes it only
+as a `?key=` query parameter. Nothing here is affected; anything written against
+the native Gemini SDK would be.
+
+**Why the pipeline is one call.** It was three. A separate VISION call, because
+the old provider's text model could not see. A separate NARRATIVE call, so the
+prose would be written against settled numbers, which re-sent the whole rubric
+result as input to produce four sentences, for about a third of the cost of
+every review. The prose must not quote a score anyway (totals are computed after
+the model replies, and the prompt forbids naming one), so there was nothing to
+settle first. One call is three times cheaper, three times faster, triples what
+the free tier covers, and has two outcomes instead of eight. `temperature: 0`,
+because a grader that varies run to run is one a mentor cannot calibrate
+against.
+
+**Before trusting a model, check it can TELL GOOD WORK FROM BAD.**
+`npm run test:quality` runs three fixture submissions for one assignment through
+the real prompt and the real arithmetic: STRONG (real numbers, quoted prompts, a
+reversal), THIN (fluent, complete, and empty of anything only one student could
+have written) and COPIED (the brief pasted back). The number that matters is
+STRONG minus THIN; anyone catches a pasted brief. Under about 10 points means
+the model is pattern-matching "assignment" and returning the average, which
+looks like it works and tells a mentor nothing. Every other check in this repo
+only proves a model REPLIES.
+
+Two traps that script fell into itself, both fixed, both worth knowing if it is
+ever extended. **20/100 is the floor**, six criteria at 1 out of 5, so when both
+weak fixtures land there a zero gap between them is the grader agreeing they are
+both failing, not a grader that cannot tell them apart; requiring a numeric gap
+there reported a good model as marginal. And **"insufficient content" was firing
+on work that was merely empty**: the flag now means genuinely too short, roughly
+under 75 words, because telling a student who wrote three paragraphs that there
+was too little to assess is obviously untrue to them and discredits the rest of
+the feedback.
+
+**`allowHtml` is not `requiredDriveTypes: ['html']`.** Six Kickstarter
+assignments name a Claude Artifact as the deliverable, and it arrives as an
+`.html` file about as often as a PDF export. The two used to be one flag, so
+accepting an artifact made the `.html` mandatory and rejected the PDF.
 
 ### Classes and attendance
 

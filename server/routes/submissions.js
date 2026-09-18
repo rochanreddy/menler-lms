@@ -6,7 +6,7 @@ import { canAccessBatch, isMentorOfBatch, isBlockedFromAssignment, myBatchIds } 
 import { notify } from '../utils/notify.js';
 import { verifyDriveFolder } from '../utils/driveVerify.js';
 import { collectSubmissionContent } from '../utils/submissionContent.js';
-import { gradeWriteup, reviewScreenshots, combineGrade, AI_GRADE_MODEL } from '../utils/aiGrade.js';
+import { reviewSubmission, AI_GRADE_MODEL } from '../utils/aiGrade.js';
 
 const router = Router();
 
@@ -22,7 +22,10 @@ const startsAtMsg = (a) =>
   `Submissions for this ${a?.type || 'assignment'} open on ${new Date(a.startDate).toLocaleString()}.`;
 
 async function runCheck(sub, assignment) {
-  const result = await verifyDriveFolder(sub.driveLink, { requiredTypes: assignment?.requiredDriveTypes });
+  const result = await verifyDriveFolder(sub.driveLink, {
+    requiredTypes: assignment?.requiredDriveTypes,
+    allowHtml: assignment?.allowHtml,
+  });
   sub.checkStatus = result.status;
   sub.errorDetail = result.errorDetail;
   sub.files = result.status === 'READY' ? result.files : [];
@@ -196,7 +199,7 @@ router.patch('/:id/grade', requireAuth, async (req, res) => {
 // POST /api/lms/submissions/:id/recheck — mentor/admin manually re-runs Drive
 // verification (after CHECK_FAILED, or the student says permissions are fixed).
 router.post('/:id/recheck', requireAuth, requireRole('mentor', 'admin'), async (req, res) => {
-  const sub = await Submission.findOne({ _id: req.params.id, isDeleted: false }).populate('assignmentId', 'title batchId requiredDriveTypes');
+  const sub = await Submission.findOne({ _id: req.params.id, isDeleted: false }).populate('assignmentId', 'title batchId requiredDriveTypes allowHtml');
   if (!sub) return res.status(404).json({ error: 'Submission not found.' });
   if (!(await isMentorOfBatch(req.user, sub.assignmentId?.batchId))) return res.status(403).json({ error: 'Forbidden.' });
   if (!sub.driveLink) return res.status(400).json({ error: 'This submission has no Drive link to check.' });
@@ -206,20 +209,21 @@ router.post('/:id/recheck', requireAuth, requireRole('mentor', 'admin'), async (
 });
 
 // POST /api/lms/submissions/:id/ai-review — mentor/admin runs the automated
-// review (utils/aiGrade.js) over a verified submission.
+// review (utils/aiGrade.js, scored against utils/rubric.js) over a verified
+// submission.
 //
 // Advisory only: this writes to sub.aiReview and never touches score/feedback/
 // status/locked. The mentor still grades via PATCH /:id/grade. The student is
 // not notified — they should hear a verdict from their mentor, not a model.
 //
-// Runs synchronously: three model calls, so expect this to take a while. If it
-// grows past what a request can hold, move it to a queue and let the stored
-// aiReview.status = 'running' be what the UI polls.
+// Runs synchronously: up to three model calls, so expect this to take a while.
+// If it grows past what a request can hold, move it to a queue and let the
+// stored aiReview.status = 'running' be what the UI polls.
 router.post('/:id/ai-review', requireAuth, requireRole('mentor', 'admin'), async (req, res) => {
   const sub = await Submission.findOne({ _id: req.params.id, isDeleted: false })
     .populate({
       path: 'assignmentId',
-      select: 'title description batchId type',
+      select: 'title description batchId type rubricClass deliverables taught',
       populate: { path: 'batchId', select: 'programId', populate: { path: 'programId', select: 'title' } },
     });
   if (!sub) return res.status(404).json({ error: 'Submission not found.' });
@@ -233,46 +237,78 @@ router.post('/:id/ai-review', requireAuth, requireRole('mentor', 'admin'), async
     return res.status(400).json({ error: 'This submission has not passed Drive verification yet, so there is nothing to review.' });
   }
 
-  sub.aiReview = { status: 'running', writeup: null, screenshots: null, final: null, model: AI_GRADE_MODEL, error: null, reviewedAt: null };
+  // The previous run's fingerprint is kept across a re-run: it is a property of
+  // the submitted text, and clearing it would take this student out of every
+  // other student's duplicate check for as long as the re-run takes.
+  sub.aiReview.status = 'running';
+  sub.aiReview.final = null;
+  sub.aiReview.writeup = null;
+  sub.aiReview.screenshots = null;
+  sub.aiReview.model = AI_GRADE_MODEL;
+  sub.aiReview.error = null;
+  sub.aiReview.reviewedAt = null;
   await sub.save();
 
-  const context = {
-    assignmentTitle: assignment.title,
-    programName: assignment.batchId?.programId?.title || 'Menler',
-  };
-
   try {
-    const { text, images, notes } = await collectSubmissionContent(sub);
-    if (!text && !images.length) {
-      throw new Error('No write-up or screenshots could be read from this submission.');
+    // Class D is the creative work (the Week 3 Media Kit, the Creative Asset
+    // Set). Its images are the deliverable and are judged on craft; everywhere
+    // else an image is a screenshot proving a thing ran. Nothing about the file
+    // itself tells you which, so the rubric class does.
+    const manifest = await collectSubmissionContent(sub, { creative: assignment.rubricClass === 'D' });
+
+    // Video alone is not something to grade. It is listed for the mentor and
+    // never sent to a model, so a folder holding only a Loom has nothing in it
+    // this review can read, and saying so is better than scoring it.
+    const readable = manifest.items.filter((it) => it.kind !== 'video' && !it.unreadable);
+    if (!readable.length) {
+      throw new Error('Nothing readable was found in this submission. Documents, Claude Artifacts, PDFs and screenshots are reviewed; video is left for you to watch.');
     }
 
-    // The two components are independent — run them together, and let one
-    // failing leave the other's result intact rather than losing both.
-    const [writeupOutcome, screenshotOutcome] = await Promise.allSettled([
-      text
-        ? gradeWriteup({ ...context, brief: assignment.description, text })
-        : Promise.reject(new Error('No write-up document was found in this submission.')),
-      images.length
-        ? reviewScreenshots({ ...context, expectedOutput: assignment.description, images })
-        : Promise.reject(new Error('No screenshots were found in this submission.')),
-    ]);
+    // Everyone else who has handed in THIS assignment and has already been
+    // reviewed, so the write-up can be compared against theirs. Only the stored
+    // fingerprint is loaded, never their text: the comparison is between two
+    // sketches, and a mentor reviewing one student has no business pulling
+    // another student's work into memory.
+    const peers = (await Submission.find({
+      assignmentId: assignment._id,
+      _id: { $ne: sub._id },
+      isDeleted: false,
+      'aiReview.fingerprint': { $ne: null },
+    }).select('studentId aiReview.fingerprint').populate('studentId', 'fullName').limit(200))
+      .map((p) => ({
+        studentName: p.studentId?.fullName || 'another student',
+        fingerprint: p.aiReview?.fingerprint,
+      }))
+      .filter((p) => p.fingerprint);
 
-    const writeup = writeupOutcome.status === 'fulfilled' ? writeupOutcome.value : null;
-    const screenshots = screenshotOutcome.status === 'fulfilled' ? screenshotOutcome.value : null;
-    // A component that failed is recorded as a note, never as a zero.
-    if (!writeup) notes.push(`Write-up not scored: ${writeupOutcome.reason.message}`);
-    if (!screenshots) notes.push(`Screenshots not reviewed: ${screenshotOutcome.reason.message}`);
+    const final = await reviewSubmission({
+      manifest,
+      peers,
+      assignmentTitle: assignment.title,
+      assignmentType: assignment.type,
+      programName: assignment.batchId?.programId?.title || 'Menler',
+      rubricClass: assignment.rubricClass,
+      brief: assignment.description,
+      deliverables: assignment.deliverables,
+      taught: assignment.taught,
+    });
 
-    const final = await combineGrade({ ...context, writeup, screenshots });
-    if (notes.length) final.notes = notes;
-
-    sub.aiReview = { status: 'done', writeup, screenshots, final, model: AI_GRADE_MODEL, error: null, reviewedAt: new Date() };
+    const { fingerprint, ...result } = final;
+    sub.aiReview = {
+      status: 'done',
+      final: result,
+      fingerprint,
+      writeup: null,
+      screenshots: null,
+      model: AI_GRADE_MODEL,
+      error: null,
+      reviewedAt: new Date(),
+    };
     await sub.save();
     res.json({ submission: sub });
   } catch (err) {
     // aiReview is a nested path, not a subdocument — set the fields explicitly
-    // rather than spreading, and keep whatever partial stage results exist.
+    // rather than spreading.
     sub.aiReview.status = 'failed';
     sub.aiReview.error = err.message;
     sub.aiReview.reviewedAt = new Date();

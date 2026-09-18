@@ -2506,18 +2506,73 @@ input:hover:not(:disabled):not(:focus), select:hover:not(:disabled):not(:focus),
 .air-stage-body { padding: 14px 15px; border-top: 1px solid var(--line); }
 .air-summary { margin: 0 0 12px; font-size: 13.5px; line-height: 1.6; color: var(--ink-2); }
 
-/* Write-up criteria. */
+/* The six rubric criteria. Not collapsed behind a disclosure: this IS the
+   grade, and the weight sits next to each one because "why did a 3 here cost
+   more than a 3 there" is the first thing a mentor asks. */
 .air-criteria, .air-check { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 13px; }
+.air-criteria { margin-top: 16px; }
 .air-criteria > li { padding-top: 13px; border-top: 1px solid var(--line-soft); }
 .air-criteria > li:first-child { padding-top: 0; border-top: 0; }
 .air-criterion-top { display: flex; align-items: center; gap: 12px; }
-.air-criterion { flex: 1; font-size: 13.5px; font-weight: 600; color: var(--ink); }
+.air-criterion { flex: 1; font-size: 13.5px; font-weight: 600; color: var(--ink); display: flex; align-items: baseline; gap: 7px; }
+.air-criterion-key {
+  flex: none; font-size: 10.5px; font-weight: 700; letter-spacing: .04em;
+  color: var(--muted); font-variant-numeric: tabular-nums;
+}
+.air-criterion-weight { flex: none; font-size: 11.5px; color: var(--faint); font-variant-numeric: tabular-nums; }
 .air-criterion-fb { margin: 5px 0 0; font-size: 12.5px; line-height: 1.55; color: var(--muted); }
+/* A criterion our own tooling could not assess, so it was credited rather than
+   marked down. NOT dimmed: a dimmed row reads as unimportant, and this is the
+   one row on the panel only the mentor can settle. The student was not
+   penalised for our outage; the mentor still has to look. */
+.air-criteria > li.is-credited {
+  margin-left: -11px; padding-left: 11px;
+  border-left: 2px solid var(--warn-line); border-radius: 2px;
+}
+.air-criteria > li.is-credited .air-criterion-weight {
+  color: var(--warn-ink); font-weight: 600;
+}
+
+/* The link check. A dead link and a link we simply could not reach from the
+   server mean completely different things, so they never share a colour:
+   LinkedIn, Notion and Replit all refuse robots on pages that work perfectly. */
+.air-links { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 9px; }
+.air-links > li { display: flex; align-items: baseline; gap: 9px; font-size: 12.5px; flex-wrap: wrap; }
+.air-link-status {
+  flex: none; min-width: 58px; font-size: 10.5px; font-weight: 700;
+  letter-spacing: .08em; text-transform: uppercase; color: var(--faint);
+}
+.air-links > li.tone-ok .air-link-status { color: var(--ok-ink); }
+.air-links > li.tone-danger .air-link-status { color: var(--danger); }
+.air-link-url { flex: 1 1 260px; overflow-wrap: anywhere; }
+.air-link-url a { color: var(--ink); text-decoration: underline; text-underline-offset: 2px; }
+.air-links > li.tone-danger .air-link-url a { color: var(--danger); }
+.air-link-note { flex: none; color: var(--muted); }
 .air-steps { display: inline-flex; gap: 3px; flex: none; }
 .air-step { width: 16px; height: 5px; border-radius: 3px; background: var(--line); }
 .air-step.on { background: var(--air-tone); }
 
-/* Screenshot checklist. */
+/* What the review actually read, and what it left alone. The video row is the
+   point of this list: it is the mentor's cue that their own eyes are still
+   required on part of the folder. */
+.air-evidence { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 7px; }
+.air-evidence > li { display: flex; align-items: baseline; gap: 9px; font-size: 12.5px; }
+.air-ev-n {
+  flex: none; display: grid; place-items: center; min-width: 17px; height: 17px; padding: 0 4px;
+  border-radius: 5px; background: var(--line-soft); color: var(--muted);
+  font-size: 10.5px; font-weight: 700; font-variant-numeric: tabular-nums;
+}
+.air-ev-kind {
+  flex: none; min-width: 74px; font-size: 10.5px; font-weight: 700;
+  letter-spacing: .08em; text-transform: uppercase; color: var(--faint);
+}
+.air-ev-name { font-weight: 600; color: var(--ink); overflow-wrap: anywhere; }
+.air-ev-note { margin-left: auto; padding-left: 10px; text-align: right; color: var(--muted); }
+.air-evidence > li.is-video .air-ev-kind,
+.air-evidence > li.is-video .air-ev-note { color: var(--warn-ink); }
+.air-evidence > li.is-unread .air-ev-note { color: var(--danger); }
+
+/* Deliverables checklist. */
 .air-check > li { display: flex; align-items: flex-start; gap: 10px; }
 .air-check-mark {
   flex: none; display: grid; place-items: center; width: 18px; height: 18px; margin-top: 1px;

@@ -401,6 +401,16 @@ async function run() {
         startDate: at(spec.start, 10),
         dueDate: at(spec.due, 23, 59),
         requiredDriveTypes: spec.required,
+        // The fixture's own checklist, so a mentor testing the AI review against
+        // seeded work sees C1 scored against something rather than told no
+        // checklist was set. The real curriculum's lists come from the briefs,
+        // via scripts/syncCurriculumAssignments.js.
+        deliverables: [
+          ...spec.required.map((t) => ({ video: 'A video walkthrough', image: 'A screenshot of it working', doc: 'A write-up under a page', slides: 'A slide deck', html: 'The artifact itself' })[t] || t),
+          'The problem stated in one sentence',
+          'The before and the after',
+        ],
+        taught: spec.title,
       });
       assignments.push({ doc: a, spec });
       counts.assignments++;
