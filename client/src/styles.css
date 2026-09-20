@@ -2771,10 +2771,6 @@ input:hover:not(:disabled):not(:focus), select:hover:not(:disabled):not(:focus),
 .auth-alt { display: flex; justify-content: center; margin-top: calc(var(--space-2) * -1); }
 
 /* A lesson whose video lives on Drive/YouTube: a hand-off, not a player. */
-.lesson-video-link { display: flex; align-items: center; justify-content: space-between;
-  gap: var(--space-4); flex-wrap: wrap; }
-.lesson-video-link .muted { font-size: 13px; margin-top: 2px; }
-
 /* ── Support ────────────────────────────────────────────────────────────────
    The student help desk and the admin's side of it. Both render the same
    thread, so the thread has one set of classes: what differs is only whose

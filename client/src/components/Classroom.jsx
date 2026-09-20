@@ -501,10 +501,15 @@ export default function Classroom() {
             {VDOCIPHER_ENABLED && topic.contentType === 'video' && myVideo(topic._id) && (
               <VdoCipherPlayer key={topic._id} fetchOtp={(takeover) => getLessonVideoOtp(myVideo(topic._id).batchId, topic._id, takeover)} />
             )}
-            {topic.contentType === 'video' && (!VDOCIPHER_ENABLED || !myVideo(topic._id)) && topic.contentUrl && (
-              isDirectVideoFile(topic.contentUrl)
-                ? <LessonVideo key={topic._id} url={topic.contentUrl} />
-                : <HostedVideo key={topic._id} url={topic.contentUrl} />
+            {/* Only a real media file plays here. A video hosted elsewhere -- a
+                Drive file, YouTube, Loom -- is reached through the "Watch class
+                video" chip in the header above, which opens the same link
+                (videoRow = classLink || video). There used to be a hand-off card
+                here as well, which meant the same link appeared twice on one
+                screen. */}
+            {topic.contentType === 'video' && (!VDOCIPHER_ENABLED || !myVideo(topic._id))
+              && topic.contentUrl && isDirectVideoFile(topic.contentUrl) && (
+              <LessonVideo key={topic._id} url={topic.contentUrl} />
             )}
             {topic.contentType === 'pdf' && topic.contentUrl && (
               <button type="button" className="btn" onClick={() => setViewer({ label: 'Lesson PDF', subtitle: topic.title, url: topic.contentUrl })}>📄 Open PDF</button>
@@ -643,27 +648,6 @@ export default function Classroom() {
 
 // Lesson video with a graceful failure path — a dead CDN link or an
 // unsupported codec should offer a retry and a direct link, not a black frame.
-// A video that lives somewhere else -- a Drive file or folder, YouTube, Loom.
-// It cannot be put in a <video> element (a Drive share link is an HTML page,
-// not a media file), and embedding Drive in an iframe breaks the moment the
-// folder's sharing changes. So this hands the student off to the source, and
-// says where it is going first -- an unlabelled new tab reads as a broken link.
-function HostedVideo({ url }) {
-  const drive = /drive\.google\.com|docs\.google\.com/i.test(url);
-  return (
-    <div className="panel lesson-video-link">
-      <div className="row" style={{ alignItems: 'center', gap: 'var(--space-3)' }}>
-        <LineIcon name="video" size={18} />
-        <div>
-          <strong>{drive ? 'This class’s video is on Google Drive' : 'Watch this class’s video'}</strong>
-          <div className="muted">Opens in a new tab{drive ? ', signed in with your own Google account' : ''}.</div>
-        </div>
-      </div>
-      <a className="btn" href={url} target="_blank" rel="noreferrer">Watch the video</a>
-    </div>
-  );
-}
-
 function LessonVideo({ url }) {
   const [failed, setFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
