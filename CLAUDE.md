@@ -254,9 +254,17 @@ of writing so an opinion from someone who watched the recording reads as one.
 which started *after* the account was created, so a student enrolled mid-course
 is not met by a wall of forms for classes they never saw.
 
-**Mentors never see reviews** — that is what makes them honest. They live under
-the admin's **Feedback** tab, filtered by batch
-([routes/reviews.js](server/routes/reviews.js) is `requireRole('admin')`).
+**A mentor sees their own classes' reviews, never a name.** The admin's
+**Feedback** tab and the mentor's are the same page
+([pages/admin/Feedback.jsx](client/src/pages/admin/Feedback.jsx), branching on
+the viewer's role); `GET /reviews` serves an admin everything and a mentor only
+the batches they are assigned to, with the student's name and email stripped.
+Session carries no mentor, so the batch is the link — two mentors on one batch
+share its feedback. The anonymity is what is left of the older rule that
+mentors saw none of this: a mentor cannot improve without reading their own
+scores, and a student who thinks their mentor can see their name writes the
+review they think is safe. A batch id typed into the query string is
+intersected with the mentor's own batches, so it widens nothing.
 
 ### One account, one device
 

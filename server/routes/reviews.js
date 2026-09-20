@@ -93,25 +93,45 @@ router.post('/:sessionId', requireAuth, requireRole('student'), async (req, res)
   res.json({ ok: true, remaining: (await owed(req.user)).length });
 });
 
-// GET /api/lms/reviews?batchId=&sessionId= — admin only. Mentors are
-// deliberately excluded: a review of a class is feedback ABOUT the person who
-// taught it, and students answer differently when the mentor is reading.
-router.get('/', requireAuth, requireRole('admin'), async (req, res) => {
+// GET /api/lms/reviews?batchId=&sessionId= — the admin sees every review; a
+// mentor sees the reviews of the classes THEY taught, which is their own
+// batches and nobody else's (Session carries no mentor, so the batch is the
+// link — two mentors sharing a batch share its feedback).
+//
+// **A mentor is never told who wrote one.** That is what is left of the old
+// rule that mentors saw none of this at all: a mentor who cannot improve
+// without reading their own scores also cannot be trusted with a name against
+// a 2★, and a student who thinks their mentor can see their name writes the
+// review they think is safe. So the scores and the words travel and the
+// student does not.
+router.get('/', requireAuth, requireRole('admin', 'mentor'), async (req, res) => {
+  const mine = req.user.role === 'mentor' ? (await myBatchIds(req.user)).map(String) : null;
+  if (mine && !mine.length) {
+    return res.json({ batches: [], summary: { count: 0, averages: Object.fromEntries(SCORE_KEYS.map((k) => [k, 0])) }, reviews: [] });
+  }
+
   const q = {};
   // A programme is every batch that runs it — one today, several next intake.
   // A named batch narrows further, so the two compose rather than conflict.
+  // Every one of these is then intersected with what the viewer may see, so a
+  // mentor typing another cohort's id in the query string gets nothing back.
+  let scopeIds = mine;
   if (req.query.programId) {
-    const ids = (await Batch.find({ programId: req.query.programId }).select('_id')).map((b) => b._id);
-    q.batchId = { $in: ids };
+    const ids = (await Batch.find({ programId: req.query.programId }).select('_id')).map((b) => String(b._id));
+    scopeIds = scopeIds ? scopeIds.filter((id) => ids.includes(id)) : ids;
   }
-  if (req.query.batchId) q.batchId = req.query.batchId;
+  if (req.query.batchId) {
+    const one = String(req.query.batchId);
+    scopeIds = scopeIds ? scopeIds.filter((id) => id === one) : [one];
+  }
+  if (scopeIds) q.batchId = { $in: scopeIds };
   if (req.query.sessionId) q.sessionId = req.query.sessionId;
 
   const reviews = await ClassReview.find(q).sort({ createdAt: -1 }).limit(500).lean();
   const [students, sessions, batches] = await Promise.all([
-    User.find({ _id: { $in: reviews.map((r) => r.studentId) } }).select('fullName email').lean(),
+    mine ? [] : User.find({ _id: { $in: reviews.map((r) => r.studentId) } }).select('fullName email').lean(),
     Session.find({ _id: { $in: reviews.map((r) => r.sessionId) } }).select('title startsAt').lean(),
-    Batch.find().select('name programId').populate('programId', 'title').lean(),
+    Batch.find(mine ? { _id: { $in: mine } } : {}).select('name programId').populate('programId', 'title').lean(),
   ]);
   const byId = (rows) => Object.fromEntries(rows.map((r) => [String(r._id), r]));
   const S = byId(students); const Z = byId(sessions); const B = byId(batches);
@@ -140,7 +160,8 @@ router.get('/', requireAuth, requireRole('admin'), async (req, res) => {
       comment: r.comment,
       attended: r.attended,
       createdAt: r.createdAt,
-      student: { name: S[String(r.studentId)]?.fullName || '', email: S[String(r.studentId)]?.email || '' },
+      // Empty for a mentor, and the page says "A student" in its place.
+      student: mine ? { name: '', email: '' } : { name: S[String(r.studentId)]?.fullName || '', email: S[String(r.studentId)]?.email || '' },
       // The id travels so the page can group a class's reviews together —
       // two classes can share a title across cohorts.
       session: { id: String(r.sessionId), title: Z[String(r.sessionId)]?.title || '', startsAt: Z[String(r.sessionId)]?.startsAt || null },

@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useOutletContext } from 'react-router-dom';
 import { api } from '../../api.js';
 import { Badge, Button, Card, Progress, Skeleton, Stack, Tabs, Text } from '../../components/ui/index.js';
 import Empty from '../../components/Empty.jsx';
 
-// Admin: what every student said about every class. Admin-only by design —
-// mentors never see reviews of their own classes, which is the whole reason
-// students answer honestly.
+// What every student said about every class. The admin sees the whole board; a
+// mentor opens the same page and sees their own batches' classes, with no name
+// against any review — the scores and the words are how a mentor gets better,
+// and the anonymity is what keeps them worth reading.
 //
 // Three levels, narrowing: programme → batch → the reviews themselves. The
 // batch row is not hidden while a programme has only one cohort; it is the
@@ -51,6 +53,8 @@ function ChipRow({ label, options, value, onChange }) {
 }
 
 export default function AdminFeedback() {
+  const { user } = useOutletContext();
+  const mentor = user?.role === 'mentor';
   const [data, setData] = useState(null);
   const [err, setErr] = useState('');
   const [programId, setProgramId] = useState('');
@@ -107,9 +111,13 @@ export default function AdminFeedback() {
     <Stack gap="6">
       <div className="page-head">
         <div>
-          <div className="eyebrow">Admin board</div>
+          <div className="eyebrow">{mentor ? 'Your classes' : 'Admin board'}</div>
           <Text role="heading-1">Feedback</Text>
-          <Text role="body" tone="muted">How every class landed, in the students&rsquo; words. Mentors cannot see this.</Text>
+          <Text role="body" tone="muted">
+            {mentor
+              ? 'How your classes landed, in the students’ words. Reviews are anonymous — you see what was said, never who said it.'
+              : 'How every class landed, in the students’ words.'}
+          </Text>
         </div>
       </div>
 
@@ -135,7 +143,13 @@ export default function AdminFeedback() {
       {!data && !err && <Skeleton rows={4} label="Loading feedback…" />}
 
       {data && scope.length === 0 && (
-        <Empty icon="forum" title="No reviews here yet." hint="Students are asked to review a class the first time they open the LMS after it ends." />
+        <Empty
+          icon="forum"
+          title="No reviews here yet."
+          hint={mentor
+            ? 'Your students are asked to review a class the first time they open the LMS after it ends.'
+            : 'Students are asked to review a class the first time they open the LMS after it ends.'}
+        />
       )}
 
       {data && scope.length > 0 && (
@@ -231,7 +245,7 @@ export default function AdminFeedback() {
                   <div className="fb-review-head">
                     <Stars n={r.scores.overall} size="sm" />
                     {!r.attended && <Badge>Did not attend</Badge>}
-                    <span className="fb-review-who">{r.student.name || r.student.email} · {timeLabel(r.createdAt)}</span>
+                    <span className="fb-review-who">{r.student.name || r.student.email || 'A student'} · {timeLabel(r.createdAt)}</span>
                   </div>
                   <div className="fb-review-scores">
                     {SCORE_KEYS.filter((k) => k !== 'overall').map((k) => (

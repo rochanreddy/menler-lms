@@ -30,7 +30,10 @@ const AdminHome = lazy(() => import('./pages/admin/Home.jsx'));
 const AdminStudents = lazy(() => import('./pages/admin/Students.jsx'));
 const AdminStudentDetail = lazy(() => import('./pages/admin/StudentDetail.jsx'));
 const AdminMentorDetail = lazy(() => import('./pages/admin/MentorDetail.jsx'));
-const AdminFeedback = lazy(() => import('./pages/admin/Feedback.jsx'));
+// Shared by the admin and the mentor: the admin sees every class's reviews,
+// a mentor only their own batches' and never the name against one. The page
+// branches on the viewer's role.
+const Feedback = lazy(() => import('./pages/admin/Feedback.jsx'));
 const AdminDoubts = lazy(() => import('./pages/admin/Doubts.jsx'));
 const DoubtSession = lazy(() => import('./pages/DoubtSession.jsx'));
 const Support = lazy(() => import('./pages/Support.jsx'));
@@ -94,6 +97,7 @@ export function navFor(role) {
         { label: 'Learning', path: 'learning', Component: Learning },
         { label: 'Programs', path: 'programs', Component: MentorBatches },
         { label: 'Students', path: 'students', Component: MentorStudents },
+        { label: 'Feedback', path: 'feedback', Component: Feedback },
         { label: 'Forum', path: 'forum', Component: Forum },
         { label: 'Webinar', path: 'webinar', Component: Webinar },
       ];
@@ -104,7 +108,7 @@ export function navFor(role) {
         { label: 'Batches', path: 'batches', Component: AdminBatches },
         { label: 'Students', path: 'students', Component: AdminStudents },
         { label: 'Mentors', path: 'mentors', Component: AdminMentors },
-        { label: 'Feedback', path: 'feedback', Component: AdminFeedback },
+        { label: 'Feedback', path: 'feedback', Component: Feedback },
         { label: 'Doubts', path: 'doubts', Component: AdminDoubts },
         { label: 'Support', path: 'support', Component: AdminSupport },
         { label: 'Certificates', path: 'certificates', Component: AdminCertificates },
