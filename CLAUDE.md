@@ -123,11 +123,48 @@ blur into one list. An **assignment** — Kickstarter's `Assignment: …` lesson
 (`isAssignmentChapter()`) — lists only its own notes: its reading is the
 brief and its notes the solution book, not the session's deck. The mentor's
 page shows no row for an assignment chapter for the same reason.
-One item opens straight into the reader; more than one opens the list;
-a link that is not a PDF opens in a new tab rather than as a blank box in
+One item opens straight into the reader; more than one opens the list; a
+link that is not a PDF opens in a new tab rather than as a blank box in
 the PDF reader. That list is the promise the mentor's page makes ("a file
 for the whole week goes on the week"), so it must not be narrowed to the
 lesson's own files.
+
+**On a piece of work the two chips are called something else.** A
+student opening an assignment is not looking for reading material and
+teacher notes; they are looking for the brief they are marked against and
+the solution book. So `materialLabels()` in [features.js](client/src/features.js)
+renames the pair — **Assignment brief** / **Solution brief**, or **Project
+brief** / **Project solution** — off `workKind()`, which reads the node
+title (Kickstarter's `Assignment: …` and `P01 · …` lessons, Generalist's
+`Weekly Assignment: …` and `Milestone Project N · …` chapters). Only the
+words change: the same two slots, the same store, the same reader.
+
+Renaming forces the resolution to be right, and it was not. A lesson
+resolves lesson → chapter → module, so an assignment with an empty slot
+showed the WEEK's ebook — harmless while it said "Reading material",
+a lie the moment it says "Assignment brief". **A piece of work therefore
+never resolves upwards**: its own file, plus the chapter's where the
+chapter IS the work, and otherwise nothing. `No brief yet` is the honest
+answer, and the four Kickstarter portfolio projects give it, because
+`CURRICULUM_PDF_RULES` has no file for them. The same reasoning already
+kept the session's materials off an assignment; projects are now in that
+exception too.
+
+**The same two chips are on the Assignments & Projects tab.** The brief
+and the solution book are attached to the *curriculum* node while the
+thing a student submits against is an `Assignment` row, which is per batch
+and carries no media — so the brief was three clicks away in Learning →
+Content from the tab where the work is handed in.
+[utils/workMaterials.js](server/utils/workMaterials.js) closes that: it
+matches an Assignment to its curriculum node **by title** — which is what
+`syncCurriculumAssignments.js` matches on, so the two cannot disagree —
+and hangs `briefUrl`, `solutionUrl` and `materials` on the row as it goes
+out. Resolved at read time, never copied onto the row: the media is the
+admin's and changes in the curriculum editor whenever they like, and a
+snapshot would go stale without anyone re-running a script. A card with
+neither shows no chips at all — unlike the reader, where the chips are the
+lesson's only furniture, the brief is written out on the card regardless,
+and a permanently dead pair of chips teaches people to ignore chips.
 
 [server/assets/curriculum-pdfs/](server/assets/curriculum-pdfs/) holds the
 ebooks that ship with the repo, committed so a seed is reproducible off one

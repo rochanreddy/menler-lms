@@ -5,6 +5,7 @@ import { Submission } from '../models/Submission.js';
 import { Batch } from '../models/Batch.js';
 import { canAccessBatch, isMentorOfBatch, myBatchIds, isBlockedFromAssignment } from '../utils/access.js';
 import { notifyMany } from '../utils/notify.js';
+import { attachWorkMaterials } from '../utils/workMaterials.js';
 
 const router = Router();
 
@@ -24,12 +25,17 @@ router.get('/', requireAuth, async (req, res) => {
   // Admin-blocked assignments/projects simply don't exist for this user.
   assignments = assignments.filter((a) => !isBlockedFromAssignment(req.user, a._id));
 
+  // The brief and the solution book live on the curriculum node, not on the
+  // Assignment row — see utils/workMaterials.js. Hung on here so the
+  // Assignments & Projects tab can open them without sending a student back
+  // into Learning → Content to hunt for the lesson they came from.
   if (scope === 'mine') {
     const subs = await Submission.find({ studentId: req.user._id, isDeleted: false, assignmentId: { $in: assignments.map((a) => a._id) } });
     const byId = new Map(subs.map((s) => [s.assignmentId.toString(), s]));
-    return res.json({ assignments: assignments.map((a) => ({ ...a.toObject(), mySubmission: byId.get(a._id.toString()) || null })) });
+    const withMedia = await attachWorkMaterials(assignments.map((a) => a.toObject()));
+    return res.json({ assignments: withMedia.map((a) => ({ ...a, mySubmission: byId.get(a._id.toString()) || null })) });
   }
-  res.json({ assignments });
+  res.json({ assignments: await attachWorkMaterials(assignments.map((a) => a.toObject())) });
 });
 
 // POST /api/lms/assignments — mentor of the batch (or admin) sets an assignment/project.
@@ -66,7 +72,8 @@ router.get('/:id', requireAuth, async (req, res) => {
   if (!a) return res.status(404).json({ error: 'Assignment not found.' });
   if (isBlockedFromAssignment(req.user, a._id)) return res.status(403).json({ error: 'This item has been blocked for your account.' });
   if (!(await canAccessBatch(req.user, a.batchId._id || a.batchId))) return res.status(403).json({ error: 'Forbidden.' });
-  res.json({ assignment: a });
+  const [assignment] = await attachWorkMaterials([a.toObject()]);
+  res.json({ assignment });
 });
 
 export default router;

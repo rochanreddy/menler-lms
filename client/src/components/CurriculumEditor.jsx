@@ -5,7 +5,7 @@ import Empty from './Empty.jsx';
 import LessonIcon from './LessonIcon.jsx';
 import LineIcon from './LineIcon.jsx';
 import VdoCipherPicker from './VdoCipherPicker.jsx';
-import { VDOCIPHER_ENABLED } from '../features.js';
+import { VDOCIPHER_ENABLED, workKind, materialLabels } from '../features.js';
 import useMediaQuery, { MOBILE } from '../useMediaQuery.js';
 
 // Admin curriculum builder for one program. Upload a doc to auto-structure it,
@@ -107,6 +107,12 @@ export default function CurriculumEditor({ programId, batch, onClose }) {
   // What a lesson with an empty slot would open — said next to the slot, so
   // the admin can see the week's book already covers it.
   const inheritedFrom = (field) => (selChapter?.[field] ? 'the session' : selModule?.[field] ? 'the week' : '');
+  // A piece of work calls its two slots the brief and the solution book,
+  // which is what the student's chips say — an admin looking for where the
+  // solution book goes should not have to know it is filed as "teacher
+  // notes". Same fields, same store; only the words change.
+  const lessonKind = workKind({ lesson: selTopic?.title, chapter: selChapter?.title });
+  const lessonLabels = materialLabels(lessonKind);
   // The book icon: lit when the node carries a reading, so the tree shows at
   // a glance which weeks and sessions have their ebook and which are waiting.
   const bookBtn = (node, onClick, what) => (
@@ -290,7 +296,7 @@ export default function CurriculumEditor({ programId, batch, onClose }) {
                 onChange={(e) => setTopicField(sel.mi, sel.ci, sel.ti, { classLink: e.target.value })}
               />
 
-              <label className="ce-label">Reading material <span className="muted">(PDF, opens in the in-page viewer)</span></label>
+              <label className="ce-label">{lessonLabels.reading} <span className="muted">(PDF, opens in the in-page viewer)</span></label>
               {/* The ebook normally lives on the week or the session; this slot
                   is for a lesson that needs a different file. Say when the
                   lesson is already covered, or an empty box here reads as
@@ -305,7 +311,7 @@ export default function CurriculumEditor({ programId, batch, onClose }) {
                 onChange={(readingUrl) => setTopicField(sel.mi, sel.ci, sel.ti, { readingUrl })}
               />
 
-              <label className="ce-label">Teacher notes <span className="muted">(PDF, opens in the in-page viewer)</span></label>
+              <label className="ce-label">{lessonLabels.notes} <span className="muted">(PDF, opens in the in-page viewer)</span></label>
               {!selTopic.notesUrl && inheritedFrom('notesUrl') && (
                 <p className="ce-inherit"><LineIcon name="slides" size={13} /> Opens {inheritedFrom('notesUrl')}'s teacher notes. Attach a file here only if this lesson needs different ones.</p>
               )}
@@ -316,7 +322,7 @@ export default function CurriculumEditor({ programId, batch, onClose }) {
                 onChange={(notesUrl) => setTopicField(sel.mi, sel.ci, sel.ti, { notesUrl })}
               />
 
-              <label className="ce-label">More teacher notes <span className="muted">(several PDFs at once · students see them all under Teacher notes, with the session's and the week's)</span></label>
+              <label className="ce-label">More {lessonLabels.notesMany} <span className="muted">({lessonKind ? 'several PDFs at once · students see them all under ' + lessonLabels.notes + ', on the lesson and in Assignments & Projects' : "several PDFs at once · students see them all under Teacher notes, with the session's and the week's"})</span></label>
               <MaterialsField
                 key={`${sel.mi}-${sel.ci}-${sel.ti}-materials`}
                 items={selTopic.materials || []}
@@ -339,14 +345,21 @@ export default function CurriculumEditor({ programId, batch, onClose }) {
 // so it is only shown here, to say what you are attaching to.
 function NodeEditor({ kind, node, parent, fieldKey, onChange }) {
   const below = kind === 'week' ? 'every session and lesson in it' : 'every lesson in it';
+  // Generalist files a weekly assignment and a milestone project as whole
+  // chapters, so this panel is where their brief and solution book are
+  // attached — and it should say so, the way the student's chips do.
+  const work = kind === 'session' ? workKind({ chapter: node.title }) : null;
+  const L = materialLabels(work);
   return (
     <>
-      <p className="ce-node-kind">{kind === 'week' ? 'Week' : 'Session'}</p>
+      <p className="ce-node-kind">{work === 'project' ? 'Project' : work === 'assignment' ? 'Assignment' : kind === 'week' ? 'Week' : 'Session'}</p>
       <h3 className="ce-node-title">{node.title || 'Untitled'}</h3>
       {parent && <p className="muted ce-node-parent">in {parent.title}</p>}
 
-      <label className="ce-label">Reading material <span className="muted">(the {kind}'s ebook · PDF, opens in the in-page viewer)</span></label>
-      <p className="ce-inherit">Opens for {below} that has no reading of its own{kind === 'session' && parent?.readingUrl ? ' — and takes over from the week\u2019s book for this session' : ''}.</p>
+      <label className="ce-label">{L.reading} <span className="muted">({work ? 'PDF' : `the ${kind}'s ebook · PDF`}, opens in the in-page viewer)</span></label>
+      {work
+        ? <p className="ce-inherit">Opens on this {work} wherever a student meets it — in the syllabus, and on its card in Assignments &amp; Projects. It never reaches the rest of the week.</p>
+        : <p className="ce-inherit">Opens for {below} that has no reading of its own{kind === 'session' && parent?.readingUrl ? ' — and takes over from the week\u2019s book for this session' : ''}.</p>}
       <PdfUrlField
         key={`${fieldKey}-reading`}
         fieldKey={`${fieldKey}-reading`}
@@ -354,7 +367,7 @@ function NodeEditor({ kind, node, parent, fieldKey, onChange }) {
         onChange={(readingUrl) => onChange({ readingUrl })}
       />
 
-      <label className="ce-label">Teacher notes <span className="muted">(PDF, opens in the in-page viewer)</span></label>
+      <label className="ce-label">{L.notes} <span className="muted">(PDF, opens in the in-page viewer)</span></label>
       <PdfUrlField
         key={`${fieldKey}-notes`}
         fieldKey={`${fieldKey}-notes`}
@@ -362,7 +375,7 @@ function NodeEditor({ kind, node, parent, fieldKey, onChange }) {
         onChange={(notesUrl) => onChange({ notesUrl })}
       />
 
-      <label className="ce-label">More teacher notes <span className="muted">(several PDFs at once · listed under Teacher notes on {below}, which is where a mentor's uploads land too)</span></label>
+      <label className="ce-label">More {L.notesMany} <span className="muted">(several PDFs at once · listed under {L.notes} {work ? `on this ${work}` : `on ${below}, which is where a mentor's uploads land too`})</span></label>
       <MaterialsField
         key={`${fieldKey}-materials`}
         items={node.materials || []}

@@ -45,3 +45,34 @@ export const isAssignmentLesson = (title) => /^assignment\b/i.test(String(title 
 // assignment: …", with Brief and Submission pages), so the same exception
 // has to be judged on the chapter as well as the lesson.
 export const isAssignmentChapter = (title) => /\bassignments?\b/i.test(String(title || ''));
+
+// Kickstarter files its portfolio projects as "P01 · …" LESSONS inside the
+// session that sets them; Generalist as "Milestone Project 1 · …" CHAPTERS,
+// the same shape its weekly assignment takes. Hence one test each level.
+export const isProjectLesson = (title) => /^P\d+\s*[·.:-]/.test(String(title || '').trim());
+export const isProjectChapter = (title) => /^milestone project\b/i.test(String(title || '').trim());
+
+// Is this a piece of work a student hands in, and which kind? Judged on the
+// lesson first and then on the chapter holding it, because the two curricula
+// file the same thing at different levels.
+export const workKind = ({ lesson, chapter } = {}) => {
+  if (isAssignmentLesson(lesson)) return 'assignment';
+  if (isProjectLesson(lesson)) return 'project';
+  if (isAssignmentChapter(chapter)) return 'assignment';
+  if (isProjectChapter(chapter)) return 'project';
+  return null;
+};
+
+// What the two PDF chips are called. On a lesson they are the week's ebook and
+// what the mentor put up after class. On a piece of work they are neither:
+// the "reading" is the brief you are marked against and the "notes" are the
+// solution book, and calling those two Reading material and Teacher notes
+// sends a student looking for a brief they are already holding.
+// `notesMany` is the plural, spelled out rather than derived: "teacher notes"
+// is already plural and "2 teacher notess" is what adding an s to it gets you.
+const LABELS = {
+  assignment: { reading: 'Assignment brief', notes: 'Solution brief', notesMany: 'solution briefs', noReading: 'No brief yet', noNotes: 'No solution yet' },
+  project: { reading: 'Project brief', notes: 'Project solution', notesMany: 'project solutions', noReading: 'No project brief yet', noNotes: 'No project solution yet' },
+  lesson: { reading: 'Reading material', notes: 'Teacher notes', notesMany: 'teacher notes', noReading: 'No reading yet', noNotes: 'No notes yet' },
+};
+export const materialLabels = (kind) => LABELS[kind] || LABELS.lesson;

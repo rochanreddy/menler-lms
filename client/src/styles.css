@@ -1074,6 +1074,17 @@ a:focus-visible,
 .ac-body > .assign-brief:first-child { margin-top: 12px; }
 .ac-body > .sub-check, .ac-body > .graded, .ac-body > .assign-note, .ac-body > .sub-form, .ac-body > .sub-check-error, .ac-body > .inline-form { margin-top: 14px; }
 
+/* The brief and the solution book on an assignment/project card. Same two
+   chips as the reader's, in the light panel's colours — .rchip is written
+   for the dark stage and reads as a hole punched in a white card. */
+.work-files { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.ac-body > .work-files + .assign-brief { margin-top: 12px; }
+.wchip { display: inline-flex; align-items: center; gap: 7px; padding: 7px 13px; border-radius: var(--pill); border: 1px solid var(--line); background: var(--sunken); color: var(--ink-2); font-family: var(--font); font-size: 12.5px; font-weight: 650; cursor: pointer; white-space: nowrap; transition: border-color .14s, color .14s, background .14s; }
+.wchip svg { color: var(--muted); }
+.wchip:hover { border-color: var(--line-strong); color: var(--ink); }
+.wchip:hover svg { color: var(--ink-2); }
+.wchip:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(175,169,236,.35); }
+
 /* Quiz card: ring, title, one action. */
 .quiz-card.qc { padding: 16px 20px 16px 18px; border-left: 3px solid var(--line); }
 .qc-todo { border-left-color: var(--violet); }

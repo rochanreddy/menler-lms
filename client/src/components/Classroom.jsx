@@ -9,7 +9,7 @@ import LessonIcon from './LessonIcon.jsx';
 import LineIcon from './LineIcon.jsx';
 import Empty, { Loading } from './Empty.jsx';
 import VdoCipherPlayer from './VdoCipherPlayer.jsx';
-import { VDOCIPHER_ENABLED, isDirectVideoFile, tierNames, isAssignmentLesson, isAssignmentChapter } from '../features.js';
+import { VDOCIPHER_ENABLED, isDirectVideoFile, tierNames, isAssignmentChapter, isProjectChapter, workKind, materialLabels } from '../features.js';
 import Ring from './Ring.jsx';
 import useMediaQuery, { MOBILE } from '../useMediaQuery.js';
 
@@ -130,7 +130,10 @@ export default function Classroom() {
   // so the chips mean the same here as on a lesson.
   const pageLessons = page ? flat.filter((f) => (page.chap ? f.chapId === page.chap._id : f.modId === page.mod._id)) : [];
   const fromLessons = (field) => pageLessons.map((f) => f.topic[field]).find(Boolean) || '';
-  const pageMedia = (field) => (page ? page.node[field] || (page.chap ? page.mod[field] : '') || fromLessons(field) : '');
+  // A week's ebook is not the brief of the assignment filed under it, so a
+  // work chapter resolves to its own file and its lessons' — never upwards.
+  const pageKind = page ? workKind({ chapter: page.chap?.title }) : null;
+  const pageMedia = (field) => (page ? page.node[field] || (page.chap && !pageKind ? page.mod[field] : '') || fromLessons(field) : '');
   // Every note there is here, as one list: the teacher-notes slot the lesson
   // resolves to, then every file a mentor pushed onto the lesson, its session
   // and its week. Notes, not reading: the reading is the ebook the admin
@@ -141,18 +144,21 @@ export default function Classroom() {
   const notesListFor = ({ own, lesson, chap, mod }) => {
     const items = [];
     const seen = new Set();
-    const push = (url, name, from, kind = 'notes') => {
+    const kind = workKind({ lesson: lesson?.title, chapter: chap?.title });
+    const ownName = materialLabels(kind).notes;
+    const push = (url, name, from, k = 'notes') => {
       if (!url || seen.has(url)) return;
       seen.add(url);
-      items.push({ url, name: name || 'Teacher notes', from, kind: kind === 'resource' ? 'resource' : 'notes' });
+      items.push({ url, name: name || ownName, from, kind: k === 'resource' ? 'resource' : 'notes' });
     };
     const names = tierNames(mod?.title);
-    if (own) push(own, 'Teacher notes', 'the notes');
+    if (own) push(own, ownName, 'the notes');
     for (const x of lesson?.materials || []) push(x.url, x.name, 'this lesson', x.kind);
-    // An assignment's reading is its brief; the session's handouts stay on
-    // the lessons they were taught with. Judged on the lesson (Kickstarter's
-    // "Assignment: …") and on the chapter (Generalist's weekly assignment).
-    if (!isAssignmentLesson(lesson?.title) && !isAssignmentChapter(chap?.title)) {
+    // A piece of work's notes are its solution book; the session's handouts
+    // stay on the lessons they were taught with. Judged on the lesson
+    // (Kickstarter's "Assignment: …", "P01 · …") and on the chapter
+    // (Generalist's weekly assignment and milestone project).
+    if (!kind) {
       for (const x of chap?.materials || []) push(x.url, x.name, names.fromSub, x.kind);
       for (const x of mod?.materials || []) push(x.url, x.name, names.fromTop, x.kind);
     }
@@ -363,7 +369,18 @@ export default function Classroom() {
   // it. No fallback beyond that: a lesson with nothing attached anywhere says
   // so, because serving another programme's PDF as if it were this lesson's
   // reading is worse than showing nothing. It looks correct.
-  const inherit = (field) => topic?.[field] || current?.chapNode?.[field] || current?.modNode?.[field] || '';
+  //
+  // A piece of work is the exception: its reading is the brief it is marked
+  // against and its notes are the solution book, so it never climbs past
+  // itself. Serving the week's ebook under the words "Assignment brief" is
+  // the one failure a student cannot detect — it looks correct.
+  const lessonKind = workKind({ lesson: topic?.title, chapter: current?.chapNode?.title });
+  // …except where the WORK is the chapter (Generalist files its weekly
+  // assignment that way), in which case the chapter is still part of it.
+  const workChap = isAssignmentChapter(current?.chapNode?.title) || isProjectChapter(current?.chapNode?.title);
+  const inherit = (field) => (lessonKind
+    ? topic?.[field] || (workChap ? current?.chapNode?.[field] : '') || ''
+    : topic?.[field] || current?.chapNode?.[field] || current?.modNode?.[field] || '');
   const readingUrl = inherit('readingUrl');
   const notesUrl = inherit('notesUrl');
   const lessonNotes = topic ? notesListFor({ own: notesUrl, lesson: topic, chap: current?.chapNode, mod: current?.modNode }) : [];
@@ -385,23 +402,27 @@ export default function Classroom() {
 
   // One note opens straight away; more than one opens the list. A link that
   // is not a PDF goes to a new tab rather than into the reader.
-  const openNote = (it, subtitle) => {
+  const openNote = (it, subtitle, label = 'Teacher Notes') => {
     setPicker(null);
-    if (opensInReader(it.url)) setViewer({ label: 'Teacher Notes', subtitle: it.name === 'Teacher notes' ? subtitle : it.name, url: it.url });
+    if (opensInReader(it.url)) setViewer({ label, subtitle: it.name === label ? subtitle : it.name, url: it.url });
     else window.open(it.url, '_blank', 'noopener');
   };
-  const toolsRow = ({ reading, notes, classLink, video, subtitle, done }) => (
+  // `kind` renames the two PDF chips where the lesson is a piece of work —
+  // see materialLabels(). Everything else about the row is the same.
+  const toolsRow = ({ reading, notes, classLink, video, subtitle, done, kind }) => {
+    const L = materialLabels(kind);
+    return (
     <div className="reader-tools">
-      <button className="rchip" disabled={!reading} title={reading ? undefined : 'Your mentor hasn’t attached the reading for this yet'} onClick={() => setViewer({ label: 'Reading Material', subtitle, url: reading })}>
-        <LessonIcon type="pdf" size={14} /> {reading ? 'Reading material' : 'No reading yet'}
+      <button className="rchip" disabled={!reading} title={reading ? undefined : `Your mentor hasn’t attached the ${L.reading.toLowerCase()} for this yet`} onClick={() => setViewer({ label: L.reading, subtitle, url: reading })}>
+        <LessonIcon type="pdf" size={14} /> {reading ? L.reading : L.noReading}
       </button>
       <button
         className="rchip"
         disabled={!notes.length}
-        title={notes.length ? undefined : 'Your mentor hasn’t attached the notes for this yet'}
-        onClick={() => (notes.length === 1 ? openNote(notes[0], subtitle) : setPicker({ title: subtitle, items: notes, subtitle }))}
+        title={notes.length ? undefined : `Your mentor hasn’t attached the ${L.notes.toLowerCase()} for this yet`}
+        onClick={() => (notes.length === 1 ? openNote(notes[0], subtitle, L.notes) : setPicker({ title: subtitle, items: notes, subtitle, label: L.notes }))}
       >
-        <LineIcon name="slides" size={14} /> {notes.length === 0 ? 'No notes yet' : notes.length === 1 ? 'Teacher notes' : `${notes.length} teacher notes`}
+        <LineIcon name="slides" size={14} /> {notes.length === 0 ? L.noNotes : notes.length === 1 ? L.notes : `${notes.length} ${L.notesMany}`}
         {notes.length > 1 && <span className="rchip-caret" aria-hidden="true"><LineIcon name="chevron" size={12} /></span>}
       </button>
       {/* The class recording / live link. Kept as a chip even when there is
@@ -414,13 +435,14 @@ export default function Classroom() {
       )}
       {done && <span className="rchip is-done"><LineIcon name="check" size={14} /> Done</span>}
     </div>
-  );
+    );
+  };
 
   const shell = (inner) => (
     <div className={`cls ${min ? 'rail-min' : ''} ${sheet ? 'sheet-open' : ''}`}>
       {inner}
       {cert && <CertificateModal cert={cert} onClose={() => setCert(null)} />}
-      {picker && <ReadingPicker title={picker.title} items={picker.items} onOpen={(it) => openNote(it, picker.subtitle)} onClose={() => setPicker(null)} />}
+      {picker && <ReadingPicker title={picker.title} items={picker.items} label={picker.label} onOpen={(it) => openNote(it, picker.subtitle, picker.label)} onClose={() => setPicker(null)} />}
       {viewer && <FileViewer {...viewer} onClose={() => setViewer(null)} />}
     </div>
   );
@@ -466,7 +488,7 @@ export default function Classroom() {
               </button>
             </div>
             <h1 className="reader-title">{page.title}</h1>
-            {toolsRow({ reading: pageMedia('readingUrl'), notes: pageNotes, classLink: fromLessons('classLink'), video: fromLessons('contentUrl'), subtitle: page.crumb })}
+            {toolsRow({ reading: pageMedia('readingUrl'), notes: pageNotes, classLink: fromLessons('classLink'), video: fromLessons('contentUrl'), subtitle: page.crumb, kind: pageKind })}
             <div className="reader-read" aria-hidden="true"><span style={{ transform: `scaleX(${read})` }} /></div>
           </div>
         ) : (
@@ -485,7 +507,7 @@ export default function Classroom() {
             </button>
           </div>
           <h1 className="reader-title">{topic.title}</h1>
-          {toolsRow({ reading: readingUrl, notes: lessonNotes, classLink: topic.classLink, video: topic.contentType === 'video' ? topic.contentUrl : '', subtitle: topic.title, done: isDone })}
+          {toolsRow({ reading: readingUrl, notes: lessonNotes, classLink: topic.classLink, video: topic.contentType === 'video' ? topic.contentUrl : '', subtitle: topic.title, done: isDone, kind: lessonKind })}
           {/* How far through the reading you are — fills as the body scrolls. */}
           <div className="reader-read" aria-hidden="true"><span style={{ transform: `scaleX(${read})` }} /></div>
         </div>

@@ -3,6 +3,10 @@ import { useOutletContext } from 'react-router-dom';
 import { api } from '../api.js';
 import Markdown from './Markdown.jsx';
 import LineIcon from './LineIcon.jsx';
+import LessonIcon from './LessonIcon.jsx';
+import FileViewer from './FileViewer.jsx';
+import ReadingPicker, { opensInReader } from './ReadingPicker.jsx';
+import { materialLabels } from '../features.js';
 import { CheckBadge, SubmissionCheckPanel } from './SubmissionCheck.jsx';
 import { loadStudentGrades } from '../nav.jsx';
 
@@ -67,6 +71,13 @@ export default function AssignmentCard({ a, onChange, onSubmissionChange, defaul
   const [open, setOpen] = useState(defaultOpen ?? false);
   // The brief inside an open card, folded by default — see below.
   const [brief, setBrief] = useState(false);
+  // The brief and the solution book, opened without leaving the tab. They are
+  // attached to the curriculum node, not to this row — the server resolves
+  // them on the way out (server/utils/workMaterials.js) — so a student who
+  // came here to hand work in can read what they are marked against on the
+  // spot instead of going back into Learning → Content to find the lesson.
+  const [viewer, setViewer] = useState(null);
+  const [picker, setPicker] = useState(null);
   const [driveLink, setDriveLink] = useState(sub?.driveLink || '');
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -113,6 +124,47 @@ export default function AssignmentCard({ a, onChange, onSubmissionChange, defaul
   const editable = !sub?.locked && !overdue && !notOpenYet;
   const required = (a.requiredDriveTypes || []).map((t) => REQUIRED_LABELS[t] || t);
 
+  // Same two chips as the lesson in Learning, same words, same reader — a
+  // project's are called a project's. The solution chip carries the slot
+  // first and then anything a mentor pushed onto the same node, deduped on
+  // url; one item opens straight away, several open the list.
+  const L = materialLabels(a.type === 'project' ? 'project' : 'assignment');
+  const solutions = [];
+  const seen = new Set();
+  for (const it of [{ url: a.solutionUrl, name: L.notes }, ...(a.materials || [])]) {
+    if (!it.url || seen.has(it.url)) continue;
+    seen.add(it.url);
+    solutions.push({ url: it.url, name: it.name || L.notes, from: a.title, kind: it.kind === 'resource' ? 'resource' : 'notes' });
+  }
+  const openSolution = (it) => {
+    setPicker(null);
+    if (opensInReader(it.url)) setViewer({ label: L.notes, subtitle: it.name === L.notes ? a.title : it.name, url: it.url });
+    else window.open(it.url, '_blank', 'noopener');
+  };
+  // Nothing attached, nothing shown. Unlike the reader — where the chips are
+  // the lesson's only furniture and a missing one reads as a missing file —
+  // the brief is already written out on this card, so a permanently dead pair
+  // of chips on every row would be chrome that teaches people to ignore chips.
+  const files = (a.briefUrl || solutions.length) ? (
+    <div className="work-files">
+      {a.briefUrl && (
+        <button type="button" className="wchip" onClick={() => setViewer({ label: L.reading, subtitle: a.title, url: a.briefUrl })}>
+          <LessonIcon type="pdf" size={14} /> {L.reading}
+        </button>
+      )}
+      {solutions.length > 0 && (
+        <button
+          type="button"
+          className="wchip"
+          onClick={() => (solutions.length === 1 ? openSolution(solutions[0]) : setPicker(true))}
+        >
+          <LineIcon name="slides" size={14} /> {solutions.length === 1 ? L.notes : `${solutions.length} ${L.notesMany}`}
+          {solutions.length > 1 && <span className="rchip-caret" aria-hidden="true"><LineIcon name="chevron" size={12} /></span>}
+        </button>
+      )}
+    </div>
+  ) : null;
+
   // The one line of timing that matters for this state.
   let when = null;
   if (notOpenYet) when = <>Opens {fmtDay(a.startDate)} · {relative(a.startDate)}</>;
@@ -140,6 +192,7 @@ export default function AssignmentCard({ a, onChange, onSubmissionChange, defaul
 
       {open && (
         <div className="ac-body">
+          {files}
           {/* The brief folds away. Since these came from the curriculum they
               run to a full page — objective, what to build, tools, how to
               submit — and left open they push the thing you came to do, the
@@ -280,6 +333,8 @@ export default function AssignmentCard({ a, onChange, onSubmissionChange, defaul
           )}
         </div>
       )}
+      {picker && <ReadingPicker title={a.title} items={solutions} label={L.notes} onOpen={openSolution} onClose={() => setPicker(null)} />}
+      {viewer && <FileViewer {...viewer} onClose={() => setViewer(null)} />}
     </div>
   );
 }
