@@ -46,6 +46,96 @@ function slotsFor(date, from, to, minutes) {
   return out;
 }
 
+/** The student's address, one click from the clipboard.
+ *
+ *  The admin's actual sequence is: copy this, paste it into the Meet invite,
+ *  copy the link Google gives back, paste it in the box below. Re-typing an
+ *  address off the screen is the step that puts the wrong person in the call.
+ *
+ *  navigator.clipboard is undefined on a plain-http origin, so this degrades
+ *  to "select it yourself" rather than throwing. */
+function CopyEmail({ email }) {
+  const [state, setState] = useState('');
+  async function copy() {
+    try {
+      if (!navigator.clipboard) throw new Error('unavailable');
+      await navigator.clipboard.writeText(email);
+      setState('done');
+      setTimeout(() => setState(''), 1600);
+    } catch { setState('fail'); }
+  }
+  return (
+    <button type="button" className="ds-slot-email" onClick={copy}>
+      {email}
+      <span className="ds-slot-copy">
+        {state === 'done' ? 'Copied' : state === 'fail' ? 'Select it to copy' : 'Copy'}
+      </span>
+    </button>
+  );
+}
+
+/** The meeting link for ONE booked slot — pasted after the booking exists,
+ *  sent to that student alone, and re-sent when they ask where it went.
+ *
+ *  Not the create form's join link: that one is announced to the whole cohort
+ *  before anyone has booked, and a Meet handed to a cohort is a Meet with the
+ *  cohort in it. A doubt slot is one person in the room, so the room is made
+ *  once the admin can see who booked it. */
+function SlotLink({ sessionId, booking, onDone }) {
+  const [url, setUrl] = useState(booking.joinUrl || '');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const [note, setNote] = useState('');
+
+  const saved = booking.joinUrl || '';
+  const changed = url.trim() !== saved;
+
+  async function save(value, notify) {
+    if (busy) return;
+    setBusy(true); setErr(''); setNote('');
+    try {
+      const r = await api(`/doubt-sessions/${sessionId}/bookings/${booking._id}`, {
+        method: 'PATCH',
+        body: { joinUrl: value, notify },
+      });
+      setUrl(value);
+      setNote(r.shared ? 'Sent — it is on their doubt session page.' : value ? 'Saved, not sent.' : 'Link removed.');
+      await onDone();
+    } catch (e) { setErr(e.message); } finally { setBusy(false); }
+  }
+
+  return (
+    <div className="ds-slot-meet">
+      <div className="ds-slot-meet-row">
+        <Input
+          ariaLabel={`Meeting link for ${booking.name}`}
+          placeholder="https://meet.google.com/…"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          maxLength={500}
+        />
+        <Button size="sm" loading={busy} disabled={!url.trim()} onClick={() => save(url.trim(), true)}>
+          {booking.joinSharedAt && !changed ? 'Send again' : 'Send link'}
+        </Button>
+        {saved && !changed && (
+          <Button size="sm" variant="ghost" disabled={busy} onClick={() => save('', false)}>Remove</Button>
+        )}
+      </div>
+      {err
+        ? <Text role="caption" tone="destructive">{err}</Text>
+        : note
+          ? <Text role="caption">{note}</Text>
+          : (
+            <Text role="caption" tone="muted">
+              {booking.joinSharedAt
+                ? `Sent ${new Date(booking.joinSharedAt).toLocaleString()}${changed ? ' · unsaved changes' : ''}`
+                : 'Not sent yet — they see no link until you send one.'}
+            </Text>
+          )}
+    </div>
+  );
+}
+
 export default function AdminDoubts() {
   const [data, setData] = useState(null);
   const [err, setErr] = useState('');
@@ -204,8 +294,8 @@ export default function AdminDoubts() {
               maxLength={2000}
             />
             <Input
-              label="Join link (optional)"
-              help="Shown to a student once they have booked. You can add it later."
+              label="Shared join link (optional)"
+              help="One room for the whole evening, shown to everyone who books. For a Meet per student, leave this empty and send a link on their slot below once they have booked."
               value={joinUrl}
               onChange={(e) => setJoinUrl(e.target.value)}
               placeholder="https://zoom.us/j/…"
@@ -261,11 +351,14 @@ export default function AdminDoubts() {
                     <div className="ds-slot-body">
                       <div className="ds-slot-who">
                         <strong>{slot.booking.name}</strong>
-                        {slot.booking.student.email && <span className="ds-slot-email">{slot.booking.student.email}</span>}
+                        {slot.booking.student.email && <CopyEmail email={slot.booking.student.email} />}
                       </div>
                       {slot.booking.doubts
                         ? <Text role="body">{slot.booking.doubts}</Text>
                         : <Text role="caption" tone="muted">No question written.</Text>}
+                      {!s.cancelledAt && (
+                        <SlotLink sessionId={s._id} booking={slot.booking} onDone={load} />
+                      )}
                     </div>
                   ) : (
                     <div className="ds-slot-body"><Text role="caption" tone="muted">Free</Text></div>

@@ -455,6 +455,17 @@ actually free rather than from what was free when the page loaded. The second
 index makes a booking MOVE in place instead of accumulating, so nobody quietly
 holds three slots of a six-slot evening. Same reasoning as the playback lease.
 
+**The meeting link is per booking, not per session.** A slot is one student
+in the room, so the admin makes the Meet *after* they can see who booked it
+and sends it on that student's row of the booked sheet
+(`PATCH /doubt-sessions/:id/bookings/:bookingId`, admin only). It notifies
+that student and nobody else, it can be re-sent, and `notify: false` fixes a
+typo quietly. The create form's `joinUrl` is still there for an evening that
+runs on one shared room — it is announced to the whole cohort before anyone
+has booked, which is exactly why it cannot be the one-to-one link. The link
+lives on the booking, so a student who moves from 7:30 to 8:00 keeps it, and
+the student's page prefers their own over the session's.
+
 A taken slot shows the student only the word "Taken". Who booked 7:30 is the
 admin's business; a public register of who has doubts is how you stop people
 admitting they have any. The client resolves the slot instants, because

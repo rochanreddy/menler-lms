@@ -2792,6 +2792,10 @@ input:hover:not(:disabled):not(:focus), select:hover:not(:disabled):not(:focus),
 .ds-slot-body { min-width: 0; }
 .ds-slot-who { display: flex; align-items: baseline; gap: var(--space-2); flex-wrap: wrap; margin-bottom: var(--space-1); }
 .ds-slot-email { font-size: var(--text-sm); color: var(--muted); }
+button.ds-slot-email { display: inline-flex; align-items: baseline; gap: var(--space-2);
+  background: none; border: 0; padding: 0; font: inherit; font-size: var(--text-sm); cursor: pointer; }
+button.ds-slot-email:hover { color: var(--ink); }
+.ds-slot-copy { font-size: var(--text-xs); text-transform: uppercase; letter-spacing: .1em; color: var(--brand); }
 .ds-slot-meet { margin-top: var(--space-2); }
 .ds-slot-meet-row { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
 .ds-slot-meet-row > *:first-child { flex: 1 1 18em; min-width: 0; }

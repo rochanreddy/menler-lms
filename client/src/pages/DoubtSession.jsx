@@ -98,6 +98,10 @@ export default function DoubtSession() {
   }
 
   const open = session.slots.filter((s) => !s.taken && !s.past).length;
+  // Your own room first: an admin sets a Meet per booked slot, because a doubt
+  // slot is one student in the call. The session's link is the fallback for an
+  // evening that runs on one shared room.
+  const joinUrl = session.booking?.joinUrl || session.joinUrl || '';
 
   return (
     <Stack gap="6">
@@ -119,12 +123,15 @@ export default function DoubtSession() {
 
       {session.booking && !saved && (
         <Alert tone="success" title={`You're booked for ${time(session.booking.slotAt)}`}>
-          Change your slot or what you want to ask below, any time before the session.
+          {session.booking.joinUrl
+            ? 'Your meeting link is ready — join from the button below when your slot starts.'
+            : 'Change your slot or what you want to ask below, any time before the session.'}
         </Alert>
       )}
       {saved && (
         <Alert tone="success" title={`Booked — ${time(slotAt)}`}>
           See you then. You can come back and change this any time before the session.
+          {' '}Your meeting link appears here once your mentor sends it.
         </Alert>
       )}
 
@@ -183,8 +190,8 @@ export default function DoubtSession() {
               {session.booking && (
                 <Button variant="ghost" onClick={cancel} disabled={busy}>Cancel my booking</Button>
               )}
-              {session.joinUrl && session.booking && (
-                <Button variant="secondary" href={session.joinUrl} target="_blank" rel="noreferrer">Join link</Button>
+              {joinUrl && session.booking && (
+                <Button variant="secondary" href={joinUrl} target="_blank" rel="noreferrer">Join link</Button>
               )}
             </div>
           </Stack>

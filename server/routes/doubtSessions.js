@@ -5,7 +5,7 @@ import { DoubtBooking } from '../models/DoubtBooking.js';
 import { Batch } from '../models/Batch.js';
 import { User } from '../models/User.js';
 import { myBatchIds } from '../utils/access.js';
-import { notifyMany } from '../utils/notify.js';
+import { notify, notifyMany } from '../utils/notify.js';
 
 const router = Router();
 
@@ -48,7 +48,11 @@ const publicSession = (s, slots, mine) => ({
   startsAt: s.slotsAt?.[0] || null,
   endsAt: sessionEndsAt(s),
   slots,
-  booking: mine ? { slotAt: mine.slotAt, name: mine.name, doubts: mine.doubts } : null,
+  // `joinUrl` on the booking is this student's own room; the session's is the
+  // fallback for a session that runs on one shared link.
+  booking: mine
+    ? { slotAt: mine.slotAt, name: mine.name, doubts: mine.doubts, joinUrl: mine.joinUrl || '' }
+    : null,
 });
 
 // ── Student ────────────────────────────────────────────────────────────────
@@ -191,6 +195,8 @@ router.get('/', requireAuth, requireRole('admin'), async (req, res) => {
                 _id: b._id,
                 name: b.name,
                 doubts: b.doubts,
+                joinUrl: b.joinUrl || '',
+                joinSharedAt: b.joinSharedAt,
                 student: { name: S[String(b.studentId)]?.fullName || '', email: S[String(b.studentId)]?.email || '' },
                 bookedAt: b.createdAt,
               }
@@ -260,6 +266,51 @@ router.post('/:id/notify', requireAuth, requireRole('admin'), async (req, res) =
   if (!session) return res.status(404).json({ error: 'Not found.' });
   if (session.cancelledAt) return res.status(400).json({ error: 'That session is cancelled.' });
   res.json({ ok: true, notified: await push(session) });
+});
+
+// PATCH /api/lms/doubt-sessions/:id/bookings/:bookingId { joinUrl, notify }
+//
+// The meeting link for ONE student's slot. A doubt slot is one person in the
+// room, so the room is made after the booking exists — which is why this is
+// not the create form's `joinUrl`: that one is announced to everybody, and a
+// Meet handed to a whole cohort is a Meet with the whole cohort in it.
+//
+// Saving it tells that student and nobody else. Sending is deliberate and
+// repeatable, like pushing the announcement: pass `notify: false` to correct a
+// typo quietly, and press it again to remind them. Clearing the field takes
+// the link down without sending anything.
+router.patch('/:id/bookings/:bookingId', requireAuth, requireRole('admin'), async (req, res) => {
+  const session = await DoubtSession.findById(req.params.id);
+  if (!session) return res.status(404).json({ error: 'Not found.' });
+
+  const booking = await DoubtBooking.findOne({ _id: req.params.bookingId, sessionId: session._id });
+  if (!booking) return res.status(404).json({ error: 'That booking is no longer there.' });
+
+  const joinUrl = String(req.body?.joinUrl || '').trim().slice(0, 500);
+  // A link that is not a link is the one failure the student cannot work
+  // around, and they meet it at the minute the slot starts.
+  if (joinUrl && !/^https?:\/\//i.test(joinUrl)) {
+    return res.status(400).json({ error: 'The meeting link must start with http:// or https://' });
+  }
+
+  const shared = !!joinUrl && req.body?.notify !== false;
+  await DoubtBooking.updateOne(
+    { _id: booking._id },
+    { $set: { joinUrl, joinSharedAt: shared ? new Date() : (joinUrl ? booking.joinSharedAt : null) } },
+  );
+
+  if (shared) {
+    const when = new Date(booking.slotAt).toLocaleTimeString('en-IN', {
+      hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata',
+    });
+    await notify(booking.studentId, {
+      type: 'doubt',
+      text: `Your ${session.title.toLowerCase()} slot at ${when} has a meeting link. Open it from the doubt session page.`,
+      link: '/app/doubt-session',
+    });
+  }
+
+  res.json({ ok: true, shared });
 });
 
 // PATCH /api/lms/doubt-sessions/:id — the write-up or the link, after the fact.

@@ -45,6 +45,11 @@ export default function DoubtSessionBanner() {
               : `${free} slot${free === 1 ? '' : 's'} left — book one`}
         </div>
       </div>
+      {/* A join link is only worth a place on Home once it exists and is
+          yours — before that this strip is the way back to the form. */}
+      {booked && session.booking.joinUrl && (
+        <a className="btn" href={session.booking.joinUrl} target="_blank" rel="noreferrer">Join</a>
+      )}
       <button type="button" className="btn" onClick={() => navigate('/app/doubt-session')}>
         {booked ? 'Change or edit' : 'Book a slot'}
       </button>

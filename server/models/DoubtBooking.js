@@ -25,6 +25,18 @@ const doubtBookingSchema = new mongoose.Schema(
     name: { type: String, required: true, trim: true, maxlength: 120 },
     slotAt: { type: Date, required: true },
     doubts: { type: String, default: '', trim: true, maxlength: 2000 },
+
+    // The meeting link for THIS student's slot, set by the admin after the
+    // booking exists. A doubt slot is one person in the room, so the room is
+    // usually a fresh Meet per student rather than the session-wide link — and
+    // handing out one link before anyone has booked would put every student in
+    // the same call. It lives on the booking, not on the slot, so a student who
+    // moves from 7:30 to 8:00 keeps their link.
+    joinUrl: { type: String, default: '', trim: true },
+    // When it was last sent to the student. Sharing is a deliberate act the
+    // admin repeats when they want to, the same as pushing the announcement,
+    // so the record is of the LAST send.
+    joinSharedAt: { type: Date, default: null },
   },
   { timestamps: true },
 );
