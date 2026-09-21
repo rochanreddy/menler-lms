@@ -532,6 +532,25 @@ a:focus-visible,
 .list-row > :first-child .muted { overflow-wrap: anywhere; }
 .list-row > .btn { flex: none; }
 
+/* A row that IS a link. The primary action keeps its own <a href> and an
+   overlay pseudo-element stretches it across the whole panel, so clicking
+   anywhere on the card opens it — with no onClick handler, no nested anchors,
+   and middle-click, ⌘-click and "copy link address" all still working, none of
+   which survives a div with a click listener.
+   The stretched link must stay `position: static` or the overlay would size to
+   the button instead of the card, which is why it fights the global
+   `.btn { position: relative }` further down this file. Its siblings are
+   raised above the overlay instead, so a second action keeps its own click. */
+.list-row.is-linked { position: relative; transition: border-color .16s, box-shadow .16s, transform .05s; }
+.list-row.is-linked:hover { border-color: var(--violet-line); box-shadow: 0 8px 22px rgba(31,27,74,.09); }
+.list-row.is-linked:active { transform: translateY(1px); }
+/* The focus ring belongs on the card, since the card is what the link is. */
+.list-row.is-linked:has(.row-link:focus-visible) { border-color: var(--violet); box-shadow: var(--ring); }
+.list-row .row-link { position: static; }
+.list-row .row-link:focus-visible { outline: none; box-shadow: none; }
+.list-row .row-link::after { content: ''; position: absolute; inset: 0; z-index: 0; border-radius: var(--radius); }
+.list-row.is-linked > .row > :not(.row-link) { position: relative; z-index: 1; }
+
 /* ── THE PATH ───────────────────────────────────────────────────────────────
    The student home. Modules are stations along the violet rule; the dot states
    say where you are. Indicative, not gating — every station stays clickable,
@@ -2773,6 +2792,9 @@ input:hover:not(:disabled):not(:focus), select:hover:not(:disabled):not(:focus),
 .ds-slot-body { min-width: 0; }
 .ds-slot-who { display: flex; align-items: baseline; gap: var(--space-2); flex-wrap: wrap; margin-bottom: var(--space-1); }
 .ds-slot-email { font-size: var(--text-sm); color: var(--muted); }
+.ds-slot-meet { margin-top: var(--space-2); }
+.ds-slot-meet-row { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+.ds-slot-meet-row > *:first-child { flex: 1 1 18em; min-width: 0; }
 
 @media (max-width: 720px) {
   .ds-slot { grid-template-columns: 1fr; gap: var(--space-1); }

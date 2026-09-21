@@ -6,10 +6,16 @@ import { notifyMany } from '../utils/notify.js';
 
 const router = Router();
 
-/** Everyone a masterclass is for: every student and mentor, since webinars are
- *  not batch-scoped — a guest session is worth the same to either cohort. */
+/** Who is told about a masterclass: every student, and no one else.
+ *
+ *  Webinars are not batch-scoped — a guest session is worth the same to either
+ *  cohort — so this is every student there is, with no batch filter. Mentors
+ *  and admins see the same tab and the same list; they are simply not pushed
+ *  at. The bell is the student's: a mentor hears about a masterclass from the
+ *  admin who booked it, and a notification they did not need is what teaches
+ *  them to stop reading the ones they did. */
 async function audience() {
-  const rows = await User.find({ role: { $in: ['student', 'mentor'] } }).select('_id').lean();
+  const rows = await User.find({ role: 'student' }).select('_id').lean();
   return rows.map((u) => u._id);
 }
 
@@ -24,7 +30,7 @@ router.get('/', requireAuth, async (_req, res) => {
 
 // POST /api/lms/webinars — admin schedules (mentors can only join).
 //
-// Scheduling one notifies every student and mentor. Without this the webinar
+// Scheduling one notifies every student. Without this the webinar
 // existed only for whoever thought to open the tab, which is how the feature
 // sat unseen: a masterclass nobody is told about is a masterclass nobody
 // attends.

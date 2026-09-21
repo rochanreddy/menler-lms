@@ -30,6 +30,11 @@ cd server && node scripts/syncCurriculumAssignments.js     # dry run; --apply to
                                # assignments + 4 milestone projects, Kickstarter 17
                                # session assignments + 4 portfolio projects. Name one
                                # programme to limit it. Idempotent; sets no dates.
+cd server && node scripts/addMasterclassRecordings.js       # dry run; --apply to write
+                               # the four recorded masterclasses onto the Webinars
+                               # tab as past rows with their Drive recording, and
+                               # notifies students (only students). Idempotent on
+                               # the title (needs CONFIRM_DB to apply).
 cd server && npm run test:flows # drives all three roles against a RUNNING server
 cd server && npm run test:rubric # the grading rubric's arithmetic, the curriculum
                                # classifier, the link checker's refusals and the
@@ -393,11 +398,39 @@ only the scheduling form is gated on `role === 'admin'`. The page splits
 upcoming from past, since a learner arrives asking "what's next and how do I
 get in", not "what happened in July".
 
-Scheduling one notifies every student and mentor, and so does the **recording**
-appearing — the one edit worth interrupting people for, and only on the
-transition from absent to present, so re-saving a link stays silent. Nothing
-else about an edit notifies. Before this the webinar existed only for whoever
-thought to open the tab, and students had no tab at all.
+**The whole row is the link.** A masterclass card has one obvious purpose —
+join it while it is ahead of you, watch it once it is behind you — so the card
+opens that one thing wherever you click it, rather than making you hit a word
+on the far right. It is a real `<a href>` stretched across the panel by an
+overlay (`.row-link` / `.list-row.is-linked` in
+[styles.css](client/src/styles.css)), not a div with a click handler, so
+middle-click, ⌘-click, "copy link address" and the focus ring all still work.
+A second action (Slides next to a recording) is raised above the overlay and
+keeps its own click.
+
+Scheduling one notifies **every student and nobody else**, and so does the
+**recording** appearing — the one edit worth interrupting people for, and only
+on the transition from absent to present, so re-saving a link stays silent.
+Nothing else about an edit notifies. Before this the webinar existed only for
+whoever thought to open the tab, and students had no tab at all. Mentors and
+admins read the same list on the same tab; what they do not get is the bell. A
+mentor hears about a masterclass from the admin who booked it, and a push they
+did not need is what teaches them to stop reading the ones they did — so
+`audience()` in [routes/webinars.js](server/routes/webinars.js) is students
+alone, with no batch filter, because a masterclass has no batch.
+
+**The four recorded masterclasses are an archive, not a schedule.** They ran
+before the LMS existed, so there is nothing to book — only past rows carrying
+their Drive recording, which is what "Past masterclasses" is for.
+`node scripts/addMasterclassRecordings.js` (dry run; `--apply` with
+`CONFIRM_DB`) puts them in, matched on title so a re-run adds nothing and
+notifies nobody, and sends students **one** notification for the batch rather
+than one per recording. The recordings live in the team Drive folder shared
+*Anyone with the link → Viewer*; a Drive link shared any other way works for
+the admin who uploaded it and silently shows every student a request-access
+screen. Their dates are the day the recordings were filed, an hour apart so the
+archive has a stable order — change them in the script and re-run if the real
+session dates turn up.
 
 ### Doubt sessions
 

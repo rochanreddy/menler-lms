@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { api } from '../../api.js';
 import DateTimePicker from '../../components/DateTimePicker.jsx';
+import LineIcon from '../../components/LineIcon.jsx';
 import Empty from '../../components/Empty.jsx';
 
 // Webinars — admin schedules; mentors and students join. One page for all
@@ -43,6 +44,10 @@ export default function Webinar() {
     finally { setBusy(false); }
   }
 
+  const whenLabel = (iso) => new Date(iso).toLocaleString(undefined, {
+    weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit',
+  });
+
   const now = Date.now();
   // A webinar with no date yet is still ahead of you, not behind you.
   const isPast = (w) => !!w.startsAt && new Date(w.startsAt).getTime() < now;
@@ -52,19 +57,47 @@ export default function Webinar() {
     past: webinars.filter(isPast).sort((a, b) => new Date(b.startsAt) - new Date(a.startsAt)),
   }), [webinars, now]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // One action owns the card, and clicking anywhere on the row runs it: the
+  // join link while the session is ahead of you, the recording once it is
+  // behind you, the slides if that is all there is. A masterclass row has one
+  // obvious purpose, so hunting for a small word on the right of it is work
+  // the card can do for you. `row-link` is what stretches that one link across
+  // the panel; any other action stays clickable in its own right.
+  const leadAction = (w) => {
+    if (!isPast(w) && w.joinUrl) return 'join';
+    if (w.recordingUrl) return 'recording';
+    if (w.pptUrl) return 'slides';
+    return null;
+  };
+
   const row = (w) => {
     const past_ = isPast(w);
+    const lead = leadAction(w);
     return (
-      <div key={w._id} className="panel list-row">
+      <div key={w._id} className={`panel list-row ${lead ? 'is-linked' : ''}`}>
         <div>
           <strong>{w.title}</strong>{' '}
           <span className={`badge ${past_ ? 'badge-muted' : 'badge-student'}`}>{past_ ? 'past' : 'upcoming'}</span>
-          <div className="muted">{w.startsAt ? new Date(w.startsAt).toLocaleString() : 'Date to be announced'}</div>
+          <div className="muted">{w.startsAt ? whenLabel(w.startsAt) : 'Date to be announced'}</div>
         </div>
         <div className="row">
-          {w.joinUrl && !past_ && <a className="zoom-link" href={w.joinUrl} target="_blank" rel="noreferrer">Join →</a>}
-          {w.pptUrl && <a className="zoom-link" href={w.pptUrl} target="_blank" rel="noreferrer">Slides</a>}
-          {w.recordingUrl && <a className="zoom-link" href={w.recordingUrl} target="_blank" rel="noreferrer">Recording</a>}
+          {w.joinUrl && !past_ && (
+            <a className={`btn sm ${lead === 'join' ? 'row-link' : ''}`} href={w.joinUrl} target="_blank" rel="noreferrer">
+              <LineIcon name="video" size={14} /> Join
+            </a>
+          )}
+          {w.pptUrl && (
+            <a className={`btn sm quiet ${lead === 'slides' ? 'row-link' : ''}`} href={w.pptUrl} target="_blank" rel="noreferrer">
+              <LineIcon name="slides" size={14} /> Slides
+            </a>
+          )}
+          {/* Ghost rather than solid: four archived masterclasses in a column
+              are a list to browse, not four things to do right now. */}
+          {w.recordingUrl && (
+            <a className={`btn sm ghost ${lead === 'recording' ? 'row-link' : ''}`} href={w.recordingUrl} target="_blank" rel="noreferrer">
+              <LineIcon name="video" size={14} /> Watch recording
+            </a>
+          )}
           {/* Said plainly rather than left as an empty row: a past masterclass
               with nothing attached looks like a broken link otherwise. */}
           {past_ && !w.recordingUrl && !w.pptUrl && <span className="muted">No recording yet</span>}
@@ -92,7 +125,7 @@ export default function Webinar() {
             <input placeholder="Join link" value={form.joinUrl} onChange={(e) => setForm((f) => ({ ...f, joinUrl: e.target.value }))} />
             <button className={`btn sm ${busy ? 'is-busy' : ''}`} disabled={busy}>{busy ? 'Adding…' : 'Add'}</button>
           </div>
-          <p className="muted">Every student and mentor is notified as soon as you add it.</p>
+          <p className="muted">Every student is notified as soon as you add it. Mentors see it on this tab.</p>
           {err && <span className="error" role="alert">{err}</span>}
         </form>
       )}
@@ -118,7 +151,7 @@ export default function Webinar() {
             icon="webinar"
             title="No webinars scheduled yet."
             hint={canAdd
-              ? 'Add one above and it appears for every student and mentor, with a notification.'
+              ? 'Add one above and it appears for everyone here, and every student is notified.'
               : 'When a masterclass is scheduled you’ll get a notification, and it will show up here.'}
           />
         </div>
