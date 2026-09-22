@@ -98,6 +98,10 @@ export default function DoubtSession() {
   }
 
   const open = session.slots.filter((s) => !s.taken && !s.past).length;
+  // The admin has stopped taking bookings. The evening is still on, so a
+  // student who booked still needs this page for their slot and their link —
+  // what goes read-only is the grid, not the card.
+  const closed = session.bookingsClosed;
   // Your own room first: an admin sets a Meet per booked slot, because a doubt
   // slot is one student in the call. The session's link is the fallback for an
   // evening that runs on one shared room.
@@ -125,7 +129,16 @@ export default function DoubtSession() {
         <Alert tone="success" title={`You're booked for ${time(session.booking.slotAt)}`}>
           {session.booking.joinUrl
             ? 'Your meeting link is ready — join from the button below when your slot starts.'
-            : 'Change your slot or what you want to ask below, any time before the session.'}
+            : closed
+              ? 'Booking has closed for this session, but your slot is yours. Your meeting link appears here once your mentor sends it.'
+              : 'Change your slot or what you want to ask below, any time before the session.'}
+        </Alert>
+      )}
+
+      {closed && !session.booking && (
+        <Alert tone="info" title="Booking has closed for this session">
+          The slots are full or the sheet has been finalised. Post your question on the Forum and a mentor
+          will pick it up there.
         </Alert>
       )}
       {saved && (
@@ -139,13 +152,15 @@ export default function DoubtSession() {
         <Card>
           <Stack gap="5">
             <div>
-              <Text role="label">Pick a time slot</Text>
-              <Text role="caption">{open} of {session.slots.length} still free.</Text>
+              <Text role="label">{closed ? 'Time slots' : 'Pick a time slot'}</Text>
+              <Text role="caption">
+                {closed ? 'Booking is closed — the sheet is final.' : `${open} of ${session.slots.length} still free.`}
+              </Text>
               <div className="slot-grid">
                 {session.slots.map((s) => {
                   const iso = new Date(s.at).toISOString();
                   const mine = s.mine;
-                  const blocked = (s.taken && !mine) || (s.past && !mine);
+                  const blocked = closed || (s.taken && !mine) || (s.past && !mine);
                   const picked = slotAt === iso;
                   return (
                     <button
@@ -164,36 +179,56 @@ export default function DoubtSession() {
                   );
                 })}
               </div>
-              {open === 0 && !session.booking && (
+              {open === 0 && !closed && !session.booking && (
                 <Text role="caption" tone="muted">Every slot is taken. Post your question on the Forum and a mentor will pick it up there.</Text>
               )}
             </div>
 
-            <Input label="Your name" value={name} onChange={(e) => setName(e.target.value)} required maxLength={120} />
+            {!closed && (
+              <Input label="Your name" value={name} onChange={(e) => setName(e.target.value)} required maxLength={120} />
+            )}
 
-            <Textarea
-              label="What do you want to clear?"
-              help="The more specific you are, the more use the slot is — paste the error, name the topic, link the assignment."
-              value={doubts}
-              onChange={(e) => setDoubts(e.target.value)}
-              rows={5}
-              maxLength={2000}
-              placeholder="e.g. I can't get the RAG notebook to return sources — it errors on the embed step."
-            />
+            {(!closed || session.booking) && (
+              <Textarea
+                label="What do you want to clear?"
+                help={closed
+                  ? 'This is what your mentor will come prepared to answer.'
+                  : 'The more specific you are, the more use the slot is — paste the error, name the topic, link the assignment.'}
+                value={doubts}
+                onChange={(e) => setDoubts(e.target.value)}
+                rows={5}
+                maxLength={2000}
+                disabled={closed}
+                placeholder="e.g. I can't get the RAG notebook to return sources — it errors on the embed step."
+              />
+            )}
 
             {err && <Alert tone="error">{err}</Alert>}
 
             <div className="inline-form">
-              <Button type="submit" loading={busy} disabled={!slotAt}>
-                {session.booking ? 'Update my booking' : 'Book this slot'}
-              </Button>
+              {!closed && (
+                <Button type="submit" loading={busy} disabled={!slotAt}>
+                  {session.booking ? 'Update my booking' : 'Book this slot'}
+                </Button>
+              )}
+              {/* Giving a slot back survives the close — an empty chair the
+                  mentor knows about beats one they wait through — but it is
+                  one-way now, and saying so afterwards would be too late. */}
               {session.booking && (
-                <Button variant="ghost" onClick={cancel} disabled={busy}>Cancel my booking</Button>
+                <Button variant="ghost" onClick={cancel} disabled={busy}>
+                  {closed ? 'Give up my slot' : 'Cancel my booking'}
+                </Button>
               )}
               {joinUrl && session.booking && (
                 <Button variant="secondary" href={joinUrl} target="_blank" rel="noreferrer">Join link</Button>
               )}
             </div>
+
+            {closed && session.booking && (
+              <Text role="caption" tone="muted">
+                Booking has closed, so giving this slot up is final — you will not be able to book another.
+              </Text>
+            )}
           </Stack>
         </Card>
       </form>

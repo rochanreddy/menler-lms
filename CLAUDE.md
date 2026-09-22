@@ -466,6 +466,20 @@ has booked, which is exactly why it cannot be the one-to-one link. The link
 lives on the booking, so a student who moves from 7:30 to 8:00 keeps it, and
 the student's page prefers their own over the session's.
 
+**Closing the booking is not cancelling the session.** Once the admin has
+the sheet they are going to make the Meets from, **Close booking** on the
+session card freezes it (`bookingsClosedAt`, set through `PATCH
+/doubt-sessions/:id` with `bookingsClosed`): no new slot is claimed and no
+booking moves, while the evening stays on and everyone who booked keeps
+their slot, their question and their link. Cancelling, by contrast, pulls
+the whole thing from every student's view. It is a flag rather than an
+emptying of `slotsAt`, because a closed session must still show a booked
+student their own slot, and **Reopen booking** answers "fit one more in"
+without re-announcing anything. Giving a slot back outlives the close — a
+freed slot is something the mentor can act on, where holding someone to a
+slot they cannot attend only buys an empty chair nobody was warned about —
+and the student's page says before they press it that it is one-way.
+
 A taken slot shows the student only the word "Taken". Who booked 7:30 is the
 admin's business; a public register of who has doubts is how you stop people
 admitting they have any. The client resolves the slot instants, because

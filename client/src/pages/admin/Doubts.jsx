@@ -211,6 +211,21 @@ export default function AdminDoubts() {
     } catch (e2) { setErr(e2.message); }
   }
 
+  // Shut the sheet without cancelling the evening: the moment the admin is
+  // done taking bookings and starts making the Meets, the list must stop
+  // moving under them. Reversible, because "fit one more in" is a normal ask
+  // and the alternative would be re-announcing the whole session.
+  async function closeBooking(id, closed) {
+    setErr(''); setNote('');
+    try {
+      await api(`/doubt-sessions/${id}`, { method: 'PATCH', body: { bookingsClosed: closed } });
+      setNote(closed
+        ? 'Booking closed — the slots are locked, and everyone who booked keeps theirs.'
+        : 'Booking reopened — the free slots can be taken again.');
+      await load();
+    } catch (e2) { setErr(e2.message); }
+  }
+
   async function cancel(id) {
     setErr(''); setNote('');
     try {
@@ -330,7 +345,22 @@ export default function AdminDoubts() {
                 {s.cancelledAt
                   ? <Badge>Cancelled</Badge>
                   : <Badge>{s.booked} of {s.slots.length} booked</Badge>}
-                {!s.cancelledAt && <Button size="sm" variant="secondary" onClick={() => repush(s._id)}>Push again</Button>}
+                {!s.cancelledAt && s.bookingsClosedAt && <Badge>Booking closed</Badge>}
+                {/* No reminder once booking has closed: a push says "book your
+                    slot", and sending that to a cohort that can no longer book
+                    is how people learn to stop opening the bell. */}
+                {!s.cancelledAt && !s.bookingsClosedAt && (
+                  <Button size="sm" variant="secondary" onClick={() => repush(s._id)}>Push again</Button>
+                )}
+                {!s.cancelledAt && (
+                  <Button
+                    size="sm"
+                    variant={s.bookingsClosedAt ? 'secondary' : 'ghost'}
+                    onClick={() => closeBooking(s._id, !s.bookingsClosedAt)}
+                  >
+                    {s.bookingsClosedAt ? 'Reopen booking' : 'Close booking'}
+                  </Button>
+                )}
                 {!s.cancelledAt && <Button size="sm" variant="ghost" onClick={() => cancel(s._id)}>Cancel</Button>}
               </div>
             </div>
@@ -340,6 +370,16 @@ export default function AdminDoubts() {
                 ? `Last pushed ${new Date(s.notifiedAt).toLocaleString()} to ${s.notifiedCount} of ${s.invited} invited${s.pushes > 1 ? ` · ${s.pushes} pushes` : ''}`
                 : 'Not pushed yet.'}
             </Text>
+
+            {/* Closed and cancelled are not the same thing, and an admin
+                reading this card a week later should not have to remember
+                which button they pressed. */}
+            {!s.cancelledAt && s.bookingsClosedAt && (
+              <Text role="caption" tone="muted">
+                Booking closed {new Date(s.bookingsClosedAt).toLocaleString()} — the session is still on and the
+                sheet below is final. Students can still give a slot back; nobody can take a free one.
+              </Text>
+            )}
 
             {/* Every slot, empty ones included: the gaps are half the point of
                 looking at this page before the session starts. */}

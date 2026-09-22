@@ -34,6 +34,13 @@ const doubtSessionSchema = new mongoose.Schema(
     notifiedCount: { type: Number, default: 0 },
     pushes: { type: Number, default: 0 },
 
+    // Booking closed, but the session is still on. Distinct from cancelling:
+    // cancelling pulls the evening from every student's view, while closing
+    // freezes the sheet the mentor has already built their evening from —
+    // nobody new books, nobody moves, and everyone who booked keeps their slot
+    // and their link. Reversible, because "one more, please" is a normal ask.
+    bookingsClosedAt: { type: Date, default: null },
+
     cancelledAt: { type: Date, default: null },
   },
   { timestamps: true },

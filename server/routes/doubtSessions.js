@@ -47,6 +47,9 @@ const publicSession = (s, slots, mine) => ({
   slotMinutes: s.slotMinutes,
   startsAt: s.slotsAt?.[0] || null,
   endsAt: sessionEndsAt(s),
+  // Booking is shut but the evening is still on: the grid is read-only from
+  // here, and everyone who already booked keeps their slot and their link.
+  bookingsClosed: !!s.bookingsClosedAt,
   slots,
   // `joinUrl` on the booking is this student's own room; the session's is the
   // fallback for a session that runs on one shared link.
@@ -95,6 +98,21 @@ router.post('/:id/book', requireAuth, requireRole('student'), async (req, res) =
     return res.status(403).json({ error: 'This doubt session is not for your batch.' });
   }
 
+  // Closed means closed for NEW claims and for moves — the mentor has built
+  // the evening from the sheet as it stands, and a slot changing hands after
+  // that is the thing closing it is for. Giving a slot back is still allowed
+  // (see the DELETE below).
+  if (session.bookingsClosedAt) {
+    const bookings = await DoubtBooking.find({ sessionId: session._id });
+    const mine = bookings.find((b) => String(b.studentId) === String(req.user._id));
+    return res.status(409).json({
+      error: mine
+        ? 'Booking has closed for this session — your slot is still yours.'
+        : 'Booking has closed for this session. Post your question on the Forum and a mentor will pick it up there.',
+      session: publicSession(session, grid(session, bookings, req.user._id), mine),
+    });
+  }
+
   const name = String(req.body?.name || '').trim();
   if (!name) return res.status(400).json({ error: 'Your name is required.' });
 
@@ -134,7 +152,11 @@ router.post('/:id/book', requireAuth, requireRole('student'), async (req, res) =
 });
 
 // DELETE /api/lms/doubt-sessions/:id/book — give the slot back. Better that a
-// student who cannot make it frees 8:00 than that the mentor sits through it.
+// student who cannot make it frees 8:00 than that the mentor sits through it,
+// which is why this one outlives the close: a freed slot is information the
+// mentor can act on, and holding someone to a slot they cannot attend only
+// buys an empty chair nobody was warned about. They cannot take it back,
+// though — the page says so before they press it.
 router.delete('/:id/book', requireAuth, requireRole('student'), async (req, res) => {
   const session = await DoubtSession.findById(req.params.id);
   if (!session) return res.status(404).json({ error: 'Not found.' });
@@ -179,6 +201,7 @@ router.get('/', requireAuth, requireRole('admin'), async (req, res) => {
         startsAt: s.slotsAt?.[0] || null,
         endsAt: sessionEndsAt(s),
         cancelledAt: s.cancelledAt,
+        bookingsClosedAt: s.bookingsClosedAt,
         notifiedAt: s.notifiedAt,
         notifiedCount: s.notifiedCount,
         pushes: s.pushes,
@@ -313,14 +336,24 @@ router.patch('/:id/bookings/:bookingId', requireAuth, requireRole('admin'), asyn
   res.json({ ok: true, shared });
 });
 
-// PATCH /api/lms/doubt-sessions/:id — the write-up or the link, after the fact.
-// The slots are not editable: they are what people have already booked against.
+// PATCH /api/lms/doubt-sessions/:id { title, message, joinUrl, bookingsClosed }
+//
+// The write-up or the link, after the fact. The slots are not editable: they
+// are what people have already booked against.
+//
+// `bookingsClosed` shuts the sheet without touching the evening — the admin
+// presses it once the bookings are the ones they are going to make the Meets
+// for. It is a flag rather than an emptying of `slotsAt`, because a closed
+// session must still show every booked student their slot and their link, and
+// because "actually, squeeze one more in" is answered by setting it back to
+// false rather than by rebuilding the grid.
 router.patch('/:id', requireAuth, requireRole('admin'), async (req, res) => {
   const set = {};
   for (const k of ['title', 'message', 'joinUrl']) if (req.body?.[k] !== undefined) set[k] = String(req.body[k]).slice(0, 2000);
+  if (req.body?.bookingsClosed !== undefined) set.bookingsClosedAt = req.body.bookingsClosed ? new Date() : null;
   const session = await DoubtSession.findByIdAndUpdate(req.params.id, { $set: set }, { new: true });
   if (!session) return res.status(404).json({ error: 'Not found.' });
-  res.json({ ok: true });
+  res.json({ ok: true, bookingsClosed: !!session.bookingsClosedAt });
 });
 
 // DELETE /api/lms/doubt-sessions/:id — cancel, keeping the bookings as a record
