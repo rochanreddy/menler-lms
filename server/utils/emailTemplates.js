@@ -141,7 +141,7 @@ function shell({ preview, greeting, body, cta = null, why, title, closing = 'See
         </td></tr>
 
         <tr><td class="px" style="padding:40px 40px 0;">
-          ${P(`Dear ${esc(greeting)},`, 0)}
+          ${greeting ? P(`Dear ${esc(greeting)},`, 0) : ''}
           ${body}
         </td></tr>
 
@@ -383,9 +383,11 @@ export function passwordOtpEmail({ fullName, email, code, minutes = 10 }) {
 // ── Admin broadcasts ────────────────────────────────────────────────────────
 //
 // A mail the admin wrote on the Mail tab and scheduled for a batch. The admin
-// owns the subject and the body; the banner, the greeting, the help line, the
-// signature and the footer are the shell's, so every campaign reads as the
-// same company as the account mails. `body` arrives as plain text with the
+// owns the subject and the body; the banner, the help line, the signature and
+// the footer are the shell's, so every campaign reads as the same company as
+// the account mails. There is no automatic "Dear <name>," — a mail to a cohort
+// opens however the admin opens it ("Hi all,"), and a greeting stacked on top
+// of theirs read as two. {{first_name}} is there for a mail that wants one. `body` arrives as plain text with the
 // placeholders already filled (see utils/mailCampaigns.js).
 //
 // Text → HTML: blank lines split paragraphs, a single newline is a <br>, a
@@ -496,32 +498,31 @@ export function certificateEmail({ fullName, email, programme, batchName, code, 
   return { subject, text, html };
 }
 
-export function bodyToHtml(text) {
+// `firstTop` is the first paragraph's top margin: 0 when nothing sits above it.
+export function bodyToHtml(text, firstTop = 22) {
   return String(text || '')
     .replace(/\r\n?/g, '\n')
     .split(/\n{2,}/)
     .map((para) => para.trim())
     .filter(Boolean)
-    .map((para) => P(paragraphHtml(para)))
+    .map((para, i) => P(paragraphHtml(para), i === 0 ? firstTop : 22))
     .join('\n');
 }
 
-export function broadcastEmail({ fullName, email, subject, body, batchName = '' }) {
-  const first = firstNameOf(fullName, email);
+export function broadcastEmail({ email, subject, body, batchName = '' }) {
   const where = batchName ? ` in ${esc(batchName)}` : '';
 
   const html = shell({
     title: subject,
     preview: String(body || '').replace(/\s+/g, ' ').trim().slice(0, 120),
-    greeting: first,
-    body: bodyToHtml(body),
+    greeting: '',
+    body: bodyToHtml(body, 0),
     help: `Questions? Write to ${mailtoLink()}.`,
     closing: '',
     why: `You're receiving this because you are enrolled${where} on the Menler LMS, as ${esc(email)}.`,
   });
 
   const text = [
-    `Dear ${first},`, '',
     String(body || '').replace(/\r\n?/g, '\n').trim(), '',
     `Questions? Write to ${SUPPORT_EMAIL}.`, '',
     SIGN_OFF,

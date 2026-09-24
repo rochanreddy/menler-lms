@@ -532,9 +532,12 @@ compose, and what is scheduled or sent. Admin only, end to end —
 [routes/mail.js](server/routes/mail.js) is `requireRole('admin')` on
 everything; a mentor reaches students through the classroom, not a mailer.
 
-**The admin owns the subject and the body. Nothing else.** The banner, the
-"Dear <first name>," greeting, the help line, the signature and the footer
-are the same shell every account mail is on (`shell()` in
+**The admin owns the subject and the body. Nothing else.** The body includes
+the greeting: there is no automatic "Dear <first name>," on these mails,
+because a cohort mail opens "Hi all," and the shell's greeting stacked on top
+read as two (and the preview, rendered for the admin, said "Dear Menler,").
+`{{first_name}}` is there for a mail that wants one. The banner, the help
+line, the signature and the footer are the same shell every account mail is on (`shell()` in
 [emailTemplates.js](server/utils/emailTemplates.js), via `broadcastEmail()`),
 so a reminder typed on a hurried Friday still reads as the company that sent
 the welcome mail. The body is plain text: blank lines split paragraphs, a bare

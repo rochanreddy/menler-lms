@@ -9,9 +9,9 @@ import LineIcon from '../../components/LineIcon.jsx';
 // Admin: write a mail, pick the batches, say when — one time or several in
 // the same day. The server sends it.
 //
-// The admin owns the SUBJECT and the BODY. The banner, the "Dear <first
-// name>," greeting, the help line, the signature and the footer are the same
-// shell every account mail is on (utils/emailTemplates.js) and are not
+// The admin owns the SUBJECT and the BODY, greeting included — there is no
+// automatic "Dear <name>,". The banner, the help line, the signature and the
+// footer are the same shell every account mail is on (utils/emailTemplates.js) and are not
 // editable here — that is what keeps a reminder from a hurried Friday looking
 // like the same company as the welcome mail.
 //
@@ -56,19 +56,19 @@ const EXAMPLES = [
     key: 'class',
     label: 'Class reminder',
     subject: 'Class tonight · {{batch}}',
-    body: 'A reminder that your {{programme}} class is tonight.\n\nThe join link is on your Home tab in the LMS about five minutes before we start. Please be on time and keep your camera on if you can.\n\nSee you in class!',
+    body: 'Hi {{first_name}},\n\nA reminder that your {{programme}} class is tonight.\n\nThe join link is on your Home tab in the LMS about five minutes before we start. Please be on time and keep your camera on if you can.\n\nSee you in class!',
   },
   {
     key: 'assignment',
     label: 'Assignment due',
     subject: 'Your assignment is due this week',
-    body: 'This week’s assignment is open in the Learning tab under Assignments & Projects.\n\nSubmit it before the deadline so your mentor can grade it and leave feedback before the next class. If you are stuck, post your doubt on the Forum — someone in {{batch}} has probably hit the same wall.',
+    body: 'Hi {{first_name}},\n\nThis week’s assignment is open in the Learning tab under Assignments & Projects.\n\nSubmit it before the deadline so your mentor can grade it and leave feedback before the next class. If you are stuck, post your doubt on the Forum — someone in {{batch}} has probably hit the same wall.',
   },
   {
     key: 'recording',
     label: 'Recording is up',
     subject: 'Recording from this week’s class',
-    body: 'The recording of this week’s {{programme}} class is up on your Home tab, along with the teacher notes for the session.\n\nIf you missed the class, watch it before the next one — the next session builds on it.',
+    body: 'Hi {{first_name}},\n\nThe recording of this week’s {{programme}} class is up on your Home tab, along with the teacher notes for the session.\n\nIf you missed the class, watch it before the next one — the next session builds on it.',
   },
 ];
 
@@ -464,7 +464,7 @@ export default function AdminMail() {
                     </div>
                   </Section>
 
-                  <Section step="2" title="The message" hint="Plain text. A blank line starts a new paragraph, links become clickable. The greeting, signature and footer are added for you.">
+                  <Section step="2" title="The message" hint="Plain text. A blank line starts a new paragraph, links become clickable. Start with your own greeting; the signature and footer are added for you.">
                     <div className="mail-programme">
                       <Select
                         label="Start from an example"
@@ -482,7 +482,7 @@ export default function AdminMail() {
                         onChange={(e) => setBody(e.target.value)}
                         rows={9}
                         maxLength={20000}
-                        placeholder="“Dear …,” is added for you. Start with the first sentence."
+                        placeholder="Hi {{first_name}}, …"
                       />
                       <div className="mail-placeholders">
                         <span className="mail-placeholders-label">Insert</span>
