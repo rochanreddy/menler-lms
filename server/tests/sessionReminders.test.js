@@ -96,3 +96,38 @@ test('the windows are always bounded on both sides', () => {
   assert.equal(hour.remindedHourAt, null, 'the claim guard must be part of the query');
   assert.equal(start.remindedStartAt, null, 'the claim guard must be part of the query');
 });
+
+// Which transports a cohort send is allowed to ride on. The default matters:
+// Resend is already configured in production, so a deploy that arrives before
+// the ZeptoMail token must send nothing rather than half a classroom.
+test('reminders refuse a transport that cannot take a whole cohort', async (t) => {
+  const { canSendReminders } = await import('../utils/sessionReminders.js');
+  const keys = ['ZEPTOMAIL_TOKEN', 'RESEND_API_KEY', 'SMTP_HOST', 'SMTP_USER', 'SMTP_PASS', 'REMINDERS_ALLOW_RESEND'];
+  const saved = Object.fromEntries(keys.map((k) => [k, process.env[k]]));
+  const set = (env) => {
+    for (const k of keys) delete process.env[k];
+    Object.assign(process.env, env);
+  };
+  t.after(() => {
+    for (const k of keys) delete process.env[k];
+    for (const [k, v] of Object.entries(saved)) if (v !== undefined) process.env[k] = v;
+  });
+
+  set({});
+  assert.equal(canSendReminders(), false, 'nothing configured');
+
+  set({ RESEND_API_KEY: 'x' });
+  assert.equal(canSendReminders(), false, 'Resend alone must not carry a cohort');
+
+  set({ RESEND_API_KEY: 'x', REMINDERS_ALLOW_RESEND: '1' });
+  assert.equal(canSendReminders(), true, 'unless someone says the plan is paid');
+
+  set({ ZEPTOMAIL_TOKEN: 'x' });
+  assert.equal(canSendReminders(), true, 'ZeptoMail is the intended transport');
+
+  set({ ZEPTOMAIL_TOKEN: 'x', RESEND_API_KEY: 'y' });
+  assert.equal(canSendReminders(), true, 'ZeptoMail wins when both are set');
+
+  set({ SMTP_HOST: 'h', SMTP_USER: 'u', SMTP_PASS: 'p' });
+  assert.equal(canSendReminders(), true, 'SMTP has no daily wall');
+});

@@ -1,7 +1,9 @@
 import { Session } from '../models/Session.js';
 import { Batch } from '../models/Batch.js';
 import { User } from '../models/User.js';
-import { sendMail, isMailConfigured } from './email.js';
+import {
+  sendMail, isZeptoConfigured, isResendConfigured, isSmtpConfigured,
+} from './email.js';
 import { sessionReminderEmail } from './emailTemplates.js';
 
 /**
@@ -50,6 +52,30 @@ const START_GRACE_MS = 10 * 60 * 1000;
 // exists to stay a well-behaved client, not because either has refused.
 const GAP_MS = 400;
 const sleep = (ms) => new Promise((resolve) => { setTimeout(resolve, ms); });
+
+/**
+ * Is there a transport that can take a whole cohort at once?
+ *
+ * Not the same question as "is mail configured". Every other mail this server
+ * sends goes to ONE person because an admin pressed a button; a reminder goes
+ * to forty because a clock ticked, and it does that twice a class, every class.
+ *
+ * Resend's free tier is 100 mails a day — about one evening cohort. A sweep
+ * that starts a class's reminders and runs out of quota partway through
+ * delivers to an arbitrary half of the room, which is worse than delivering to
+ * none: nobody, mentor included, can tell who was told. And it would spend the
+ * quota the account mails rely on. So reminders refuse to ride on it unless
+ * someone says explicitly that the account is on a paid plan.
+ *
+ * ZeptoMail is credit-based with no daily wall, which is the whole reason the
+ * mailer learned it. SMTP has no such cap either — on Render it cannot connect
+ * at all, so this only ever says yes to it on a host that allows it.
+ */
+export function canSendReminders() {
+  if (isZeptoConfigured()) return true;
+  if (isResendConfigured()) return process.env.REMINDERS_ALLOW_RESEND === '1';
+  return isSmtpConfigured();
+}
 
 /** Everyone who should be told about this class, with their name and address. */
 async function audienceFor(session) {
@@ -150,7 +176,9 @@ export function reminderWindows(now = Date.now()) {
  * One pass. Finds the classes due a reminder, claims each, and sends.
  */
 export async function sweepReminders(now = Date.now()) {
-  if (!isMailConfigured()) return { hour: 0, start: 0, sent: 0, failed: 0, skipped: 'no mail transport' };
+  if (!canSendReminders()) {
+    return { hour: 0, start: 0, sent: 0, failed: 0, skipped: 'no cohort-capable mail transport' };
+  }
 
   let hour = 0;
   let start = 0;
@@ -199,6 +227,15 @@ export async function sweepReminders(now = Date.now()) {
  * from now catches everything that is still genuinely due.
  */
 export function startSessionReminders(everyMs = 60 * 1000) {
+  // Said once, loudly, at boot. Reminders that silently never send look
+  // exactly like reminders that are working until a student misses a class —
+  // so the one line in the deploy log that explains why is worth more than the
+  // tick it saves.
+  if (!canSendReminders()) {
+    console.warn('[reminders] OFF — no cohort-capable mail transport. Set ZEPTOMAIL_TOKEN'
+      + ' (or REMINDERS_ALLOW_RESEND=1 if Resend is on a paid plan).');
+    return null;
+  }
   const run = () => sweepReminders()
     .then(({ hour, start, sent, failed }) => {
       if (hour || start) {
