@@ -106,7 +106,7 @@ export const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024; // all files together
 // What an admin plausibly sends a cohort. An allowlist, because Resend and
 // most inboxes refuse executables anyway, and a refusal at send time is worse
 // than one at upload.
-const ATTACHMENT_EXT = /\.(pdf|docx?|xlsx?|pptx?|csv|txt|png|jpe?g|gif|webp|ics|zip)$/i;
+const ATTACHMENT_EXT = /\.(pdf|docx?|xlsx?|pptx?|csv|txt|md|png|jpe?g|gif|webp|ics|zip)$/i;
 
 // A filename as the recipient will see it: no path, no control characters,
 // nothing a header could split on.
@@ -116,7 +116,7 @@ const cleanFilename = (s) =>
 /** Why this multer file cannot go out with a mail, or '' when it can. */
 export function attachmentProblem(file) {
   const name = cleanFilename(file.originalname);
-  if (!ATTACHMENT_EXT.test(name)) return `${name}: that type of file cannot be attached. PDFs, Office files, images, CSV, text and zip are fine.`;
+  if (!ATTACHMENT_EXT.test(name)) return `${name}: that type of file cannot be attached. PDFs, Office files, images, CSV, text, Markdown and zip are fine.`;
   if (/\.pdf$/i.test(name) && !file.buffer.subarray(0, 1024).includes('%PDF-')) return `${name} is not really a PDF.`;
   return '';
 }

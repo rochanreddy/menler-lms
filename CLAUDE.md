@@ -584,7 +584,7 @@ mail scheduled for Friday carries its files without anyone's browser staying
 open. The bytes are `FileAsset` rows of kind `mail-attachment`, hash-deduped
 like course PDFs and readable by an admin only. Up to five files and **10 MB
 together**, because every recipient gets every byte and Resend refuses a
-message over 40 MB after base64. PDFs, Office files, images, CSV, text and zip
+message over 40 MB after base64. PDFs, Office files, images, CSV, text, Markdown and zip
 only, and a `.pdf` must carry the `%PDF-` header. Every file is loaded once per
 run and sent to everyone; one that has gone missing **fails the run** rather
 than sending a mail that says "attached" and isn't. Removing a campaign, or

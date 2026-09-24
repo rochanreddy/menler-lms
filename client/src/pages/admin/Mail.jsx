@@ -42,7 +42,7 @@ const timeOnly = (d) => new Date(d).toLocaleTimeString([], { hour: 'numeric', mi
 const MAX_TIMES = 12;
 const TEST_TO_KEY = 'lms_mail_test_to';
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const ATTACH_ACCEPT = '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.csv,.txt,.png,.jpg,.jpeg,.gif,.webp,.ics,.zip';
+const ATTACH_ACCEPT = '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.csv,.txt,.md,.png,.jpg,.jpeg,.gif,.webp,.ics,.zip';
 const fileSize = (n) => (n >= 1024 * 1024 ? `${(n / (1024 * 1024)).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
 // Only what the server needs: the stored file and the name it goes out under.
 const attachRefs = (list) => list.map((a) => ({ id: a.id, name: a.name }));
@@ -511,7 +511,7 @@ export default function AdminMail() {
                         <Text role="caption" tone="muted">
                           {attachments.length
                             ? `${plural(attachments.length, 'file')} · ${fileSize(attachedBytes)} of ${fileSize(limits.bytes)}`
-                            : `Up to ${limits.files} files, ${fileSize(limits.bytes)} in all. PDFs, Office files, images, CSV, zip.`}
+                            : `Up to ${limits.files} files, ${fileSize(limits.bytes)} in all. PDFs, Office files, images, CSV, Markdown, zip.`}
                         </Text>
                       </div>
                       {attachments.length > 0 && (
