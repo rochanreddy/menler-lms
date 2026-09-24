@@ -785,7 +785,21 @@ runs at boot and every 5 min: once a class's window closes it writes `absent`
 (`$setOnInsert`, never overwriting) for every enrolled student without a
 record, then stamps `absenceSweptAt`. It skips students whose account postdates
 the class, and a class **entered after it ended** marks nobody — nobody could
-have joined it through the LMS. Removing a session removes its attendance. `npm run test:flows` covers the
+have joined it through the LMS. Removing a session removes its attendance.
+
+[utils/sessionReminders.js](server/utils/sessionReminders.js) mails the cohort
+twice per class — about an hour ahead, and as it starts — on a **1-minute**
+tick with **no boot run**. Mail is not idempotent like the absence sweep's
+upserts, so each reminder is *claimed* with `findOneAndUpdate` on a still-null
+`remindedHourAt`/`remindedStartAt` **before** it sends: a crash costs a missed
+reminder, never a duplicate blast, and two instances produce one winner. Both
+windows are bounded on the late side (45–60 min ahead; 0–10 min after the
+start), which is what makes the first tick after a deploy a catch-up rather
+than a mailshot about classes that already ran. The arithmetic is exported as
+`reminderWindows(now)` and proved in `tests/sessionReminders.test.js`, which
+needs no database. Sends go out over **ZeptoMail** — `ZEPTOMAIL_TOKEN`, first
+in `utils/email.js`'s order — because Resend's free 100/day is one evening
+class; leave the token unset and the sweep declines to run. `npm run test:flows` covers the
 takeover, the revoked refresh, and the lease; it signs in with `force: true`
 because an automated client taking the account over should say so.
 

@@ -47,6 +47,20 @@ services:
         sync: false
       - key: JWT_SECRET
         sync: false
+      # The mail transport. ZeptoMail is tried before Resend (utils/email.js),
+      # so setting this switches the LMS onto the same account menler.in sends
+      # on — which is what makes per-session class reminders affordable, where
+      # Resend's free 100/day would be spent by one cohort's evening class.
+      #
+      # Use a ZeptoMail mail agent of its OWN under the shared menler.in
+      # domain, not menler.in's existing token: same verified domain, separate
+      # credential and separate stats, so a problem with class reminders cannot
+      # take the marketing site's OTP mail down with it.
+      #
+      # Leave it unset and nothing breaks — Resend still serves the account
+      # mail, and the reminder sweep declines to run without a transport.
+      - key: ZEPTOMAIL_TOKEN
+        sync: false
       - key: RESEND_API_KEY
         sync: false
       - key: MAIL_FROM

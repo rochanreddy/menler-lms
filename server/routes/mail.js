@@ -4,7 +4,7 @@ import multer from 'multer';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { MailCampaign } from '../models/MailCampaign.js';
 import { Batch } from '../models/Batch.js';
-import { isMailConfigured, isResendConfigured, isSmtpConfigured, sendMail } from '../utils/email.js';
+import { isMailConfigured, isZeptoConfigured, isResendConfigured, isSmtpConfigured, sendMail } from '../utils/email.js';
 import {
   MAX_ATTACHMENTS, MAX_ATTACHMENT_BYTES, PLACEHOLDERS,
   attachmentFiles, attachmentProblem, audienceOf, pruneAttachments, renderFor, resolveAttachments, runCampaign, storeMailAttachment,
@@ -83,7 +83,9 @@ router.get('/', async (_req, res) => {
   res.json({
     mail: {
       configured: isMailConfigured(),
-      provider: isResendConfigured() ? 'resend' : isSmtpConfigured() ? 'smtp' : 'none',
+      // Same order sendMail() picks in, or the admin panel names a transport
+      // the server is not actually using.
+      provider: isZeptoConfigured() ? 'zeptomail' : isResendConfigured() ? 'resend' : isSmtpConfigured() ? 'smtp' : 'none',
     },
     placeholders: PLACEHOLDERS,
     attachmentLimits: { files: MAX_ATTACHMENTS, bytes: MAX_ATTACHMENT_BYTES },

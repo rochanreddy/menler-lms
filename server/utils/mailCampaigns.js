@@ -6,7 +6,7 @@ import { sha256 } from './curriculumPdfAssets.js';
 // audienceOf populates the batch's programme; registering the model here keeps
 // the util usable from a script that never loaded the routes.
 import '../models/Program.js';
-import { sendMail, isMailConfigured, isResendConfigured } from './email.js';
+import { sendMail, isMailConfigured, isResendConfigured, isZeptoConfigured } from './email.js';
 import { broadcastEmail } from './emailTemplates.js';
 
 // The admin's mail-merge. One campaign → one rendered mail per recipient.
@@ -207,9 +207,10 @@ export function renderFor({ subject, body }, user, batch) {
 
 // Resend's free tier takes two requests a second; a burst of thirty in one
 // tick is refused from the third onward, which then reads as "the mail is
-// flaky" rather than "we sent too fast". SMTP has no such rule, but a small
-// gap costs nothing there either.
-const gapMs = () => (isResendConfigured() ? 600 : 50);
+// flaky" rather than "we sent too fast". ZeptoMail is more forgiving but is
+// still an HTTPS API being handed a whole cohort at once, so it gets the same
+// pacing. SMTP has no such rule, but a small gap costs nothing there either.
+const gapMs = () => (isResendConfigured() || isZeptoConfigured() ? 600 : 50);
 const sleep = (ms) => new Promise((resolve) => { setTimeout(resolve, ms); });
 
 /**

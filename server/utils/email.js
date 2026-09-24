@@ -1,16 +1,28 @@
-// Mailer. Three ways out, tried in this order:
+// Mailer. Four ways out, tried in this order:
 //
-//   1. Resend   — RESEND_API_KEY set. Plain HTTPS, no SDK; the free tier is
+//   1. ZeptoMail — ZEPTOMAIL_TOKEN set. HTTPS API, the same account menler.in
+//                 already sends on. Transactional and credit-based rather than
+//                 capped per day, which is what makes per-session mail to a
+//                 whole cohort affordable — see startSessionReminders().
+//   2. Resend   — RESEND_API_KEY set. Plain HTTPS, no SDK; the free tier is
 //                 100 emails/day, 3,000/month, which is more than an admin
-//                 provisions by hand. `from` must be on a domain verified in
-//                 the Resend dashboard (or `onboarding@resend.dev`, which
-//                 only delivers to the account owner's own address).
-//   2. SMTP     — SMTP_HOST/USER/PASS set (Gmail app password, Zoho, …).
-//   3. Console  — neither set: the message is logged so reset links and
-//                 temp passwords stay testable in dev.
+//                 provisions by hand but far less than a term of class
+//                 reminders. `from` must be on a domain verified in the Resend
+//                 dashboard (or `onboarding@resend.dev`, which only delivers
+//                 to the account owner's own address).
+//   3. SMTP     — SMTP_HOST/USER/PASS set (Gmail app password, Zoho, …).
+//                 Last on purpose: Render blocks outbound SMTP, so on the
+//                 deployed API this path cannot connect at all. It is here for
+//                 local work and for hosts that do allow it.
+//   4. Console  — none set: the message is logged so reset links and temp
+//                 passwords stay testable in dev.
 //
 // Every caller goes through sendMail() so switching providers is an env
 // change, never a code change.
+
+export function isZeptoConfigured() {
+  return !!process.env.ZEPTOMAIL_TOKEN;
+}
 
 export function isResendConfigured() {
   return !!process.env.RESEND_API_KEY;
@@ -21,7 +33,7 @@ export function isSmtpConfigured() {
 }
 
 export function isMailConfigured() {
-  return isResendConfigured() || isSmtpConfigured();
+  return isZeptoConfigured() || isResendConfigured() || isSmtpConfigured();
 }
 
 // MAIL_FROM wins; SMTP_FROM is honoured for installs that predate it. Quotes
@@ -51,6 +63,63 @@ async function getTransport() {
 const forResend = (attachments) =>
   attachments.map((a) => ({ filename: a.filename, content: Buffer.from(a.content).toString('base64'), ...(a.contentType ? { content_type: a.contentType } : {}) }));
 
+// ZeptoMail wants the sender split into name and address, where every other
+// transport here takes the one "Menler <no-reply@menler.in>" string.
+function parseAddress(str) {
+  const m = /^\s*(.*?)\s*<([^>]+)>\s*$/.exec(String(str || ''));
+  if (m) return { ...(m[1] ? { name: m[1] } : {}), email: m[2].trim() };
+  return { email: String(str || '').trim() };
+}
+
+// The same bytes again, under ZeptoMail's names. This matters as much as the
+// send itself: the admin panel mails files, so a transport that quietly
+// dropped them would deliver the covering letter without the thing it is
+// about — and look like it worked.
+const forZepto = (attachments) =>
+  attachments.map((a) => ({
+    content: Buffer.from(a.content).toString('base64'),
+    mime_type: a.contentType || 'application/octet-stream',
+    name: a.filename,
+  }));
+
+// ZeptoMail's India data centre, to match the domain menler.in is verified on.
+// Override with ZEPTOMAIL_API_URL for the global (.com) one.
+const zeptoUrl = () => process.env.ZEPTOMAIL_API_URL || 'https://api.zeptomail.in/v1.1/email';
+
+async function sendViaZepto({ from, to, subject, text, html, replyTo, attachments }) {
+  const sender = parseAddress(from);
+  // The token may be pasted raw or already carrying its scheme prefix.
+  const token = process.env.ZEPTOMAIL_TOKEN;
+  const auth = token.startsWith('Zoho-enczapikey') ? token : `Zoho-enczapikey ${token}`;
+  // A reminder sweep sends in a loop; without a timeout one hung socket would
+  // stall every student behind it in the queue.
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 20000);
+  try {
+    const res = await fetch(zeptoUrl(), {
+      method: 'POST',
+      headers: { Authorization: auth, 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({
+        from: { address: sender.email, ...(sender.name ? { name: sender.name } : {}) },
+        to: [{ email_address: { address: to } }],
+        subject,
+        ...(html ? { htmlbody: html } : {}),
+        ...(text ? { textbody: text } : {}),
+        ...(replyTo ? { reply_to: [{ address: replyTo }] } : {}),
+        ...(attachments?.length ? { attachments: forZepto(attachments) } : {}),
+      }),
+      signal: ctrl.signal,
+    });
+    if (!res.ok) {
+      const body = await res.text().catch(() => '');
+      throw new Error(`ZeptoMail ${res.status}: ${body.slice(0, 300)}`);
+    }
+    return { provider: 'zeptomail' };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function sendViaResend({ from, to, subject, text, html, replyTo, attachments }) {
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
@@ -73,9 +142,11 @@ export async function sendMail({ to, subject, text, html, replyTo, attachments }
     return { dev: true };
   }
   const from = fromAddress();
-  if (isResendConfigured()) return sendViaResend({ from, to, subject, text, html, replyTo, attachments });
+  const reply = replyTo || unquote(process.env.MAIL_REPLY_TO) || undefined;
+  if (isZeptoConfigured()) return sendViaZepto({ from, to, subject, text, html, replyTo: reply, attachments });
+  if (isResendConfigured()) return sendViaResend({ from, to, subject, text, html, replyTo: reply, attachments });
   const transport = await getTransport();
-  const info = await transport.sendMail({ from, to, subject, text, html, replyTo, ...(attachments?.length ? { attachments } : {}) });
+  const info = await transport.sendMail({ from, to, subject, text, html, replyTo: reply, ...(attachments?.length ? { attachments } : {}) });
   return { id: info?.messageId, provider: 'smtp' };
 }
 

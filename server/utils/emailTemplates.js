@@ -530,3 +530,110 @@ export function broadcastEmail({ email, subject, body, batchName = '' }) {
 
   return { subject, text, html };
 }
+
+/* ── Class reminders ──────────────────────────────────────────────────────── */
+
+// Every time a class is named to a student it is named in IST, matching the
+// webinar mail and the doubt-session mail. The sessions are stored as UTC
+// instants, so without the explicit zone this renders in whatever zone the
+// Render container happens to be set to — Singapore, as it happens, which
+// would tell a student in Chennai their 7pm class is at 9:30pm.
+const istWhen = (at) => new Date(at).toLocaleString('en-IN', {
+  weekday: 'long', day: 'numeric', month: 'short',
+  hour: '2-digit', minute: '2-digit', hour12: true,
+  timeZone: 'Asia/Kolkata',
+});
+
+const istTime = (at) => new Date(at).toLocaleString('en-IN', {
+  hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata',
+});
+
+// The facts of the class, in the same bordered box the sign-in credentials
+// use — a student who skims the paragraph still cannot miss the time.
+function sessionFacts({ title, batchName, startsAt, endsAt }) {
+  const row = (k, v) => `<tr>
+    <td style="padding:10px 16px; font-size:13px; color:#6B6F80; white-space:nowrap; border-top:1px solid #E6E4F2;">${k}</td>
+    <td style="padding:10px 16px; font-size:15px; color:#1F2430; border-top:1px solid #E6E4F2;">${v}</td>
+  </tr>`;
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:22px; background:#F6F5FB; border:1px solid #E6E4F2; border-radius:8px;">
+    <tr><td colspan="2" style="padding:12px 16px 4px; font-size:11px; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:#534AB7;">Your class</td></tr>
+    ${row('Session', esc(title))}
+    ${batchName ? row('Batch', esc(batchName)) : ''}
+    ${row('Starts', `${esc(istWhen(startsAt))} IST`)}
+    ${endsAt ? row('Ends', `${esc(istTime(endsAt))} IST`) : ''}
+  </table>`;
+}
+
+/**
+ * The two class reminders: one an hour ahead, one as the class begins.
+ *
+ * Same facts, different job. The hour-before mail is a prompt to finish up and
+ * get to a desk, so it leads with the time. The starting-now mail is a prompt
+ * to click, so it leads with the room being open and its subject says "now" —
+ * a student glancing at a notification should not have to open it to know
+ * which of the two this is.
+ *
+ * `joinUrl` may be empty: a session can be scheduled before its Zoom link is
+ * pasted in. Rather than mail a dead button, the mail then points at the LMS,
+ * which is where the link will appear.
+ */
+export function sessionReminderEmail({
+  fullName, email, title, batchName = '', startsAt, endsAt = null, joinUrl = '', when = 'hour',
+}) {
+  const first = firstNameOf(fullName, email);
+  const soon = when === 'start';
+  // The student Home is where the upcoming class and its Join button live —
+  // there is no /sessions route. Sending someone to a 404 from the one mail
+  // whose whole job is to get them into a class would be its own failure.
+  const classUrl = appUrl('/app');
+  const href = joinUrl || classUrl;
+
+  const subject = soon
+    ? `Starting now: ${title}`
+    : `In 1 hour: ${title} at ${istTime(startsAt)} IST`;
+
+  const opener = soon
+    ? `<strong>${esc(title)}</strong> is starting now. The room is open.`
+    : `A reminder that <strong>${esc(title)}</strong> starts in about an hour, at <strong>${esc(istTime(startsAt))} IST</strong>.`;
+
+  const openerText = soon
+    ? `${title} is starting now. The room is open.`
+    : `A reminder that ${title} starts in about an hour, at ${istTime(startsAt)} IST.`;
+
+  // Only the hour-before mail gets the "settle in" nudge. Saying it to someone
+  // whose class has already begun wastes the one line they will actually read.
+  const nudge = soon
+    ? 'Join from the button below. Your attendance is taken from the time you join, so join before you settle in.'
+    : 'Find a quiet spot and keep the link handy — the Join button opens five minutes before the class starts.';
+
+  const html = shell({
+    title: subject,
+    preview: soon ? 'Your class is starting — the room is open.' : `Your class starts at ${istTime(startsAt)} IST.`,
+    greeting: first,
+    body: [
+      P(opener),
+      sessionFacts({ title, batchName, startsAt, endsAt }),
+      P(nudge),
+    ].join('\n'),
+    cta: { label: joinUrl ? 'Join the class' : 'Open the LMS', href },
+    help: `If the link does not work, sign in at <a href="${classUrl}" style="color:#534AB7; text-decoration:underline;">${classUrl}</a> or write to ${mailtoLink()}.`,
+    why: `You're receiving this because you are enrolled${batchName ? ` in ${esc(batchName)}` : ''} on the Menler LMS, as ${esc(email)}.`,
+  });
+
+  const text = [
+    `Dear ${first},`, '',
+    openerText, '',
+    `Session: ${title}`,
+    ...(batchName ? [`Batch:   ${batchName}`] : []),
+    `Starts:  ${istWhen(startsAt)} IST`,
+    ...(endsAt ? [`Ends:    ${istTime(endsAt)} IST`] : []),
+    '',
+    nudge, '',
+    `${joinUrl ? 'Join' : 'Open the LMS'}: ${href}`, '',
+    `If the link does not work, sign in at ${classUrl} or write to ${SUPPORT_EMAIL}.`, '',
+    'See you in class!', '',
+    SIGN_OFF,
+  ].join('\n');
+
+  return { subject, text, html };
+}

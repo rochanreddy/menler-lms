@@ -9,6 +9,7 @@ import crypto from 'crypto';
 
 import { connectDb } from './db.js';
 import { startAbsenceSweep } from './utils/attendanceSweep.js';
+import { startSessionReminders } from './utils/sessionReminders.js';
 import routes from './routes/index.js';
 
 const app = express();
@@ -226,6 +227,7 @@ async function start() {
     await connectDb();
     server = app.listen(port, () => console.log(`Menler LMS API listening on http://localhost:${port}`));
     startAbsenceSweep();
+    startSessionReminders();
   } catch (err) {
     console.error('Failed to start LMS server:', err);
     process.exit(1);
