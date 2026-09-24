@@ -1,15 +1,19 @@
 import { Router } from 'express';
 import mongoose from 'mongoose';
+import multer from 'multer';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { MailCampaign } from '../models/MailCampaign.js';
 import { Batch } from '../models/Batch.js';
 import { isMailConfigured, isResendConfigured, isSmtpConfigured, sendMail } from '../utils/email.js';
-import { PLACEHOLDERS, audienceOf, renderFor, runCampaign } from '../utils/mailCampaigns.js';
+import {
+  MAX_ATTACHMENTS, MAX_ATTACHMENT_BYTES, PLACEHOLDERS,
+  attachmentFiles, attachmentProblem, audienceOf, pruneAttachments, renderFor, resolveAttachments, runCampaign, storeMailAttachment,
+} from '../utils/mailCampaigns.js';
 import { rateLimit } from '../utils/rateLimit.js';
 
-// The admin's Mail tab: a subject and a body (the shell around them is
-// fixed), sent to a batch at one or more times, plus a preview and a test
-// send. Admin only, all of it — a mentor writes to students through the
+// The admin's Mail tab: a subject, a body (the shell around them is fixed)
+// and any attachments, sent to a batch at one or more times, plus a preview
+// and a test send. Admin only, all of it — a mentor writes to students through the
 // classroom, not a mailer.
 const router = Router();
 router.use(requireAuth, requireRole('admin'));
@@ -42,11 +46,14 @@ async function batchesPayload() {
   }));
 }
 
+const attachmentOut = (a) => ({ id: String(a.fileId), name: a.name, size: a.size, mimeType: a.mimeType });
+
 function campaignOut(c, B) {
   return {
     _id: c._id,
     subject: c.subject,
     body: c.body,
+    attachments: (c.attachments || []).map(attachmentOut),
     batchIds: (c.batchIds || []).map(String),
     batches: (c.batchIds || []).map((id) => B[String(id)]?.name || 'Removed batch'),
     includeMentors: !!c.includeMentors,
@@ -79,6 +86,7 @@ router.get('/', async (_req, res) => {
       provider: isResendConfigured() ? 'resend' : isSmtpConfigured() ? 'smtp' : 'none',
     },
     placeholders: PLACEHOLDERS,
+    attachmentLimits: { files: MAX_ATTACHMENTS, bytes: MAX_ATTACHMENT_BYTES },
     batches,
     campaigns: campaigns.map((c) => campaignOut(c, B)),
   });
@@ -98,6 +106,37 @@ router.post('/preview', async (req, res) => {
   res.json({ subject: msg.subject, html: msg.html, text: msg.text });
 });
 
+// POST /api/lms/mail/attachments (multipart, field "files") — store files for
+// the compose form to attach. Returns [{ id, name, size, mimeType }]; the
+// campaign references them by id. The total is checked again when the mail
+// is saved, since the form may attach from several uploads.
+const attachmentUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: MAX_ATTACHMENT_BYTES, files: MAX_ATTACHMENTS },
+});
+router.post('/attachments', (req, res) => {
+  attachmentUpload.array('files', MAX_ATTACHMENTS)(req, res, async (err) => {
+    if (err) {
+      const msg = err.code === 'LIMIT_FILE_SIZE' ? 'That file is over 10 MB. Put it on Drive and send the link instead.'
+        : err.code === 'LIMIT_FILE_COUNT' || err.code === 'LIMIT_UNEXPECTED_FILE' ? `At most ${MAX_ATTACHMENTS} attachments to a mail.`
+          : 'Upload failed.';
+      return res.status(err.code === 'LIMIT_FILE_SIZE' ? 413 : 400).json({ error: msg });
+    }
+    const files = req.files || [];
+    if (!files.length) return res.status(400).json({ error: 'No file uploaded.' });
+    // All or nothing: half a push attached is a mail missing a file nobody noticed.
+    const problem = files.map(attachmentProblem).find(Boolean);
+    if (problem) return res.status(415).json({ error: problem });
+    try {
+      const attachments = [];
+      for (const f of files) attachments.push(await storeMailAttachment(f, req.user._id));
+      return res.status(201).json({ attachments });
+    } catch {
+      return res.status(500).json({ error: 'Could not store the file.' });
+    }
+  });
+});
+
 // POST /api/lms/mail/test { subject, body, batchId, to } — send one copy to an
 // address of the admin's choosing (their own account's by default), so the
 // mail can be read in a real inbox before a batch gets it. Capped because a
@@ -113,9 +152,12 @@ router.post('/test', async (req, res) => {
   if (!(await rateLimit(`mailtest:${req.user._id}`, 10, 60 * 60 * 1000))) {
     return res.status(429).json({ error: 'That is ten test mails in an hour. Try the preview instead.' });
   }
+  const att = await resolveAttachments(req.body?.attachments);
+  if (att.error) return res.status(400).json({ error: att.error });
   const msg = renderFor(copy, req.user, await sampleBatch(req.body?.batchId));
   try {
-    await sendMail({ to, subject: `[Test] ${msg.subject}`, text: msg.text, html: msg.html });
+    const attachments = await attachmentFiles(att.attachments);
+    await sendMail({ to, subject: `[Test] ${msg.subject}`, text: msg.text, html: msg.html, attachments });
   } catch (err) {
     return res.status(502).json({ error: `The mail provider refused it: ${err.message}` });
   }
@@ -159,7 +201,7 @@ async function replyWith(res, ids, status = 200) {
 }
 
 // POST /api/lms/mail/campaigns { batchIds, includeMentors, subject, body,
-//                                sendAts[] | sendAt }
+//                                attachments[{ id, name }], sendAts[] | sendAt }
 //
 // One row per time. Each is an instant (ISO): the client resolves "Friday
 // 7 pm" on the admin's own clock, same as classes and doubt sessions.
@@ -174,6 +216,8 @@ router.post('/campaigns', async (req, res) => {
   if (!sendAts) return res.status(400).json({ error: 'One of the send times is not a date.' });
   if (!sendAts.length) return res.status(400).json({ error: 'Pick at least one send time.' });
   if (sendAts.length > MAX_TIMES) return res.status(400).json({ error: `That is more than ${MAX_TIMES} send times.` });
+  const { attachments, error: attError } = await resolveAttachments(req.body?.attachments);
+  if (attError) return res.status(400).json({ error: attError });
 
   // Tell the admin how many it will reach; the send itself recomputes, since
   // a student enrolled tonight should get Friday's mail.
@@ -184,6 +228,7 @@ router.post('/campaigns', async (req, res) => {
     batchIds,
     includeMentors,
     ...copy,
+    attachments,
     sendAt,
     recipients: planned,
     createdBy: req.user._id,
@@ -215,6 +260,14 @@ router.put('/campaigns/:id', async (req, res) => {
     c.batchIds = batchIds;
   }
   if (req.body?.includeMentors !== undefined) c.includeMentors = !!req.body.includeMentors;
+  let dropped = [];
+  if (req.body?.attachments !== undefined) {
+    const att = await resolveAttachments(req.body.attachments);
+    if (att.error) return res.status(400).json({ error: att.error });
+    const keep = new Set(att.attachments.map((a) => String(a.fileId)));
+    dropped = (c.attachments || []).map((a) => a.fileId).filter((id) => !keep.has(String(id)));
+    c.attachments = att.attachments;
+  }
   if (req.body?.sendAt !== undefined) {
     const sendAt = parseSendAt(req.body.sendAt);
     if (!sendAt) return res.status(400).json({ error: 'That send time is not a date.' });
@@ -222,6 +275,7 @@ router.put('/campaigns/:id', async (req, res) => {
   }
   c.recipients = (await audienceOf(c)).length;
   await c.save();
+  await pruneAttachments(dropped);
 
   if (c.sendAt.getTime() <= Date.now() + IMMEDIATE_MS) await runCampaign(c._id);
   await replyWith(res, [c._id]);
@@ -251,6 +305,8 @@ router.delete('/campaigns/:id', async (req, res) => {
     return res.json({ ok: true, cancelled: true });
   }
   await MailCampaign.deleteOne({ _id: c._id });
+  // Its files go with it, unless another mail (a reuse) still sends them.
+  await pruneAttachments((c.attachments || []).map((a) => a.fileId));
   res.json({ ok: true, removed: true });
 });
 

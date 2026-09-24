@@ -102,6 +102,9 @@ router.get('/:id', requireAuth, async (req, res) => {
     const isOwner = String(asset.ownerId) === String(req.user._id);
     if (!isOwner && req.user.role !== 'admin') return res.status(403).json({ error: 'Not allowed.' });
   }
+  // A mail attachment reached its readers as a mail; the stored copy is the
+  // admin's, not course material every signed-in account can fetch by id.
+  if (asset.kind === 'mail-attachment' && req.user.role !== 'admin') return res.status(403).json({ error: 'Not allowed.' });
 
   res.setHeader('Content-Type', asset.mimeType);
   res.setHeader('Content-Length', asset.size);

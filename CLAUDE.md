@@ -578,6 +578,20 @@ since three sends to thirty students is ninety mails. A **test** goes to any
 address the admin types, remembered in the browser (ten an hour), and the **preview** renders the real shell
 in a sandboxed iframe, so the placeholders are checked before, not after.
 
+**Attachments** upload the moment they are picked (`POST /mail/attachments`,
+multipart `files[]`) and the campaign keeps only `{fileId, name, size}`, so a
+mail scheduled for Friday carries its files without anyone's browser staying
+open. The bytes are `FileAsset` rows of kind `mail-attachment`, hash-deduped
+like course PDFs and readable by an admin only. Up to five files and **10 MB
+together**, because every recipient gets every byte and Resend refuses a
+message over 40 MB after base64. PDFs, Office files, images, CSV, text and zip
+only, and a `.pdf` must carry the `%PDF-` header. Every file is loaded once per
+run and sent to everyone; one that has gone missing **fails the run** rather
+than sending a mail that says "attached" and isn't. Removing a campaign, or
+dropping a file on edit, deletes the stored file unless another campaign (a
+Reuse) still points at it, and the scheduler clears unsent uploads older than
+a day once an hour.
+
 A scheduled mail can be edited, sent early or cancelled; a sent, failed or
 cancelled one is history and can only be reused (which refills the form) or
 removed. The per-address failures are kept on the row and listed on the card.

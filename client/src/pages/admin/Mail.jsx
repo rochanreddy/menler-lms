@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { api } from '../../api.js';
+import { api, postFiles } from '../../api.js';
 import { Alert, Button, Card, Checkbox, Input, Radio, Select, Skeleton, Stack, StatusPill, Tabs, TabPanel, Text, Textarea } from '../../components/ui/index.js';
 import DateTimePicker from '../../components/DateTimePicker.jsx';
 import Empty from '../../components/Empty.jsx';
+import LineIcon from '../../components/LineIcon.jsx';
 
 // Admin: write a mail, pick the batches, say when — one time or several in
 // the same day. The server sends it.
@@ -19,6 +20,11 @@ import Empty from '../../components/Empty.jsx';
 // seen while typing, not in an inbox. Nothing is disabled silently: pressing
 // Schedule with a step missing says which one, because a button that does
 // nothing is how two mails were once "scheduled" without a batch ticked.
+//
+// Attachments upload the moment they are picked (POST /mail/attachments) and
+// the form keeps only their ids, so a scheduled mail carries its files
+// without the browser having to stay open. Every recipient gets every file,
+// which is why the cap is on the total, not per file.
 //
 // No saved templates, on purpose: "Reuse" on any past mail refills the form,
 // which is the whole of what a template did without a second list to tend.
@@ -36,6 +42,10 @@ const timeOnly = (d) => new Date(d).toLocaleTimeString([], { hour: 'numeric', mi
 const MAX_TIMES = 12;
 const TEST_TO_KEY = 'lms_mail_test_to';
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const ATTACH_ACCEPT = '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.csv,.txt,.png,.jpg,.jpeg,.gif,.webp,.ics,.zip';
+const fileSize = (n) => (n >= 1024 * 1024 ? `${(n / (1024 * 1024)).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
+// Only what the server needs: the stored file and the name it goes out under.
+const attachRefs = (list) => list.map((a) => ({ id: a.id, name: a.name }));
 
 // Copy to start from. Not saved templates — there are none, on purpose — just
 // three worked examples that show what a placeholder looks like in a
@@ -128,6 +138,9 @@ export default function AdminMail() {
   const [example, setExample] = useState('');
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
+  const [attachments, setAttachments] = useState([]); // [{ id, name, size }]
+  const [attaching, setAttaching] = useState(false);
+  const fileRef = useRef(null);
   const [mode, setMode] = useState('later'); // 'now' | 'later'
   const [times, setTimes] = useState(() => [tomorrowMorning()]); // picker values, local
   const [reach, setReach] = useState(null); // { count, sample }
@@ -196,6 +209,29 @@ export default function AdminMail() {
 
   const campaigns = data?.campaigns || [];
   const placeholders = data?.placeholders || [];
+  const limits = data?.attachmentLimits || { files: 5, bytes: 10 * 1024 * 1024 };
+  const attachedBytes = attachments.reduce((n, a) => n + (a.size || 0), 0);
+
+  // Checked here first so the admin hears "too big" before waiting for an
+  // upload; the server checks the same limits again on save.
+  async function attachFiles(list) {
+    const files = [...(list || [])];
+    if (fileRef.current) fileRef.current.value = '';
+    if (!files.length) return;
+    setErr(''); setNote('');
+    if (attachments.length + files.length > limits.files) { setErr(`At most ${limits.files} attachments to a mail.`); return; }
+    const total = attachedBytes + files.reduce((n, f) => n + f.size, 0);
+    if (total > limits.bytes) { setErr(`Attachments are capped at ${fileSize(limits.bytes)} together, since every student gets every file. Put the big one on Drive and send the link instead.`); return; }
+    setAttaching(true);
+    try {
+      const r = await postFiles('/mail/attachments', files);
+      setAttachments((cur) => {
+        const seen = new Set(cur.map((a) => a.id));
+        return [...cur, ...(r.attachments || []).filter((a) => !seen.has(a.id))];
+      });
+    } catch (e2) { setErr(e2.message); } finally { setAttaching(false); }
+  }
+  const removeAttachment = (id) => setAttachments((cur) => cur.filter((a) => a.id !== id));
   const mailOff = data && !data.mail.configured;
 
   function applyExample(key) {
@@ -230,6 +266,7 @@ export default function AdminMail() {
     setIncludeMentors(!!c.includeMentors);
     setSubject(c.subject);
     setBody(c.body);
+    setAttachments(c.attachments || []);
     setExample('');
     setMode('later');
     if (c.status === 'scheduled') {
@@ -249,6 +286,7 @@ export default function AdminMail() {
     setEditingId(null);
     setSubject('');
     setBody('');
+    setAttachments([]);
     setExample('');
     setMode('later');
     setTimes([tomorrowMorning()]);
@@ -273,6 +311,7 @@ export default function AdminMail() {
     else if (reach && reach.count === 0) out.push('The batches ticked have nobody to send to.');
     if (!subject.trim()) out.push('Write a subject.');
     if (!body.trim()) out.push('Write the body of the mail.');
+    if (attaching) out.push('Wait for the attachments to finish uploading.');
     if (mode === 'later' && (validTimes.length !== times.length || !times.length)) out.push('Every send time needs a date and a time.');
     return out;
   }
@@ -284,7 +323,7 @@ export default function AdminMail() {
     if (p.length) { setNote(''); setErr(p[0]); return; }
     setErr(''); setNote(''); setBusy(true);
     try {
-      const base = { batchIds: picked, includeMentors, subject, body };
+      const base = { batchIds: picked, includeMentors, subject, body, attachments: attachRefs(attachments) };
       if (editingId) {
         const r = await api(`/mail/campaigns/${editingId}`, { method: 'PUT', body: { ...base, sendAt: mode === 'now' ? 'now' : new Date(times[0]).toISOString() } });
         const c = r.campaign;
@@ -314,8 +353,9 @@ export default function AdminMail() {
     setErr(''); setNote('');
     if (!subject.trim() || !body.trim()) { setErr('Write a subject and a body first.'); return; }
     if (!testToOk) { setErr('Type the address the test copy should go to.'); return; }
+    if (attaching) { setErr('Wait for the attachments to finish uploading.'); return; }
     try {
-      const r = await api('/mail/test', { method: 'POST', body: { subject, body, batchId: sampleBatchId, to: testTo.trim() } });
+      const r = await api('/mail/test', { method: 'POST', body: { subject, body, batchId: sampleBatchId, to: testTo.trim(), attachments: attachRefs(attachments) } });
       try { localStorage.setItem(TEST_TO_KEY, testTo.trim()); } catch { /* private mode */ }
       setNote(`A test copy is on its way to ${r.to}.`);
     } catch (e2) { setErr(e2.message); }
@@ -454,6 +494,41 @@ export default function AdminMail() {
                         <span className="mail-placeholders-hint">Filled per person when it is sent.</span>
                       </div>
                     </div>
+
+                    <div className="mail-attach">
+                      <div className="mail-attach-head">
+                        <input
+                          ref={fileRef}
+                          type="file"
+                          multiple
+                          accept={ATTACH_ACCEPT}
+                          hidden
+                          onChange={(e) => attachFiles(e.target.files)}
+                        />
+                        <Button size="sm" variant="secondary" onClick={() => fileRef.current?.click()} loading={attaching} disabled={attachments.length >= limits.files} leadingIcon={<LineIcon name="paperclip" size={14} />}>
+                          {attaching ? 'Uploading…' : 'Attach files'}
+                        </Button>
+                        <Text role="caption" tone="muted">
+                          {attachments.length
+                            ? `${plural(attachments.length, 'file')} · ${fileSize(attachedBytes)} of ${fileSize(limits.bytes)}`
+                            : `Up to ${limits.files} files, ${fileSize(limits.bytes)} in all. PDFs, Office files, images, CSV, zip.`}
+                        </Text>
+                      </div>
+                      {attachments.length > 0 && (
+                        <ul className="mail-attach-list">
+                          {attachments.map((a) => (
+                            <li key={a.id} className="mail-attach-item">
+                              <LineIcon name="paperclip" size={13} />
+                              <span className="mail-attach-name">{a.name}</span>
+                              <span className="mail-attach-size">{fileSize(a.size || 0)}</span>
+                              <button type="button" className="mail-attach-x" onClick={() => removeAttachment(a.id)} aria-label={`Remove ${a.name}`} title="Remove">
+                                <LineIcon name="close" size={13} />
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
                   </Section>
 
                   <Section step="3" title="When" hint="Your local time. The server checks once a minute, so a mail goes out within a minute of its time.">
@@ -540,6 +615,12 @@ export default function AdminMail() {
                           <span className="mail-side-k">Subject</span>
                           <span className="mail-side-v">{preview.subject || <em>empty</em>}</span>
                         </div>
+                        {attachments.length > 0 && (
+                          <div className="mail-side-subject">
+                            <span className="mail-side-k">Attached</span>
+                            <span className="mail-side-v">{attachments.map((a) => a.name).join(', ')}</span>
+                          </div>
+                        )}
                         {/* sandbox with no flags: the mail's own markup renders, nothing in it can run. */}
                         <iframe className="mail-preview-frame" title="Mail preview" sandbox="" srcDoc={preview.html} />
                       </>
@@ -614,6 +695,12 @@ function CampaignCard({ c, onSendNow, onEdit, onReuse, onRemove }) {
           </div>
           <Text role="heading-3">{c.subject}</Text>
           <Text role="caption" tone="muted">{line}</Text>
+          {c.attachments?.length > 0 && (
+            <div className="mail-card-attach">
+              <LineIcon name="paperclip" size={13} />
+              <span>{c.attachments.map((a) => a.name).join(', ')}</span>
+            </div>
+          )}
           {c.error && <Alert tone="error">{c.error}</Alert>}
           <div className="mail-card-links">
             <button type="button" className="mail-link" onClick={() => setShowBody((v) => !v)}>{showBody ? 'Hide the text' : 'Show the text'}</button>

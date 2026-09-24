@@ -2,7 +2,8 @@ import mongoose from 'mongoose';
 
 // Binary files that belong to the product rather than to a student's own Drive.
 // Resumes from Profile, and curriculum PDFs uploaded from the admin editor
-// (reading material, teacher notes, lesson PDFs).
+// (reading material, teacher notes, lesson PDFs), and files an admin attaches
+// to a mail from the Mail tab (kept while a campaign still points at them).
 //
 // These live in Mongo rather than on the server's disk because the API runs on
 // a host with an ephemeral filesystem -- anything written to ./uploads is gone
@@ -20,7 +21,7 @@ const fileAssetSchema = new mongoose.Schema(
     mimeType: { type: String, default: 'application/octet-stream' },
     size: { type: Number, required: true },
     ownerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
-    kind: { type: String, enum: ['resume', 'curriculum-pdf'], default: 'resume', index: true },
+    kind: { type: String, enum: ['resume', 'curriculum-pdf', 'mail-attachment'], default: 'resume', index: true },
 
     // SHA-256 of `data`, so the same file uploaded twice is stored once.
     // Course material is the case that needs it: one 750 KB ebook attached to

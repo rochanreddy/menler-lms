@@ -24,6 +24,19 @@ const resultSchema = new mongoose.Schema(
   { _id: false },
 );
 
+// A file sent with the mail. The bytes are a FileAsset (kind
+// 'mail-attachment'); the name and size are copied here so the list can say
+// what went out without loading them.
+const attachmentSchema = new mongoose.Schema(
+  {
+    fileId: { type: mongoose.Schema.Types.ObjectId, ref: 'FileAsset', required: true },
+    name: { type: String, required: true },
+    size: { type: Number, default: 0 },
+    mimeType: { type: String, default: 'application/octet-stream' },
+  },
+  { _id: false },
+);
+
 const mailCampaignSchema = new mongoose.Schema(
   {
     batchIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Batch', index: true }],
@@ -33,6 +46,7 @@ const mailCampaignSchema = new mongoose.Schema(
 
     subject: { type: String, required: true, trim: true, maxlength: 200 },
     body: { type: String, required: true, maxlength: 20000 },
+    attachments: { type: [attachmentSchema], default: [] },
 
     sendAt: { type: Date, required: true, index: true },
     status: { type: String, enum: CAMPAIGN_STATUSES, default: 'scheduled', index: true },

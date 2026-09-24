@@ -46,26 +46,36 @@ async function getTransport() {
   return cachedTransport;
 }
 
-async function sendViaResend({ from, to, subject, text, html, replyTo }) {
+// `attachments` is [{ filename, content: Buffer, contentType }] — the shape
+// nodemailer takes as it is. Resend wants the bytes base64'd in the JSON.
+const forResend = (attachments) =>
+  attachments.map((a) => ({ filename: a.filename, content: Buffer.from(a.content).toString('base64'), ...(a.contentType ? { content_type: a.contentType } : {}) }));
+
+async function sendViaResend({ from, to, subject, text, html, replyTo, attachments }) {
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ from, to: [to], subject, text, html, ...(replyTo ? { reply_to: replyTo } : {}) }),
+    body: JSON.stringify({
+      from, to: [to], subject, text, html,
+      ...(replyTo ? { reply_to: replyTo } : {}),
+      ...(attachments?.length ? { attachments: forResend(attachments) } : {}),
+    }),
   });
   const body = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(`Resend ${res.status}: ${body?.message || body?.name || 'send failed'}`);
   return { id: body.id, provider: 'resend' };
 }
 
-export async function sendMail({ to, subject, text, html, replyTo }) {
+export async function sendMail({ to, subject, text, html, replyTo, attachments }) {
   if (!isMailConfigured()) {
-    console.log(`\n[email:dev] to=${to}\nsubject=${subject}\n${text || ''}\n`);
+    const files = attachments?.length ? `attachments=${attachments.map((a) => a.filename).join(', ')}\n` : '';
+    console.log(`\n[email:dev] to=${to}\nsubject=${subject}\n${files}${text || ''}\n`);
     return { dev: true };
   }
   const from = fromAddress();
-  if (isResendConfigured()) return sendViaResend({ from, to, subject, text, html, replyTo });
+  if (isResendConfigured()) return sendViaResend({ from, to, subject, text, html, replyTo, attachments });
   const transport = await getTransport();
-  const info = await transport.sendMail({ from, to, subject, text, html, replyTo });
+  const info = await transport.sendMail({ from, to, subject, text, html, replyTo, ...(attachments?.length ? { attachments } : {}) });
   return { id: info?.messageId, provider: 'smtp' };
 }
 

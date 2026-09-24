@@ -1,6 +1,8 @@
 import { Batch } from '../models/Batch.js';
 import { User } from '../models/User.js';
 import { MailCampaign } from '../models/MailCampaign.js';
+import { FileAsset } from '../models/FileAsset.js';
+import { sha256 } from './curriculumPdfAssets.js';
 // audienceOf populates the batch's programme; registering the model here keeps
 // the util usable from a script that never loaded the routes.
 import '../models/Program.js';
@@ -88,6 +90,109 @@ export async function audienceOf(campaign) {
   return out;
 }
 
+// ── Attachments ───────────────────────────────────────────────────────────
+//
+// Uploaded first (POST /mail/attachments), then referenced by id from the
+// compose. The bytes are a FileAsset, deduped on their hash like course PDFs,
+// so the same timetable attached to six reminders is stored once.
+//
+// The limits are the mail's, not the disk's: every byte goes to every
+// recipient, and Resend refuses a message over 40 MB once base64 has grown it
+// by a third. Ten MB in all keeps a send well clear of that and of the
+// inboxes that bounce big mail.
+export const MAX_ATTACHMENTS = 5;
+export const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024; // all files together
+
+// What an admin plausibly sends a cohort. An allowlist, because Resend and
+// most inboxes refuse executables anyway, and a refusal at send time is worse
+// than one at upload.
+const ATTACHMENT_EXT = /\.(pdf|docx?|xlsx?|pptx?|csv|txt|png|jpe?g|gif|webp|ics|zip)$/i;
+
+// A filename as the recipient will see it: no path, no control characters,
+// nothing a header could split on.
+const cleanFilename = (s) =>
+  String(s || 'attachment').split(/[\\/]/).pop().replace(/[\u0000-\u001f"<>|:*?]+/g, '_').trim().slice(0, 150) || 'attachment';
+
+/** Why this multer file cannot go out with a mail, or '' when it can. */
+export function attachmentProblem(file) {
+  const name = cleanFilename(file.originalname);
+  if (!ATTACHMENT_EXT.test(name)) return `${name}: that type of file cannot be attached. PDFs, Office files, images, CSV, text and zip are fine.`;
+  if (/\.pdf$/i.test(name) && !file.buffer.subarray(0, 1024).includes('%PDF-')) return `${name} is not really a PDF.`;
+  return '';
+}
+
+/** Store one uploaded file. Returns the attachment as the compose form keeps it. */
+export async function storeMailAttachment(file, ownerId) {
+  const name = cleanFilename(file.originalname);
+  const hash = sha256(file.buffer);
+  const mimeType = file.mimetype || 'application/octet-stream';
+  const seen = await FileAsset.findOne({ kind: 'mail-attachment', hash }).select('_id');
+  const asset = seen || await FileAsset.create({ data: file.buffer, name, mimeType, size: file.size, hash, ownerId, kind: 'mail-attachment' });
+  return { id: String(asset._id), name, size: file.size, mimeType };
+}
+
+/**
+ * Turn the compose form's list ([{ id, name }]) into the campaign's, checking
+ * every file is still stored. The name travels with the id rather than coming
+ * from the stored row, because the same bytes attached twice under two names
+ * share one row and each mail should carry the name it was attached under.
+ * Returns { attachments } or { error }.
+ */
+export async function resolveAttachments(list) {
+  const wanted = (Array.isArray(list) ? list : [])
+    .map((a) => (typeof a === 'string' ? { id: a } : a || {}))
+    .filter((a) => /^[a-f0-9]{24}$/i.test(String(a.id || '')));
+  const unique = [...new Map(wanted.map((a) => [String(a.id), a])).values()];
+  if (!unique.length) return { attachments: [] };
+  if (unique.length > MAX_ATTACHMENTS) return { error: `At most ${MAX_ATTACHMENTS} attachments to a mail.` };
+  const rows = await FileAsset.find({ _id: { $in: unique.map((a) => a.id) }, kind: 'mail-attachment' }).select('_id name size mimeType');
+  const byId = new Map(rows.map((r) => [String(r._id), r]));
+  const attachments = [];
+  for (const a of unique) {
+    const r = byId.get(String(a.id));
+    if (!r) return { error: 'One of the attachments is no longer stored. Remove it and attach the file again.' };
+    attachments.push({ fileId: r._id, name: cleanFilename(a.name || r.name), size: r.size, mimeType: r.mimeType });
+  }
+  const total = attachments.reduce((n, a) => n + a.size, 0);
+  if (total > MAX_ATTACHMENT_BYTES) return { error: 'The attachments come to more than 10 MB together. Put the big one on Drive and send the link instead.' };
+  return { attachments };
+}
+
+/** The bytes, in the shape sendMail() takes. Throws when a file has gone. */
+export async function attachmentFiles(attachments) {
+  if (!attachments?.length) return [];
+  const rows = await FileAsset.find({ _id: { $in: attachments.map((a) => a.fileId) } }).select('+data');
+  const byId = new Map(rows.map((r) => [String(r._id), r]));
+  return attachments.map((a) => {
+    const r = byId.get(String(a.fileId));
+    if (!r) throw new Error(`The attachment ${a.name} is no longer stored, so nothing was sent.`);
+    return { filename: a.name, content: r.data, contentType: a.mimeType || r.mimeType };
+  });
+}
+
+/**
+ * Delete stored attachments no campaign points at any more. With `ids`, only
+ * those (the files of a campaign just removed). Without, a sweep of uploads a
+ * compose left behind and never sent — older than a day, so a form left open
+ * over lunch keeps its files.
+ */
+export async function pruneAttachments(ids = null) {
+  const filter = { kind: 'mail-attachment' };
+  if (ids) {
+    if (!ids.length) return 0;
+    filter._id = { $in: ids };
+  } else {
+    filter.createdAt = { $lt: new Date(Date.now() - 24 * 3600 * 1000) };
+  }
+  const candidates = await FileAsset.find(filter).select('_id').lean();
+  if (!candidates.length) return 0;
+  const used = new Set((await MailCampaign.distinct('attachments.fileId', { 'attachments.fileId': { $in: candidates.map((c) => c._id) } })).map(String));
+  const dead = candidates.filter((c) => !used.has(String(c._id))).map((c) => c._id);
+  if (!dead.length) return 0;
+  const r = await FileAsset.deleteMany({ _id: { $in: dead }, kind: 'mail-attachment' });
+  return r.deletedCount || 0;
+}
+
 /** The mail one recipient would get — subject and body filled, shell around it. */
 export function renderFor({ subject, body }, user, batch) {
   const vars = varsFor(user, batch);
@@ -144,6 +249,16 @@ export async function runCampaign(id) {
     return finish({ status: 'failed', recipients: 0, error: 'Nobody to send to: the batches picked have no students.' });
   }
 
+  // Loaded once, sent to everyone. A file that has gone missing fails the
+  // run: a mail that says "the timetable is attached" and is not is worse
+  // than one that did not go.
+  let files;
+  try {
+    files = await attachmentFiles(campaign.attachments);
+  } catch (err) {
+    return finish({ status: 'failed', recipients: audience.length, error: err.message });
+  }
+
   await MailCampaign.updateOne({ _id: campaign._id }, { $set: { recipients: audience.length } });
 
   const results = [];
@@ -153,7 +268,7 @@ export async function runCampaign(id) {
   for (const { user, batch } of audience) {
     const msg = renderFor(campaign, user, batch);
     try {
-      await sendMail({ to: user.email, subject: msg.subject, text: msg.text, html: msg.html });
+      await sendMail({ to: user.email, subject: msg.subject, text: msg.text, html: msg.html, attachments: files });
       delivered += 1;
       results.push({ userId: user._id, email: user.email, ok: true });
     } catch (err) {
@@ -210,11 +325,18 @@ export async function runDueCampaigns(now = Date.now()) {
 // second tick to find anyway.
 export function startMailScheduler(everyMs = 60 * 1000) {
   let running = false;
+  let lastPrune = 0;
   const run = async () => {
     if (running) return;
     running = true;
     try {
       await runDueCampaigns();
+      // Abandoned uploads, hourly — nothing about them is urgent.
+      if (Date.now() - lastPrune > 3600 * 1000) {
+        lastPrune = Date.now();
+        const n = await pruneAttachments();
+        if (n) console.log(`[mail] removed ${n} unused attachment(s)`);
+      }
     } catch (err) {
       console.error('[mail] scheduler tick failed:', err.message);
     } finally {
