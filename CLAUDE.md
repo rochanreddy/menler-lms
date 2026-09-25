@@ -848,7 +848,15 @@ than a mailshot about classes that already ran. The arithmetic is exported as
 `reminderWindows(now)` and proved in `tests/sessionReminders.test.js`, which
 needs no database. Sends go out over **ZeptoMail** — `ZEPTOMAIL_TOKEN`, first
 in `utils/email.js`'s order — because Resend's free 100/day is one evening
-class; leave the token unset and the sweep declines to run. `npm run test:flows` covers the
+class; leave the token unset and the sweep declines to run.
+
+[utils/assignmentReminders.js](server/utils/assignmentReminders.js) does the same for
+assignments, to every student in the batch: one mail as it **opens** (its
+`startDate`, else `createdAt` — but only if it has a start or due date, because
+`syncCurriculumAssignments.js` creates a programme's undated set in one go),
+and one **24 h before `dueDate`**. `dueReminderFor` stores the date reminded
+about, so an extended deadline is reminded again. Rules are pure functions
+(`openMailDue`, `dueReminderDue`) proved in `tests/assignmentReminders.test.js`. `npm run test:flows` covers the
 takeover, the revoked refresh, and the lease; it signs in with `force: true`
 because an automated client taking the account over should say so.
 

@@ -548,20 +548,28 @@ const istTime = (at) => new Date(at).toLocaleString('en-IN', {
   hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata',
 });
 
-// The facts of the class, in the same bordered box the sign-in credentials
-// use — a student who skims the paragraph still cannot miss the time.
-function sessionFacts({ title, batchName, startsAt, endsAt }) {
-  const row = (k, v) => `<tr>
+// The facts, in the same bordered box the sign-in credentials use — a student
+// who skims the paragraph still cannot miss the time. `rows` is [label, value]
+// pairs with the value already escaped; a falsy pair is skipped, so an optional
+// fact can be written inline as `cond && [...]`.
+function factsBox(heading, rows) {
+  const row = ([k, v]) => `<tr>
     <td style="padding:10px 16px; font-size:13px; color:#6B6F80; white-space:nowrap; border-top:1px solid #E6E4F2;">${k}</td>
     <td style="padding:10px 16px; font-size:15px; color:#1F2430; border-top:1px solid #E6E4F2;">${v}</td>
   </tr>`;
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:22px; background:#F6F5FB; border:1px solid #E6E4F2; border-radius:8px;">
-    <tr><td colspan="2" style="padding:12px 16px 4px; font-size:11px; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:#534AB7;">Your class</td></tr>
-    ${row('Session', esc(title))}
-    ${batchName ? row('Batch', esc(batchName)) : ''}
-    ${row('Starts', `${esc(istWhen(startsAt))} IST`)}
-    ${endsAt ? row('Ends', `${esc(istTime(endsAt))} IST`) : ''}
+    <tr><td colspan="2" style="padding:12px 16px 4px; font-size:11px; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:#534AB7;">${esc(heading)}</td></tr>
+    ${rows.filter(Boolean).map(row).join('\n    ')}
   </table>`;
+}
+
+function sessionFacts({ title, batchName, startsAt, endsAt }) {
+  return factsBox('Your class', [
+    ['Session', esc(title)],
+    batchName && ['Batch', esc(batchName)],
+    ['Starts', `${esc(istWhen(startsAt))} IST`],
+    endsAt && ['Ends', `${esc(istTime(endsAt))} IST`],
+  ]);
 }
 
 /**
@@ -634,6 +642,77 @@ export function sessionReminderEmail({
     `${joinUrl ? 'Join' : 'Open the LMS'}: ${href}`, '',
     `If the link does not work, sign in at ${classUrl} or write to ${SUPPORT_EMAIL}.`, '',
     'See you in class!', '',
+    SIGN_OFF,
+  ].join('\n');
+
+  return { subject, text, html };
+}
+
+/* ── Assignment reminders ─────────────────────────────────────────────────── */
+
+/**
+ * The two assignment mails: one as it opens, one a day before it is due.
+ *
+ * Everything in them is the assignment's own record — its title, whether it is
+ * an assignment or a project, its batch, and its dates. Nothing about how it
+ * is graded, what it is worth or how long it takes: none of that is in the
+ * record, and a reminder is no place to invent it.
+ *
+ * `kind` is 'open' or 'due'. `dueDate` may be null on an open mail — an
+ * assignment can open with no cutoff — and the box then says so rather than
+ * leaving the reader to wonder whether a date was forgotten.
+ */
+export function assignmentReminderEmail({
+  fullName, email, title, type = 'assignment', batchName = '', startDate = null, dueDate = null, kind = 'open',
+}) {
+  const first = firstNameOf(fullName, email);
+  const due = kind === 'due';
+  const noun = type === 'project' ? 'project' : 'assignment';
+  const Noun = noun[0].toUpperCase() + noun.slice(1);
+  // Assignments live on the Learning tab — the same link the in-app
+  // "New assignment" notification already uses.
+  const href = appUrl('/app/learning');
+  const dueText = dueDate ? `${istWhen(dueDate)} IST` : '';
+
+  const subject = due
+    ? `Due in 24 hours: ${title}`
+    : `New ${noun}: ${title}`;
+
+  const opener = due
+    ? `Your ${noun} <strong>${esc(title)}</strong> is due in 24 hours, on <strong>${esc(dueText)}</strong>.`
+    : `A new ${noun} is open: <strong>${esc(title)}</strong>.`;
+  const openerText = due
+    ? `Your ${noun} ${title} is due in 24 hours, on ${dueText}.`
+    : `A new ${noun} is open: ${title}.`;
+
+  const facts = factsBox(`Your ${noun}`, [
+    [Noun, esc(title)],
+    batchName && ['Batch', esc(batchName)],
+    !due && startDate && ['Opened', `${esc(istWhen(startDate))} IST`],
+    ['Due', dueDate ? esc(dueText) : 'No due date'],
+  ]);
+
+  const html = shell({
+    title: subject,
+    preview: due ? `Due ${dueText}.` : `${Noun}: ${title}`,
+    greeting: first,
+    body: [P(opener), facts, P(`Open it and submit from the Learning tab.`)].join('\n'),
+    cta: { label: `Open the ${noun}`, href },
+    help: `If the link does not work, sign in at <a href="${href}" style="color:#534AB7; text-decoration:underline;">${href}</a> or write to ${mailtoLink()}.`,
+    closing: '',
+    why: `You're receiving this because you are enrolled${batchName ? ` in ${esc(batchName)}` : ''} on the Menler LMS, as ${esc(email)}.`,
+  });
+
+  const text = [
+    `Dear ${first},`, '',
+    openerText, '',
+    `${Noun}: ${title}`,
+    ...(batchName ? [`Batch: ${batchName}`] : []),
+    ...(!due && startDate ? [`Opened: ${istWhen(startDate)} IST`] : []),
+    `Due: ${dueDate ? dueText : 'No due date'}`, '',
+    'Open it and submit from the Learning tab.',
+    `${href}`, '',
+    `If the link does not work, write to ${SUPPORT_EMAIL}.`, '',
     SIGN_OFF,
   ].join('\n');
 

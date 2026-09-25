@@ -62,6 +62,17 @@ const assignmentSchema = new mongoose.Schema(
     // assignments and arrives as an .html file about as often as it arrives as
     // a PDF export, so both have to pass. See utils/driveVerify.js.
     allowHtml: { type: Boolean, default: false },
+
+    // Stamps for the two reminder mails (utils/assignmentReminders.js), each
+    // claimed atomically before the mail goes out so a restart or a second
+    // instance cannot send it twice.
+    //
+    // The "open" mail goes once, ever. The due reminder records WHICH due date
+    // it reminded about rather than just "sent": a deadline that is extended
+    // after the reminder went out no longer matches, so the new date gets its
+    // own reminder instead of the cohort being told nothing about it.
+    openMailedAt: { type: Date, default: null },
+    dueReminderFor: { type: Date, default: null },
   },
   { timestamps: true },
 );
