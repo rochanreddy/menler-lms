@@ -2818,6 +2818,28 @@ button.ds-slot-email:hover { color: var(--ink); }
 .ds-slot-meet-row { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
 .ds-slot-meet-row > *:first-child { flex: 1 1 18em; min-width: 0; }
 
+/* What a student attached to their slot: the student's own list on their
+   booking form, and the admin's read-only row of the same files on the sheet.
+   Both are chips rather than links, because the bytes sit behind requireAuth
+   and have to be fetched with the token before a tab can be handed them. */
+.ds-files { list-style: none; margin: var(--space-2) 0; padding: 0;
+  display: flex; flex-direction: column; gap: var(--space-1); }
+.ds-file { display: flex; align-items: center; gap: var(--space-2);
+  padding: var(--space-2) var(--space-3); border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm); background: var(--surface-2); }
+.ds-file-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; text-align: left; background: none; border: 0; padding: 0;
+  font: inherit; color: var(--brand); cursor: pointer; }
+.ds-file-name:hover { text-decoration: underline; }
+.ds-file-size { font-size: var(--text-xs); color: var(--muted); font-variant-numeric: tabular-nums; }
+
+.ds-slot-files { margin-top: var(--space-2); }
+.ds-slot-file-row { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-1); }
+.ds-slot-file { max-width: 16em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  padding: var(--space-1) var(--space-3); border: 1px solid var(--line); border-radius: var(--pill);
+  background: var(--surface-2); font: inherit; font-size: var(--text-sm); color: var(--brand); cursor: pointer; }
+.ds-slot-file:hover { border-color: var(--brand); }
+
 @media (max-width: 720px) {
   .ds-slot { grid-template-columns: 1fr; gap: var(--space-1); }
 }

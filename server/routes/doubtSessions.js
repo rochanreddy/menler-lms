@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import multer from 'multer';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { DoubtSession } from '../models/DoubtSession.js';
 import { DoubtBooking } from '../models/DoubtBooking.js';
@@ -6,6 +7,10 @@ import { Batch } from '../models/Batch.js';
 import { User } from '../models/User.js';
 import { myBatchIds } from '../utils/access.js';
 import { notify, notifyMany } from '../utils/notify.js';
+import {
+  ATTACHMENT_REFUSAL, MAX_ATTACHMENTS, MAX_ATTACHMENT_BYTES,
+  dropAttachments, sniffAttachment, storeDoubtAttachment,
+} from '../utils/doubtAttachments.js';
 
 const router = Router();
 
@@ -39,6 +44,8 @@ function grid(session, bookings, viewerId) {
   });
 }
 
+const publicAttachment = (a) => ({ _id: a._id, url: a.url, name: a.name, mimeType: a.mimeType, size: a.size });
+
 const publicSession = (s, slots, mine) => ({
   _id: s._id,
   title: s.title,
@@ -54,7 +61,13 @@ const publicSession = (s, slots, mine) => ({
   // `joinUrl` on the booking is this student's own room; the session's is the
   // fallback for a session that runs on one shared link.
   booking: mine
-    ? { slotAt: mine.slotAt, name: mine.name, doubts: mine.doubts, joinUrl: mine.joinUrl || '' }
+    ? {
+      slotAt: mine.slotAt,
+      name: mine.name,
+      doubts: mine.doubts,
+      joinUrl: mine.joinUrl || '',
+      attachments: (mine.attachments || []).map(publicAttachment),
+    }
     : null,
 });
 
@@ -160,9 +173,98 @@ router.post('/:id/book', requireAuth, requireRole('student'), async (req, res) =
 router.delete('/:id/book', requireAuth, requireRole('student'), async (req, res) => {
   const session = await DoubtSession.findById(req.params.id);
   if (!session) return res.status(404).json({ error: 'Not found.' });
+  // The booking is what the files belonged to, so they go with it rather than
+  // waiting for the sweep: there is no longer a slot for anyone to read them at.
+  const mine = await DoubtBooking.findOne({ sessionId: session._id, studentId: req.user._id }).select('attachments');
+  if (mine) await dropAttachments(mine.attachments);
   await DoubtBooking.deleteOne({ sessionId: session._id, studentId: req.user._id });
   const bookings = await DoubtBooking.find({ sessionId: session._id });
   res.json({ ok: true, session: publicSession(session, grid(session, bookings, req.user._id), null) });
+});
+
+// ── Attachments on a booking ───────────────────────────────────────
+//
+// "I can't get this to run" is a sentence; the screenshot of the stack trace is
+// the thing the mentor actually needs, and before this there was nowhere to put
+// it but a chat nobody reads until the call has already started.
+//
+// They belong to the booking, not to the student and not to the session: one
+// slot, one set of files, and when the slot goes the files go. The sweep in
+// utils/doubtAttachmentSweep.js ends the rest of them once the evening is over,
+// which is the promise the upload box makes on screen.
+
+const attachmentUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: MAX_ATTACHMENT_BYTES, files: MAX_ATTACHMENTS },
+});
+
+// POST /api/lms/doubt-sessions/:id/attachments — multipart, files[].
+//
+// A booking is the prerequisite, not the session: attaching a screenshot to an
+// evening you have not booked has nobody to show it to. Booking being CLOSED is
+// deliberately not a refusal — the close freezes who holds which slot, and a
+// student adding the screenshot their mentor just asked for is neither a new
+// claim nor a move.
+router.post('/:id/attachments', requireAuth, requireRole('student'), (req, res) => {
+  attachmentUpload.array('files', MAX_ATTACHMENTS)(req, res, async (err) => {
+    if (err) {
+      if (err.code === 'LIMIT_FILE_SIZE') return res.status(413).json({ error: 'That file is over the 5 MB limit.' });
+      if (err.code === 'LIMIT_FILE_COUNT') return res.status(413).json({ error: `Attach up to ${MAX_ATTACHMENTS} files.` });
+      return res.status(400).json({ error: 'Upload failed.' });
+    }
+
+    const session = await DoubtSession.findById(req.params.id);
+    if (!session || session.cancelledAt) return res.status(404).json({ error: 'That doubt session is no longer open.' });
+    // Past its last slot the files would be swept within the hour anyway, so
+    // taking them is worse than saying no: it would look like it had worked.
+    const ends = sessionEndsAt(session);
+    if (ends && ends.getTime() <= Date.now()) return res.status(409).json({ error: 'That session is over.' });
+
+    const booking = await DoubtBooking.findOne({ sessionId: session._id, studentId: req.user._id });
+    if (!booking) return res.status(409).json({ error: 'Book a slot first, then attach what you want your mentor to look at.' });
+
+    const files = req.files || [];
+    if (!files.length) return res.status(400).json({ error: 'No file chosen.' });
+    const room = MAX_ATTACHMENTS - (booking.attachments || []).length;
+    if (files.length > room) {
+      return res.status(413).json({
+        error: room > 0
+          ? `You can attach ${room} more file${room === 1 ? '' : 's'}.`
+          : `You already have ${MAX_ATTACHMENTS} files attached. Remove one first.`,
+      });
+    }
+
+    // Sniffed, not trusted: the type a browser reports is the type the OS told
+    // it, and this is the value the file is later served back with.
+    const sniffed = files.map((f) => [f, sniffAttachment(f)]);
+    const bad = sniffed.find(([, mime]) => !mime);
+    if (bad) return res.status(415).json({ error: `${bad[0].originalname || 'That file'} is not something we can show your mentor. ${ATTACHMENT_REFUSAL}` });
+
+    try {
+      for (const [file, mime] of sniffed) {
+        booking.attachments.push(await storeDoubtAttachment(file, req.user._id, mime));
+      }
+      await booking.save();
+    } catch {
+      return res.status(500).json({ error: 'Could not store the file.' });
+    }
+
+    res.status(201).json({ ok: true, attachments: booking.attachments.map(publicAttachment) });
+  });
+});
+
+// DELETE /api/lms/doubt-sessions/:id/attachments/:aid — take one off, and take
+// the bytes with it. Nothing here is kept as a record: the whole point of the
+// feature is that it does not outlast the evening.
+router.delete('/:id/attachments/:aid', requireAuth, requireRole('student'), async (req, res) => {
+  const booking = await DoubtBooking.findOne({ sessionId: req.params.id, studentId: req.user._id });
+  if (!booking) return res.status(404).json({ error: 'Not found.' });
+  const one = booking.attachments.id(req.params.aid);
+  if (!one) return res.status(404).json({ error: 'That file is already gone.' });
+  await dropAttachments([one]);
+  booking.attachments.pull(req.params.aid);
+  await booking.save();
+  res.json({ ok: true, attachments: booking.attachments.map(publicAttachment) });
 });
 
 // ── Admin ──────────────────────────────────────────────────────────────────
@@ -218,6 +320,7 @@ router.get('/', requireAuth, requireRole('admin'), async (req, res) => {
                 _id: b._id,
                 name: b.name,
                 doubts: b.doubts,
+                attachments: (b.attachments || []).map(publicAttachment),
                 joinUrl: b.joinUrl || '',
                 joinSharedAt: b.joinSharedAt,
                 student: { name: S[String(b.studentId)]?.fullName || '', email: S[String(b.studentId)]?.email || '' },
@@ -361,11 +464,18 @@ router.patch('/:id', requireAuth, requireRole('admin'), async (req, res) => {
 router.delete('/:id', requireAuth, requireRole('admin'), async (req, res) => {
   const session = await DoubtSession.findById(req.params.id);
   if (!session) return res.status(404).json({ error: 'Not found.' });
+  // Either way the attachments go NOW rather than at the sweep. Cancelling
+  // pulls the evening from every student's view, and a screenshot nobody can
+  // reach any more is one nobody agreed to keep storing.
+  const rows = await DoubtBooking.find({ sessionId: session._id }).select('attachments');
+  for (const r of rows) await dropAttachments(r.attachments);
+
   if (req.query.purge === '1') {
     await DoubtBooking.deleteMany({ sessionId: session._id });
     await session.deleteOne();
     return res.json({ ok: true, deleted: true });
   }
+  await DoubtBooking.updateMany({ sessionId: session._id }, { $set: { attachments: [] } });
   await DoubtSession.updateOne({ _id: session._id }, { $set: { cancelledAt: new Date() } });
   res.json({ ok: true, cancelled: true });
 });

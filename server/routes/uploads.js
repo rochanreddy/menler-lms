@@ -91,7 +91,8 @@ router.post('/', requireAuth, (req, res) => {
 });
 
 // GET /api/lms/uploads/:id
-// Resumes: owner or admin. Curriculum PDFs: any signed-in user (course material).
+// Resumes: owner or admin. Curriculum PDFs: any signed-in user (course
+// material). Doubt attachments: owner or admin. Mail attachments: admin.
 router.get('/:id', requireAuth, async (req, res) => {
   if (!mongoose.isValidObjectId(req.params.id)) return res.status(404).json({ error: 'Not found.' });
 
@@ -105,6 +106,13 @@ router.get('/:id', requireAuth, async (req, res) => {
   // A mail attachment reached its readers as a mail; the stored copy is the
   // admin's, not course material every signed-in account can fetch by id.
   if (asset.kind === 'mail-attachment' && req.user.role !== 'admin') return res.status(403).json({ error: 'Not allowed.' });
+  // A doubt attachment is one student's screenshot of their own problem. The
+  // admin runs the session and reads it to prepare; nobody else has any
+  // business fetching it by id, least of all the rest of the cohort.
+  if (asset.kind === 'doubt-attachment') {
+    const isOwner = String(asset.ownerId) === String(req.user._id);
+    if (!isOwner && req.user.role !== 'admin') return res.status(403).json({ error: 'Not allowed.' });
+  }
 
   res.setHeader('Content-Type', asset.mimeType);
   res.setHeader('Content-Length', asset.size);

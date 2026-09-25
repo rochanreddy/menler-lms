@@ -26,6 +26,25 @@ const doubtBookingSchema = new mongoose.Schema(
     slotAt: { type: Date, required: true },
     doubts: { type: String, default: '', trim: true, maxlength: 2000 },
 
+    // What they attached: the screenshot of the error, the notebook that will
+    // not run. Ephemeral by design -- the sweep in utils/doubtAttachmentSweep.js
+    // deletes both these entries and the bytes behind them once the session is
+    // over, so a doubt shared for one evening does not sit in the database for
+    // the rest of the course. Cancelling the session, or giving the slot back,
+    // drops them immediately.
+    attachments: {
+      type: [new mongoose.Schema(
+        {
+          url: { type: String, required: true },
+          name: { type: String, required: true },
+          mimeType: { type: String, default: '' },
+          size: { type: Number, default: 0 },
+        },
+        { _id: true, timestamps: { createdAt: 'addedAt', updatedAt: false } },
+      )],
+      default: [],
+    },
+
     // The meeting link for THIS student's slot, set by the admin after the
     // booking exists. A doubt slot is one person in the room, so the room is
     // usually a fresh Meet per student rather than the session-wide link — and

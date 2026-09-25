@@ -266,6 +266,14 @@ export const addWebinarResources = (webinarId, files = [], link = null) =>
 export const removeWebinarResource = (webinarId, resourceId) =>
   api(`/webinars/${webinarId}/resources/${resourceId}`, { method: 'DELETE' });
 
+// What a student attaches to their doubt-session booking: a screenshot of the
+// error, the PDF they are arguing with. Deleted when the session is over, so
+// nothing here is meant to be durable — see server/utils/doubtAttachments.js.
+export const addDoubtAttachments = (sessionId, files) =>
+  postFiles(`/doubt-sessions/${sessionId}/attachments`, files);
+export const removeDoubtAttachment = (sessionId, attachmentId) =>
+  api(`/doubt-sessions/${sessionId}/attachments/${attachmentId}`, { method: 'DELETE' });
+
 // Curriculum PDF from the admin editor → stored in Mongo, up to 15 MB.
 export const uploadCurriculumPdf = (file) => postFile('/uploads', file, { kind: 'curriculum-pdf' });
 

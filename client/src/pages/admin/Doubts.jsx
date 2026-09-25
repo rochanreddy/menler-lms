@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { api } from '../../api.js';
+import { api, openStoredFile } from '../../api.js';
 import { Alert, Badge, Button, Card, Checkbox, Input, Select, Skeleton, Stack, Text, Textarea } from '../../components/ui/index.js';
 import Empty from '../../components/Empty.jsx';
 
@@ -132,6 +132,34 @@ function SlotLink({ sessionId, booking, onDone }) {
                 : 'Not sent yet — they see no link until you send one.'}
             </Text>
           )}
+    </div>
+  );
+}
+
+/** What the student attached, ready to open before the call.
+ *
+ *  Read-only here on purpose: the files are the student's, and an admin
+ *  deleting one would only take away the thing the slot was booked about. They
+ *  disappear on their own once the session is over. */
+function SlotFiles({ files }) {
+  const [err, setErr] = useState('');
+  if (!files?.length) return null;
+  return (
+    <div className="ds-slot-files">
+      <Text role="caption" tone="muted">Attached</Text>
+      <div className="ds-slot-file-row">
+        {files.map((f) => (
+          <button
+            type="button"
+            key={f._id}
+            className="ds-slot-file"
+            onClick={() => openStoredFile(f.url).catch((e) => setErr(e.message))}
+          >
+            {f.name}
+          </button>
+        ))}
+      </div>
+      {err && <Text role="caption" tone="destructive">{err}</Text>}
     </div>
   );
 }
@@ -396,6 +424,7 @@ export default function AdminDoubts() {
                       {slot.booking.doubts
                         ? <Text role="body">{slot.booking.doubts}</Text>
                         : <Text role="caption" tone="muted">No question written.</Text>}
+                      <SlotFiles files={slot.booking.attachments} />
                       {!s.cancelledAt && (
                         <SlotLink sessionId={s._id} booking={slot.booking} onDone={load} />
                       )}

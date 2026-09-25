@@ -11,6 +11,7 @@ import { connectDb } from './db.js';
 import { startAbsenceSweep } from './utils/attendanceSweep.js';
 import { startSessionReminders } from './utils/sessionReminders.js';
 import { startAssignmentReminders } from './utils/assignmentReminders.js';
+import { startDoubtAttachmentSweep } from './utils/doubtAttachmentSweep.js';
 import routes from './routes/index.js';
 
 const app = express();
@@ -230,6 +231,7 @@ async function start() {
     startAbsenceSweep();
     startSessionReminders();
     startAssignmentReminders();
+    startDoubtAttachmentSweep();
   } catch (err) {
     console.error('Failed to start LMS server:', err);
     process.exit(1);

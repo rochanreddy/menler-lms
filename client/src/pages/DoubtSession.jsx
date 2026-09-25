@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { api } from '../api.js';
+import { addDoubtAttachments, api, openStoredFile, removeDoubtAttachment } from '../api.js';
 import Empty from '../components/Empty.jsx';
 import { Alert, Button, Card, Input, Skeleton, Stack, Text, Textarea } from '../components/ui/index.js';
 
@@ -16,6 +16,95 @@ import { Alert, Button, Card, Input, Skeleton, Stack, Text, Textarea } from '../
 // admitting they have any.
 const time = (d) => new Date(d).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 const day = (d) => new Date(d).toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' });
+
+const MAX_ATTACHMENTS = 3;
+const ACCEPT = '.pdf,.png,.jpg,.jpeg,.gif,.webp';
+const kb = (n) => (n >= 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
+
+/** What the mentor should look at before the call.
+ *
+ *  A doubt is usually easier to show than to write: the stack trace, the cell
+ *  that will not run, the brief being argued with. The box only appears once a
+ *  slot is booked, because a file attached to an evening nobody has claimed has
+ *  no one to reach.
+ *
+ *  The sentence about them being deleted is not decoration. It is the reason a
+ *  student is willing to paste a screenshot of their half-finished work at all,
+ *  and the sweep on the server is what keeps it true. */
+function Attachments({ sessionId, items, onChange }) {
+  const pickRef = useRef(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+  const room = MAX_ATTACHMENTS - items.length;
+
+  async function take(list) {
+    const files = [...(list || [])];
+    if (!files.length || busy) return;
+    setBusy(true); setErr('');
+    try {
+      const r = await addDoubtAttachments(sessionId, files);
+      onChange(r.attachments);
+    } catch (e) { setErr(e.message); } finally { setBusy(false); }
+  }
+
+  async function drop(id) {
+    if (busy) return;
+    setBusy(true); setErr('');
+    try {
+      const r = await removeDoubtAttachment(sessionId, id);
+      onChange(r.attachments);
+    } catch (e) { setErr(e.message); } finally { setBusy(false); }
+  }
+
+  async function open(a) {
+    setErr('');
+    try { await openStoredFile(a.url); } catch (e) { setErr(e.message); }
+  }
+
+  return (
+    <div>
+      <Text role="label">Anything to show them?</Text>
+      <Text role="caption">
+        A screenshot of the error, or the PDF you are stuck on. Up to {MAX_ATTACHMENTS} files, 5 MB each.
+        {' '}These are deleted once the session is over.
+      </Text>
+
+      {items.length > 0 && (
+        <ul className="ds-files">
+          {items.map((a) => (
+            <li key={a._id} className="ds-file">
+              <button type="button" className="ds-file-name" onClick={() => open(a)}>{a.name}</button>
+              <span className="ds-file-size">{kb(a.size)}</span>
+              <Button size="sm" variant="ghost" disabled={busy} onClick={() => drop(a._id)}>Remove</Button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <input
+        ref={pickRef}
+        type="file"
+        accept={ACCEPT}
+        multiple
+        hidden
+        onChange={(e) => { take(e.target.files); e.target.value = ''; }}
+      />
+      <div className="inline-form">
+        <Button
+          size="sm"
+          variant="secondary"
+          loading={busy}
+          disabled={room <= 0}
+          onClick={() => pickRef.current?.click()}
+        >
+          {items.length ? 'Attach another' : 'Attach a file'}
+        </Button>
+        {room <= 0 && <Text role="caption" tone="muted">That is the limit. Remove one to add another.</Text>}
+      </div>
+      {err && <Text role="caption" tone="destructive">{err}</Text>}
+    </div>
+  );
+}
 
 export default function DoubtSession() {
   const { user } = useOutletContext();
@@ -200,6 +289,16 @@ export default function DoubtSession() {
                 maxLength={2000}
                 disabled={closed}
                 placeholder="e.g. I can't get the RAG notebook to return sources — it errors on the embed step."
+              />
+            )}
+
+            {/* Only once there is a booking to hang them on: the server says the
+                same, and offering the box before that would be a dead button. */}
+            {session.booking && (
+              <Attachments
+                sessionId={session._id}
+                items={session.booking.attachments || []}
+                onChange={(attachments) => setSession((s) => ({ ...s, booking: { ...s.booking, attachments } }))}
               />
             )}
 

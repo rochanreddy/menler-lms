@@ -503,6 +503,34 @@ freed slot is something the mentor can act on, where holding someone to a
 slot they cannot attend only buys an empty chair nobody was warned about —
 and the student's page says before they press it that it is one-way.
 
+**What they attach lasts one evening.** A doubt is usually easier to show
+than to write, so a booking carries up to three files (5 MB each: screenshots
+— PNG/JPG/GIF/WebP — or a PDF), and the admin opens them from the booked
+sheet before the call. Students only: the files travel one way, which is what
+makes deleting them at the end coherent.
+
+They are deleted, and that is the feature rather than housekeeping.
+`utils/doubtAttachmentSweep.js` runs at boot and every 15 minutes and clears
+every booking whose session finished more than **two hours** ago; cancelling a
+session and giving a slot back drop theirs on the spot. The grace exists
+because the grid says a 9:30 slot ends at 10:00 while a session running twenty
+minutes over is a normal evening — sweeping on the dot would take the
+screenshot off the mentor's screen mid-call. Not `bookingsClosedAt`: closing
+booking freezes the sheet while the evening is still *ahead*, which is exactly
+when the mentor is reading these files to prepare. The rule is exported as
+`attachmentsExpired()` and proved in `tests/doubtAttachments.test.js`, because
+both ways of getting it wrong are silent.
+
+They deliberately do **not** go through `storeCurriculumPdf`. That helper
+deduplicates on the content hash so one ebook on twenty lessons is one row —
+right for course material, and fatal here: a shared row cannot be deleted when
+one session ends without emptying whatever else points at it. So a doubt
+attachment is always its own `FileAsset` (`kind: 'doubt-attachment'`, `hash`
+left empty on purpose) and is deleted outright. The bytes are sniffed rather
+than trusted — the sniffed type is what `GET /uploads/:id` later serves it back
+as — and that route lets only the owner and an admin fetch one, never the rest
+of the cohort.
+
 A taken slot shows the student only the word "Taken". Who booked 7:30 is the
 admin's business; a public register of who has doubts is how you stop people
 admitting they have any. The client resolves the slot instants, because
