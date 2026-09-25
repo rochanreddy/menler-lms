@@ -600,11 +600,13 @@ export function sessionReminderEmail({
     ? `${title} is starting now. The room is open.`
     : `A reminder that ${title} starts in about an hour, at ${istTime(startsAt)} IST.`;
 
-  // Only the hour-before mail gets the "settle in" nudge. Saying it to someone
-  // whose class has already begun wastes the one line they will actually read.
+  // Only facts the LMS itself defines. The five minutes is EARLY_MS in
+  // utils/sessionTime.js — change it there and this line is wrong. Nothing here
+  // describes how attendance is counted: that is Menler's policy to state, not
+  // a reminder's.
   const nudge = soon
-    ? 'Join from the button below. Your attendance is taken from the time you join, so join before you settle in.'
-    : 'Find a quiet spot and keep the link handy — the Join button opens five minutes before the class starts.';
+    ? 'Join from the button below.'
+    : 'The Join button opens five minutes before the class starts.';
 
   const html = shell({
     title: subject,
