@@ -107,7 +107,8 @@ async function mailBatch(a, kind) {
       kind,
     });
     try {
-      await sendMail({ to: s.email, subject: msg.subject, text: msg.text, html: msg.html });
+      // Automatic, to a whole batch: ZeptoMail, like the class reminders.
+      await sendMail({ to: s.email, subject: msg.subject, text: msg.text, html: msg.html, via: 'zeptomail' });
       sent += 1;
     } catch (err) {
       failed += 1;

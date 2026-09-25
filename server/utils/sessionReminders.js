@@ -132,7 +132,8 @@ async function mailCohort(session, kind) {
       when: kind,
     });
     try {
-      await sendMail({ to: student.email, subject: msg.subject, text: msg.text, html: msg.html });
+      // A cohort per class: ZeptoMail, by name. Admin mail goes on Resend.
+      await sendMail({ to: student.email, subject: msg.subject, text: msg.text, html: msg.html, via: 'zeptomail' });
       sent += 1;
     } catch (err) {
       // One bad address must not strand the rest of the batch. The claim is

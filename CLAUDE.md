@@ -275,7 +275,9 @@ across all three roles.
   `orders`, or the marketing `users`.
 - **Email** goes through `sendMail()` in [server/utils/email.js](server/utils/email.js)
   only — Resend (`RESEND_API_KEY`, free tier 100/day) first, SMTP second, the
-  server console when neither is set. Creating an account or resetting its
+  server console when neither is set. The automatic class and assignment
+  reminders are the one exception: they ask for ZeptoMail by name (`via:
+  'zeptomail'`), because they mail a whole cohort per class. Creating an account or resetting its
   password (users and batches routes) emails the credentials on the template in
   [server/utils/emailTemplates.js](server/utils/emailTemplates.js), which is the
   [docs/email-reference-enrollment-confirmation.html](docs/email-reference-enrollment-confirmation.html) layout with LMS copy; the response carries
@@ -846,9 +848,13 @@ windows are bounded on the late side (45–60 min ahead; 0–10 min after the
 start), which is what makes the first tick after a deploy a catch-up rather
 than a mailshot about classes that already ran. The arithmetic is exported as
 `reminderWindows(now)` and proved in `tests/sessionReminders.test.js`, which
-needs no database. Sends go out over **ZeptoMail** — `ZEPTOMAIL_TOKEN`, first
-in `utils/email.js`'s order — because Resend's free 100/day is one evening
-class; leave the token unset and the sweep declines to run.
+needs no database. Sends go out over **ZeptoMail** — `ZEPTOMAIL_TOKEN`, asked
+for by name with `sendMail({ via: 'zeptomail' })` — because Resend's free
+100/day is one evening class; leave the token unset and the sweep declines to
+run. **Only the reminders use it.** Everything a person sends or triggers (the
+Mail tab, credentials, resets) goes on Resend: see `transportFor()`. ZeptoMail
+was once first for every mail, and an unverified ZeptoMail sender took the
+whole Mail tab down with it while Resend sat configured behind it.
 
 [utils/assignmentReminders.js](server/utils/assignmentReminders.js) does the same for
 assignments, to every student in the batch: one mail as it **opens** (its

@@ -1,21 +1,25 @@
-// Mailer. Four ways out, tried in this order:
+// Mailer. Four ways out. Which one a mail takes depends on what kind of mail
+// it is - see transportFor() below: the automatic reminders go out on
+// ZeptoMail, and everything else (the admin's Mail tab, credentials, resets)
+// on Resend.
 //
-//   1. ZeptoMail — ZEPTOMAIL_TOKEN set. HTTPS API, the same account menler.in
-//                 already sends on. Transactional and credit-based rather than
-//                 capped per day, which is what makes per-session mail to a
-//                 whole cohort affordable — see startSessionReminders().
-//   2. Resend   — RESEND_API_KEY set. Plain HTTPS, no SDK; the free tier is
-//                 100 emails/day, 3,000/month, which is more than an admin
-//                 provisions by hand but far less than a term of class
-//                 reminders. `from` must be on a domain verified in the Resend
-//                 dashboard (or `onboarding@resend.dev`, which only delivers
-//                 to the account owner's own address).
-//   3. SMTP     — SMTP_HOST/USER/PASS set (Gmail app password, Zoho, …).
-//                 Last on purpose: Render blocks outbound SMTP, so on the
-//                 deployed API this path cannot connect at all. It is here for
-//                 local work and for hosts that do allow it.
-//   4. Console  — none set: the message is logged so reset links and temp
-//                 passwords stay testable in dev.
+//   ZeptoMail — ZEPTOMAIL_TOKEN set. HTTPS API, the same account menler.in
+//               already sends on. Transactional and credit-based rather than
+//               capped per day, which is what makes per-session mail to a
+//               whole cohort affordable — see startSessionReminders(). Used by
+//               the reminders only, unless nothing else is configured.
+//   Resend    — RESEND_API_KEY set. The default for everything else. Plain
+//               HTTPS, no SDK; the free tier is 100 emails/day, 3,000/month,
+//               which is more than an admin sends by hand but far less than a
+//               term of class reminders. `from` must be on a domain verified in
+//               the Resend dashboard (or `onboarding@resend.dev`, which only
+//               delivers to the account owner's own address).
+//   SMTP      — SMTP_HOST/USER/PASS set (Gmail app password, Zoho, …). After
+//               Resend on purpose: Render blocks outbound SMTP, so on the
+//               deployed API this path cannot connect at all. It is here for
+//               local work and for hosts that do allow it.
+//   Console   — none set: the message is logged so reset links and temp
+//               passwords stay testable in dev.
 //
 // Every caller goes through sendMail() so switching providers is an env
 // change, never a code change.
@@ -135,16 +139,47 @@ async function sendViaResend({ from, to, subject, text, html, replyTo, attachmen
   return { id: body.id, provider: 'resend' };
 }
 
-export async function sendMail({ to, subject, text, html, replyTo, attachments }) {
-  if (!isMailConfigured()) {
+/**
+ * Which transport a mail goes out on.
+ *
+ * Two kinds of mail, two routes:
+ *
+ *   default      everything a person sends or triggers - the admin's Mail
+ *                tab, a test mail, account credentials, password resets.
+ *                Resend first, SMTP second, and ZeptoMail only when neither is
+ *                set, so an admin mail never depends on the reminder account.
+ *   'zeptomail'  the automatic reminders (sessionReminders, assignmentReminders),
+ *                which mail a whole cohort per class and need ZeptoMail's
+ *                credit-based sending rather than Resend's 100 a day. They ask
+ *                for it by name, and fall back to the default route if it is
+ *                not configured.
+ *
+ * ZeptoMail used to be first for everything, which put every admin mail on
+ * the reminder account: when its sender was not verified, the whole Mail tab
+ * failed with "Sender address not verified" while Resend sat configured and
+ * unused behind it.
+ */
+export function transportFor(via) {
+  const order = via === 'zeptomail' ? ['zeptomail', 'resend', 'smtp'] : ['resend', 'smtp', 'zeptomail'];
+  const configured = {
+    zeptomail: isZeptoConfigured(),
+    resend: isResendConfigured(),
+    smtp: isSmtpConfigured(),
+  };
+  return order.find((name) => configured[name]) || null;
+}
+
+export async function sendMail({ to, subject, text, html, replyTo, attachments, via }) {
+  const transportName = transportFor(via);
+  if (!transportName) {
     const files = attachments?.length ? `attachments=${attachments.map((a) => a.filename).join(', ')}\n` : '';
     console.log(`\n[email:dev] to=${to}\nsubject=${subject}\n${files}${text || ''}\n`);
     return { dev: true };
   }
   const from = fromAddress();
   const reply = replyTo || unquote(process.env.MAIL_REPLY_TO) || undefined;
-  if (isZeptoConfigured()) return sendViaZepto({ from, to, subject, text, html, replyTo: reply, attachments });
-  if (isResendConfigured()) return sendViaResend({ from, to, subject, text, html, replyTo: reply, attachments });
+  if (transportName === 'zeptomail') return sendViaZepto({ from, to, subject, text, html, replyTo: reply, attachments });
+  if (transportName === 'resend') return sendViaResend({ from, to, subject, text, html, replyTo: reply, attachments });
   const transport = await getTransport();
   const info = await transport.sendMail({ from, to, subject, text, html, replyTo: reply, ...(attachments?.length ? { attachments } : {}) });
   return { id: info?.messageId, provider: 'smtp' };
