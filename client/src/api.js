@@ -259,6 +259,13 @@ export const addMaterials = (programId, node, files = [], link = null, kind = 'n
 export const removeMaterial = (programId, materialId) =>
   api(`/programs/${programId}/materials/${materialId}`, { method: 'DELETE' });
 
+// Extra resources on a masterclass — the deck, a cheat sheet — as PDFs or a
+// pasted link. Admin only; returns the whole updated webinar.
+export const addWebinarResources = (webinarId, files = [], link = null) =>
+  postFiles(`/webinars/${webinarId}/resources`, files, { url: link?.url, name: link?.name });
+export const removeWebinarResource = (webinarId, resourceId) =>
+  api(`/webinars/${webinarId}/resources/${resourceId}`, { method: 'DELETE' });
+
 // Curriculum PDF from the admin editor → stored in Mongo, up to 15 MB.
 export const uploadCurriculumPdf = (file) => postFile('/uploads', file, { kind: 'curriculum-pdf' });
 

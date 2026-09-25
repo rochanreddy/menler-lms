@@ -1,5 +1,7 @@
 import { Router } from 'express';
+import multer from 'multer';
 import { requireAuth, requireRole } from '../middleware/auth.js';
+import { MAX_CURRICULUM_BYTES, isPdfUpload, storeCurriculumPdf } from '../utils/curriculumFiles.js';
 import { Webinar } from '../models/Webinar.js';
 import { User } from '../models/User.js';
 import { notifyMany } from '../utils/notify.js';
@@ -65,6 +67,80 @@ router.patch('/:id', requireAuth, requireRole('admin'), async (req, res) => {
       link: '/app/webinar',
     });
   }
+  res.json({ webinar });
+});
+
+// ── Resources ───────────────────────────────────────────────────────────────
+//
+// The deck, the cheat sheet, the prompt pack: whatever went out with the
+// session. They go through the SAME hash-deduped store as course PDFs
+// (`storeCurriculumPdf`), so a deck that is both a lesson's reading and a
+// masterclass resource is stored once, and every upload is checked for the
+// `%PDF-` header rather than trusting the type the browser declared.
+const MAX_RESOURCES_PER_PUSH = 10;
+const resourceUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: MAX_CURRICULUM_BYTES, files: MAX_RESOURCES_PER_PUSH },
+});
+
+// A pasted link has to be something a browser can open. Root-relative
+// /uploads/… paths are ours and fine; anything else must be http(s).
+const isOpenableLink = (u) => /^https?:\/\/\S+$/i.test(u) || /^\/uploads\/[a-f0-9]{24}$/i.test(u);
+
+// POST /api/lms/webinars/:id/resources — multipart: files[] (PDFs, up to 10),
+// or url + name for a link. Returns the webinar's full list.
+//
+// Adding one notifies nobody. The recording is the single edit worth
+// interrupting people for; a deck going up a day later is something a student
+// finds when they open the masterclass, and a bell for every file is how the
+// bell stops being read.
+router.post('/:id/resources', requireAuth, requireRole('admin'), (req, res) => {
+  resourceUpload.array('files', MAX_RESOURCES_PER_PUSH)(req, res, async (err) => {
+    if (err) {
+      if (err.code === 'LIMIT_FILE_SIZE') return res.status(413).json({ error: 'One of those files is over the 15 MB limit.' });
+      if (err.code === 'LIMIT_FILE_COUNT') return res.status(413).json({ error: `Add up to ${MAX_RESOURCES_PER_PUSH} files at a time.` });
+      return res.status(400).json({ error: 'Upload failed.' });
+    }
+    const webinar = await Webinar.findById(req.params.id);
+    if (!webinar) return res.status(404).json({ error: 'Webinar not found.' });
+
+    const files = req.files || [];
+    const link = String(req.body?.url || '').trim();
+    if (!files.length && !link) return res.status(400).json({ error: 'Nothing to add: choose at least one PDF or paste a link.' });
+    const notPdf = files.find((f) => !isPdfUpload(f));
+    if (notPdf) return res.status(415).json({ error: `${notPdf.originalname || 'That file'} is not a PDF. Only PDF files are accepted.` });
+    if (link && !isOpenableLink(link)) return res.status(400).json({ error: 'That link must start with https://.' });
+
+    try {
+      let added = 0;
+      for (const f of files) {
+        const { url, name } = await storeCurriculumPdf(f, req.user._id);
+        // The same file pushed twice onto the same masterclass is one entry.
+        if (webinar.resources.some((x) => x.url === url)) continue;
+        webinar.resources.push({ url, name, addedBy: req.user._id });
+        added++;
+      }
+      if (link && !webinar.resources.some((x) => x.url === link)) {
+        webinar.resources.push({ url: link, name: String(req.body?.name || '').trim() || link, addedBy: req.user._id });
+        added++;
+      }
+      await webinar.save();
+      return res.status(201).json({ webinar, added });
+    } catch {
+      return res.status(500).json({ error: 'Could not store the file.' });
+    }
+  });
+});
+
+// DELETE /api/lms/webinars/:id/resources/:rid — take one off the list. The
+// stored bytes stay: they are hash-shared with the curriculum, so deleting
+// them here could empty a lesson's reading slot.
+router.delete('/:id/resources/:rid', requireAuth, requireRole('admin'), async (req, res) => {
+  const webinar = await Webinar.findById(req.params.id);
+  if (!webinar) return res.status(404).json({ error: 'Webinar not found.' });
+  if (!webinar.resources.id(req.params.rid)) return res.status(404).json({ error: 'That resource is already gone.' });
+  webinar.resources.pull(req.params.rid);
+  await webinar.save();
   res.json({ webinar });
 });
 

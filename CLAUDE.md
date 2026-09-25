@@ -421,6 +421,27 @@ did not need is what teaches them to stop reading the ones they did — so
 `audience()` in [routes/webinars.js](server/routes/webinars.js) is students
 alone, with no batch filter, because a masterclass has no batch.
 
+**A masterclass carries a list of resources, not one more slot.** The deck,
+a cheat sheet, a prompt pack: `Webinar.resources` is `{url, name, addedBy,
+addedAt}`, the same two shapes a curriculum node's `materials` takes — a PDF
+in our store, or a pasted link. A list rather than a second field beside
+`pptUrl`, because a session hands out more than one file and an admin should
+not have to pick which one the tab is allowed to show. An admin adds them from
+the row itself (**Add resources** → `POST /webinars/:id/resources`, multipart
+`files[]` or `url`+`name`; `DELETE …/resources/:rid` takes one off), and the
+uploads go through the **same hash-deduped store as course PDFs**
+(`storeCurriculumPdf`), so a deck that is both a lesson's reading and a
+masterclass resource is stored once — which is also why deleting one here
+never deletes the bytes. Every upload is checked for the `%PDF-` header, not
+the type the browser declared.
+
+Everyone sees the list; only an admin sees the button on a masterclass with
+nothing on it yet, because a chip that opens an empty drawer teaches people to
+stop pressing it. Resources are never the card's `row-link`: a card that opens
+a cheat sheet when you meant the recording is worse than no shortcut. And
+adding one **notifies nobody** — the recording is the single edit worth
+interrupting people for, and a bell per file is how the bell stops being read.
+
 **The four recorded masterclasses are an archive, not a schedule.** They ran
 before the LMS existed, so there is nothing to book — only past rows carrying
 their Drive recording, which is what "Past masterclasses" is for.

@@ -551,6 +551,24 @@ a:focus-visible,
 .list-row .row-link::after { content: ''; position: absolute; inset: 0; z-index: 0; border-radius: var(--radius); }
 .list-row.is-linked > .row > :not(.row-link) { position: relative; z-index: 1; }
 
+/* The resources drawer inside a masterclass card: the deck, a cheat sheet, a
+   prompt pack. It is a third child of the .list-row rather than a panel of its
+   own, so the card stays one card — and it has to be raised above the
+   stretched link's overlay, or every file in it would open the recording. */
+.list-row:has(> .wb-res) { flex-wrap: wrap; }
+.list-row > .wb-res { flex: 1 1 100%; }
+.list-row.is-linked > .wb-res { position: relative; z-index: 1; }
+.wb-res { display: flex; flex-direction: column; gap: 8px; margin-top: 15px; padding-top: 13px; border-top: 1px solid var(--line); }
+.wb-res-item { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.wb-res-item > a { display: inline-flex; align-items: center; gap: 8px; min-width: 0; color: var(--ink); font-weight: 500; font-size: 14px; text-decoration: none; }
+.wb-res-item > a:hover { color: var(--violet); text-decoration: underline; }
+/* One long filename must not push the remove button off the card. */
+.wb-res-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wb-res-add { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 4px; }
+/* .panel input is full-width by default, which is right for a form and wrong
+   for one field sitting between two buttons. */
+.wb-res-add input[type="text"] { flex: 1 1 200px; width: auto; margin-top: 0; font-size: 13px; padding: 8px 12px; border-radius: var(--radius-sm); }
+
 /* ── THE PATH ───────────────────────────────────────────────────────────────
    The student home. Modules are stations along the violet rule; the dot states
    say where you are. Indicative, not gating — every station stays clickable,
