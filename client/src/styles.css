@@ -560,13 +560,22 @@ a:focus-visible,
 .list-row.is-linked > .wb-res { position: relative; z-index: 1; }
 .wb-res { display: flex; flex-direction: column; gap: 8px; margin-top: 15px; padding-top: 13px; border-top: 1px solid var(--line); }
 .wb-res-item { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.wb-res-item > a { display: inline-flex; align-items: center; gap: 8px; min-width: 0; color: var(--ink); font-weight: 500; font-size: 14px; text-decoration: none; }
-.wb-res-item > a:hover { color: var(--violet); text-decoration: underline; }
+/* A stored PDF opens in Menler's own reader, so it is a button; a link that
+   is not a PDF is an anchor to a new tab. They must not look different. */
+.wb-res-item > a,
+.wb-res-item > .wb-res-open { display: inline-flex; align-items: center; gap: 8px; min-width: 0; color: var(--ink); font-family: var(--font); font-weight: 500; font-size: 14px; text-decoration: none; }
+.wb-res-item > .wb-res-open { padding: 0; border: 0; background: none; text-align: left; cursor: pointer; }
+.wb-res-item > a:hover,
+.wb-res-item > .wb-res-open:hover { color: var(--violet); text-decoration: underline; }
 /* One long filename must not push the remove button off the card. */
 .wb-res-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .wb-res-add { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 4px; }
 /* .panel input is full-width by default, which is right for a form and wrong
    for one field sitting between two buttons. */
+/* The shelf's own panel: the hint sits above the list, so the list's top rule
+   would double up with it. */
+.wb-shelf-hint { margin: 0; }
+.panel > .wb-shelf-hint + .wb-res { margin-top: 12px; padding-top: 0; border-top: 0; }
 .wb-res-add input[type="text"] { flex: 1 1 200px; width: auto; margin-top: 0; font-size: 13px; padding: 8px 12px; border-radius: var(--radius-sm); }
 
 /* ── THE PATH ───────────────────────────────────────────────────────────────

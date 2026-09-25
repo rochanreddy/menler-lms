@@ -266,6 +266,12 @@ export const addWebinarResources = (webinarId, files = [], link = null) =>
 export const removeWebinarResource = (webinarId, resourceId) =>
   api(`/webinars/${webinarId}/resources/${resourceId}`, { method: 'DELETE' });
 
+// The shelf: resources on the Webinars tab that belong to no one masterclass.
+export const addShelfResources = (files = [], link = null) =>
+  postFiles('/webinars/shelf', files, { url: link?.url, name: link?.name });
+export const removeShelfResource = (resourceId) =>
+  api(`/webinars/shelf/${resourceId}`, { method: 'DELETE' });
+
 // What a student attaches to their doubt-session booking: a screenshot of the
 // error, the PDF they are arguing with. Deleted when the session is over, so
 // nothing here is meant to be durable — see server/utils/doubtAttachments.js.

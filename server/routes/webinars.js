@@ -3,6 +3,7 @@ import multer from 'multer';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { MAX_CURRICULUM_BYTES, isPdfUpload, storeCurriculumPdf } from '../utils/curriculumFiles.js';
 import { Webinar } from '../models/Webinar.js';
+import { WebinarResource } from '../models/WebinarResource.js';
 import { User } from '../models/User.js';
 import { notifyMany } from '../utils/notify.js';
 
@@ -87,6 +88,71 @@ const resourceUpload = multer({
 // /uploads/… paths are ours and fine; anything else must be http(s).
 const isOpenableLink = (u) => /^https?:\/\/\S+$/i.test(u) || /^\/uploads\/[a-f0-9]{24}$/i.test(u);
 
+// Both resource endpoints refuse the same things for the same reasons, so the
+// checks live here rather than being copied and drifting apart.
+function uploadError(err) {
+  if (!err) return null;
+  if (err.code === 'LIMIT_FILE_SIZE') return { status: 413, error: 'One of those files is over the 15 MB limit.' };
+  if (err.code === 'LIMIT_FILE_COUNT') return { status: 413, error: `Add up to ${MAX_RESOURCES_PER_PUSH} files at a time.` };
+  return { status: 400, error: 'Upload failed.' };
+}
+
+function validateResources(files, link) {
+  if (!files.length && !link) return { status: 400, error: 'Nothing to add: choose at least one PDF or paste a link.' };
+  const notPdf = files.find((f) => !isPdfUpload(f));
+  if (notPdf) return { status: 415, error: `${notPdf.originalname || 'That file'} is not a PDF. Only PDF files are accepted.` };
+  if (link && !isOpenableLink(link)) return { status: 400, error: 'That link must start with https://.' };
+  return null;
+}
+
+// ── The shelf ───────────────────────────────────────────────────────────────
+//
+// Resources that belong to the tab rather than to one masterclass. Declared
+// BEFORE /:id/resources so "shelf" is never read as a webinar id.
+//
+// GET is everyone's; the rest is the admin's, like scheduling.
+router.get('/shelf', requireAuth, async (_req, res) => {
+  res.json({ resources: await WebinarResource.find().sort({ createdAt: 1 }) });
+});
+
+router.post('/shelf', requireAuth, requireRole('admin'), (req, res) => {
+  resourceUpload.array('files', MAX_RESOURCES_PER_PUSH)(req, res, async (err) => {
+    const bad = uploadError(err);
+    if (bad) return res.status(bad.status).json({ error: bad.error });
+
+    const files = req.files || [];
+    const link = String(req.body?.url || '').trim();
+    const refuse = validateResources(files, link);
+    if (refuse) return res.status(refuse.status).json({ error: refuse.error });
+
+    try {
+      const have = new Set((await WebinarResource.find().select('url').lean()).map((r) => r.url));
+      let added = 0;
+      for (const f of files) {
+        const { url, name } = await storeCurriculumPdf(f, req.user._id);
+        if (have.has(url)) continue;
+        await WebinarResource.create({ url, name, addedBy: req.user._id });
+        have.add(url);
+        added++;
+      }
+      if (link && !have.has(link)) {
+        await WebinarResource.create({ url: link, name: String(req.body?.name || '').trim() || link, addedBy: req.user._id });
+        added++;
+      }
+      return res.status(201).json({ resources: await WebinarResource.find().sort({ createdAt: 1 }), added });
+    } catch {
+      return res.status(500).json({ error: 'Could not store the file.' });
+    }
+  });
+});
+
+router.delete('/shelf/:rid', requireAuth, requireRole('admin'), async (req, res) => {
+  // The stored bytes stay: they are hash-shared with the curriculum.
+  const gone = await WebinarResource.findByIdAndDelete(req.params.rid);
+  if (!gone) return res.status(404).json({ error: 'That resource is already gone.' });
+  res.json({ resources: await WebinarResource.find().sort({ createdAt: 1 }) });
+});
+
 // POST /api/lms/webinars/:id/resources — multipart: files[] (PDFs, up to 10),
 // or url + name for a link. Returns the webinar's full list.
 //
@@ -96,20 +162,15 @@ const isOpenableLink = (u) => /^https?:\/\/\S+$/i.test(u) || /^\/uploads\/[a-f0-
 // bell stops being read.
 router.post('/:id/resources', requireAuth, requireRole('admin'), (req, res) => {
   resourceUpload.array('files', MAX_RESOURCES_PER_PUSH)(req, res, async (err) => {
-    if (err) {
-      if (err.code === 'LIMIT_FILE_SIZE') return res.status(413).json({ error: 'One of those files is over the 15 MB limit.' });
-      if (err.code === 'LIMIT_FILE_COUNT') return res.status(413).json({ error: `Add up to ${MAX_RESOURCES_PER_PUSH} files at a time.` });
-      return res.status(400).json({ error: 'Upload failed.' });
-    }
+    const bad = uploadError(err);
+    if (bad) return res.status(bad.status).json({ error: bad.error });
     const webinar = await Webinar.findById(req.params.id);
     if (!webinar) return res.status(404).json({ error: 'Webinar not found.' });
 
     const files = req.files || [];
     const link = String(req.body?.url || '').trim();
-    if (!files.length && !link) return res.status(400).json({ error: 'Nothing to add: choose at least one PDF or paste a link.' });
-    const notPdf = files.find((f) => !isPdfUpload(f));
-    if (notPdf) return res.status(415).json({ error: `${notPdf.originalname || 'That file'} is not a PDF. Only PDF files are accepted.` });
-    if (link && !isOpenableLink(link)) return res.status(400).json({ error: 'That link must start with https://.' });
+    const refuse = validateResources(files, link);
+    if (refuse) return res.status(refuse.status).json({ error: refuse.error });
 
     try {
       let added = 0;

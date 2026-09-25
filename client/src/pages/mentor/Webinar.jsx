@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { api, addWebinarResources, removeWebinarResource } from '../../api.js';
+import { api, addWebinarResources, removeWebinarResource, addShelfResources, removeShelfResource } from '../../api.js';
 import DateTimePicker from '../../components/DateTimePicker.jsx';
 import LineIcon from '../../components/LineIcon.jsx';
+import FileViewer from '../../components/FileViewer.jsx';
+import { opensInReader } from '../../components/ReadingPicker.jsx';
 import Empty from '../../components/Empty.jsx';
 
 // Webinars — admin schedules; mentors and students join. One page for all
@@ -98,6 +100,8 @@ export default function Webinar() {
         </>
       )}
 
+      <Shelf canEdit={canAdd} />
+
       {loaded && webinars.length === 0 && (
         <div className="list">
           <Empty
@@ -116,13 +120,124 @@ export default function Webinar() {
 
 const fileName = (r) => r.name || r.url;
 
-function WebinarRow({ w, past, canEdit, onChange }) {
-  const resources = w.resources || [];
-  const [open, setOpen] = useState(false);
+// The list of files, plus the admin's two ways of adding one. Shared by a
+// masterclass card's drawer and by the shelf below them, so the two cannot
+// disagree about what a resource looks like or how you attach one.
+function ResourceList({ items, canEdit, empty, onAdd, onRemove }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [link, setLink] = useState('');
+  // A resource opens in Menler's own reader, the same one course PDFs use, so
+  // a student stays on the page they were on. `opensInReader` is the
+  // curriculum's rule reused: a link that is not a PDF opens in a new tab
+  // rather than as a blank box in the reader.
+  const [viewer, setViewer] = useState(null);
   const pick = useRef(null);
+
+  const run = (fn) => async () => {
+    if (busy) return;
+    setBusy(true);
+    setErr('');
+    try { await fn(); setLink(''); } catch (e) { setErr(e.message); }
+    finally { setBusy(false); if (pick.current) pick.current.value = ''; }
+  };
+
+  return (
+    <div className="wb-res">
+      {items.map((r) => (
+        <div className="wb-res-item" key={r._id || r.url}>
+          {opensInReader(r.url) ? (
+            <button type="button" className="wb-res-open" onClick={() => setViewer({ label: 'Resource', subtitle: fileName(r), url: r.url })}>
+              <LineIcon name="file" size={15} />
+              <span className="wb-res-name">{fileName(r)}</span>
+            </button>
+          ) : (
+            <a href={r.url} target="_blank" rel="noreferrer">
+              <LineIcon name="file" size={15} />
+              <span className="wb-res-name">{fileName(r)}</span>
+            </a>
+          )}
+          {canEdit && (
+            <button type="button" className="icon-btn" title="Remove" disabled={busy} onClick={run(() => onRemove(r))}>
+              <LineIcon name="close" size={14} />
+            </button>
+          )}
+        </div>
+      ))}
+      {!items.length && <p className="muted">{empty}</p>}
+
+      {canEdit && (
+        <div className="wb-res-add">
+          <input
+            ref={pick}
+            type="file"
+            accept="application/pdf,.pdf"
+            multiple
+            hidden
+            onChange={(e) => e.target.files?.length && run(() => onAdd([...e.target.files], null))()}
+          />
+          <button type="button" className={`btn sm ghost ${busy ? 'is-busy' : ''}`} disabled={busy} onClick={() => pick.current?.click()}>
+            <LineIcon name="upload" size={14} /> {busy ? 'Saving…' : 'Attach PDFs'}
+          </button>
+          <input
+            type="text"
+            placeholder="…or paste a link"
+            value={link}
+            onChange={(e) => setLink(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); if (link.trim()) run(() => onAdd([], link.trim()))(); } }}
+          />
+          <button type="button" className="btn sm quiet" disabled={busy || !link.trim()} onClick={run(() => onAdd([], link.trim()))}>Add link</button>
+        </div>
+      )}
+      {err && <span className="error" role="alert">{err}</span>}
+      {/* A masterclass hand-out is not course material to be withheld, so the
+          reader keeps its "Open in new tab" escape. */}
+      {viewer && <FileViewer {...viewer} allowNewTab onClose={() => setViewer(null)} />}
+    </div>
+  );
+}
+
+// Files that belong to the tab rather than to one masterclass: a playbook, a
+// template pack. Their own section rather than filed under a session they were
+// never part of, which is a guess a student would then have to reverse.
+// Rendered only when there is something on it — or for the admin, who is the
+// one who puts the first file up.
+function Shelf({ canEdit }) {
+  const [items, setItems] = useState([]);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    api('/webinars/shelf')
+      .then((d) => setItems(d.resources || []))
+      .catch(() => {})
+      .finally(() => setLoaded(true));
+  }, []);
+
+  if (!loaded || (!items.length && !canEdit)) return null;
+  return (
+    <>
+      <h3 className="ruled-head">Resources</h3>
+      <div className="panel">
+        <p className="muted wb-shelf-hint">
+          {canEdit
+            ? 'Playbooks and templates for everyone, not tied to one masterclass. Every student and mentor sees these.'
+            : 'Playbooks and templates that go with the masterclasses.'}
+        </p>
+        <ResourceList
+          items={items}
+          canEdit={canEdit}
+          empty="Nothing on the shelf yet."
+          onAdd={async (files, url) => setItems((await addShelfResources(files, url ? { url } : null)).resources)}
+          onRemove={async (r) => setItems((await removeShelfResource(r._id)).resources)}
+        />
+      </div>
+    </>
+  );
+}
+
+function WebinarRow({ w, past, canEdit, onChange }) {
+  const resources = w.resources || [];
+  const [open, setOpen] = useState(false);
 
   const whenLabel = (iso) => new Date(iso).toLocaleString(undefined, {
     weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit',
@@ -138,30 +253,6 @@ function WebinarRow({ w, past, canEdit, onChange }) {
   // Resources are deliberately NOT the lead: a card that opens a cheat sheet
   // when you meant to watch the recording is worse than no shortcut at all.
   const lead = (!past && w.joinUrl && 'join') || (w.recordingUrl && 'recording') || (w.pptUrl && 'slides') || null;
-
-  async function push(files, url) {
-    if (busy) return;
-    setBusy(true);
-    setErr('');
-    try {
-      const d = await addWebinarResources(w._id, files, url ? { url } : null);
-      onChange(d.webinar);
-      setLink('');
-      setOpen(true);
-    } catch (e) { setErr(e.message); }
-    finally { setBusy(false); if (pick.current) pick.current.value = ''; }
-  }
-
-  async function drop(r) {
-    if (busy) return;
-    setBusy(true);
-    setErr('');
-    try {
-      const d = await removeWebinarResource(w._id, r._id);
-      onChange(d.webinar);
-    } catch (e) { setErr(e.message); }
-    finally { setBusy(false); }
-  }
 
   return (
     <div className={`panel list-row ${lead ? 'is-linked' : ''}`}>
@@ -205,47 +296,13 @@ function WebinarRow({ w, past, canEdit, onChange }) {
       </div>
 
       {open && (
-        <div className="wb-res">
-          {resources.map((r) => (
-            <div className="wb-res-item" key={r._id || r.url}>
-              <a href={r.url} target="_blank" rel="noreferrer">
-                <LineIcon name="file" size={15} />
-                <span className="wb-res-name">{fileName(r)}</span>
-              </a>
-              {canEdit && (
-                <button type="button" className="icon-btn" title="Remove" disabled={busy} onClick={() => drop(r)}>
-                  <LineIcon name="close" size={14} />
-                </button>
-              )}
-            </div>
-          ))}
-          {!resources.length && <p className="muted">Nothing attached yet.</p>}
-
-          {canEdit && (
-            <div className="wb-res-add">
-              <input
-                ref={pick}
-                type="file"
-                accept="application/pdf,.pdf"
-                multiple
-                hidden
-                onChange={(e) => e.target.files?.length && push([...e.target.files], '')}
-              />
-              <button type="button" className={`btn sm ghost ${busy ? 'is-busy' : ''}`} disabled={busy} onClick={() => pick.current?.click()}>
-                <LineIcon name="upload" size={14} /> {busy ? 'Saving…' : 'Attach PDFs'}
-              </button>
-              <input
-                type="text"
-                placeholder="…or paste a link"
-                value={link}
-                onChange={(e) => setLink(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); if (link.trim()) push([], link.trim()); } }}
-              />
-              <button type="button" className="btn sm quiet" disabled={busy || !link.trim()} onClick={() => push([], link.trim())}>Add link</button>
-            </div>
-          )}
-          {err && <span className="error" role="alert">{err}</span>}
-        </div>
+        <ResourceList
+          items={resources}
+          canEdit={canEdit}
+          empty="Nothing attached yet."
+          onAdd={async (files, url) => onChange((await addWebinarResources(w._id, files, url ? { url } : null)).webinar)}
+          onRemove={async (r) => onChange((await removeWebinarResource(w._id, r._id)).webinar)}
+        />
       )}
     </div>
   );

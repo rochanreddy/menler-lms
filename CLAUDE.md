@@ -442,6 +442,28 @@ a cheat sheet when you meant the recording is worse than no shortcut. And
 adding one **notifies nobody** — the recording is the single edit worth
 interrupting people for, and a bell per file is how the bell stops being read.
 
+**A file that belongs to no one masterclass goes on the shelf.** Under the
+two lists is a **Resources** section — `lms_webinar_resources`, served by
+`GET /webinars/shelf` with `POST`/`DELETE /webinars/shelf/:rid` for the admin
+— for the playbook or template pack that came from everywhere or nowhere.
+Filing such a file under a session it was never part of is a guess a student
+then has to reverse, and there is no session to guess at. The shelf routes are
+declared BEFORE `/:id/resources`, so "shelf" is never read as a webinar id,
+and both paths share `uploadError()` and `validateResources()` so they cannot
+drift apart on what they accept. The section is hidden when the shelf is empty,
+except for the admin, who is the one who puts the first file up.
+
+**Both open in Menler's own reader.** A stored PDF is a button that opens
+[FileViewer](client/src/components/FileViewer.jsx), the same reader course
+PDFs use, so a student stays on the page they were on; `opensInReader()` from
+[ReadingPicker](client/src/components/ReadingPicker.jsx) is the rule, reused,
+so a link that is not a PDF opens in a new tab rather than as a blank box. The
+reader keeps its "Open in new tab" escape here (`allowNewTab`) — a masterclass
+hand-out is not course material to be withheld. `ResourceList` in
+[Webinar.jsx](client/src/pages/mentor/Webinar.jsx) is one component for the
+card drawer and the shelf, so the two cannot disagree about what a resource
+looks like or how you attach one.
+
 **The four recorded masterclasses are an archive, not a schedule.** They ran
 before the LMS existed, so there is nothing to book — only past rows carrying
 their Drive recording, which is what "Past masterclasses" is for.
