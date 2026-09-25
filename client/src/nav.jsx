@@ -40,6 +40,9 @@ const Support = lazy(() => import('./pages/Support.jsx'));
 const AdminSupport = lazy(() => import('./pages/admin/Support.jsx'));
 const AdminMail = lazy(() => import('./pages/admin/Mail.jsx'));
 const AdminCertificates = lazy(() => import('./pages/admin/Certificates.jsx'));
+// Shared by students and admins: the same 300-job shortlist for both, and the
+// admin alone can post and remove an opening. Mentors have no tab.
+const Jobs = lazy(() => import('./pages/Jobs.jsx'));
 
 // A placeholder page factory — renders the spec's sections for screens whose
 // backend is Phase 2.
@@ -90,6 +93,11 @@ export function navFor(role) {
         { label: 'Library', path: 'library', Component: Library },
         { label: 'Webinar', path: 'webinar', Component: Webinar },
         { label: 'Forum', path: 'forum', Component: Forum },
+        // A seventh tab, against the rule that keeps the dock to what students
+        // use every week. Jobs earns it the way Doubts and Support do not:
+        // those are episodic, while a student nearing the end of a cohort
+        // checks a board that changes every morning.
+        { label: 'Jobs', path: 'jobs', Component: Jobs },
       ];
     case 'mentor':
       return [
@@ -113,6 +121,7 @@ export function navFor(role) {
         { label: 'Support', path: 'support', Component: AdminSupport },
         { label: 'Certificates', path: 'certificates', Component: AdminCertificates },
         { label: 'Mail', path: 'mail', Component: AdminMail },
+        { label: 'Jobs', path: 'jobs', Component: Jobs },
         { label: 'Library', path: 'library', Component: Library },
         { label: 'Webinar', path: 'webinar', Component: Webinar },
         { label: 'Forum', path: 'forum', Component: ph('Forum', [

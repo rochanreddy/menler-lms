@@ -37,6 +37,8 @@ const PATHS = {
   // shape LineIcon calls "award", which is already on the "View certificate"
   // button inside the Classroom — the tab and the button should not look like
   // two different things.
+  // A briefcase: the case stays, the handle and the clasp line draw.
+  jobs: <><rect x="3" y="7" width="18" height="13" rx="2" /><path className="ico-draw" pathLength="1" d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" /><path className="ico-draw" pathLength="1" d="M3 13h18" /></>,
   certificates: <><circle cx="12" cy="9" r="5.5" /><path className="ico-draw" pathLength="1" d="m8.4 13.6-1.6 7.4 5.2-3 5.2 3-1.6-7.4" /></>,
 };
 
@@ -45,7 +47,7 @@ const ALIAS = {
   'Profile': 'profile', 'Programs': 'programs', 'Batches': 'batches',
   'Mentors': 'mentors', 'Students': 'students', 'Webinar': 'webinar', 'Account': 'account', 'Grades': 'grades',
   'Feedback': 'feedback', 'Doubts': 'doubts', 'Support': 'support', 'Mail': 'mail',
-  'Certificates': 'certificates',
+  'Certificates': 'certificates', 'Jobs': 'jobs',
 };
 
 export default function Icon({ name }) {

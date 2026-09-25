@@ -29,6 +29,7 @@ import playbackRoutes from './playback.js';
 import supportRoutes from './support.js';
 import mailRoutes from './mail.js';
 import certificateRoutes from './certificates.js';
+import jobRoutes from './jobs.js';
 
 const router = Router();
 
@@ -68,5 +69,6 @@ router.use('/lesson-videos', lessonVideoRoutes); // VdoCipher video ↔ lesson, 
 router.use('/playback', playbackRoutes); // the one-device-at-a-time watch lock
 router.use('/support', supportRoutes); // student help desk, answered by the admin
 router.use('/mail', mailRoutes); // admin mail templates + batch-wise scheduled sends
+router.use('/jobs', jobRoutes); // the curated job board: 300 postings, students + admin
 
 export default router;

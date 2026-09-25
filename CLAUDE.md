@@ -599,6 +599,55 @@ A scheduled mail can be edited, sent early or cancelled; a sent, failed or
 cancelled one is history and can only be reused (which refills the form) or
 removed. The per-address failures are kept on the row and listed on the card.
 
+### Jobs
+
+A **Jobs** tab for students and admins ([pages/Jobs.jsx](client/src/pages/Jobs.jsx));
+mentors get none. It reads the feed skeo-job-pipeline scrapes every morning,
+on the pipeline's **own** Atlas cluster through a second, read-only
+connection ([jobsDb.js](server/jobsDb.js), `JOBS_MONGODB_URI`). The LMS still
+only touches `lms_*` on its own cluster: the feed is not ours, and hand-posted
+openings live in `lms_job_postings` instead, so a bug here cannot damage data
+Skeo also reads. Unset, the tab shows hand-posted openings and says the feed
+is not connected; nothing else is affected.
+
+**It is 300 jobs, not the feed.** The feed holds ~25,000 live listings; Skeo
+shows all of them. Menler shows the 300 that best fit what it teaches, fifty
+a page, and every filter narrows *within* the 300 rather than reaching back
+into the rest. [utils/jobShortlist.js](server/utils/jobShortlist.js) picks them:
+
+- **Syllabus first.** The pipeline stores four scores per job. Skeo sorts on
+  its rankScore, which weights relevance last (0.12) and so ranks an
+  entry-level customer-service walk-in above an AI automation role. Menler
+  recombines the same four with relevance at 0.45. Nothing is recomputed from
+  text, so it can never disagree with the pipeline about a posting.
+- **Gates, then exclusions.** Relevance ≥ 30, indiaFit ≥ 40, achievability ≥
+  30 and at least one syllabus term matched: ~856 of 25,000 pass, so the 300
+  are picked from nearly three times as many. Then out go titles needing a
+  foreign language ("Spanish Search Quality Rater"), titles that are only a
+  topic ("generative AI"), and non-Indian roles whose location names a place
+  (`isTiedAbroad`). That last one mattered most: 61 of the first 300 were
+  "remote" with a location of "Portland, OR, US" or "Hong Kong, Singapore,
+  Taiwan", which the pipeline scores as remote-unstated. An abroad role now
+  counts as open only when its location says "Remote", "Anywhere" or
+  "Worldwide" and nothing else; "Remote, US" does not pass.
+- **De-duplicated and capped.** The same title at the same employer is one
+  job, kept at its best score. At most five per employer, with all unnamed
+  employers sharing one cap, because the raw top 300 gave 45 slots to listings
+  naming no employer. Those also lose eight points: a student cannot check who
+  they would work for, so one should not open the board.
+
+Measured after all of it: 296 of 300 in India, every one with an http(s)
+apply link, page one entirely named Indian employers. `npm run test:jobs`
+covers every rule without a network or database.
+
+The shortlist is cached for ten minutes: the feed changes once a day, and a
+student paging through six pages should see one consistent list. The admin's
+hand-posted openings lead page one and **count toward the 300**. Each card
+says why it made the list (`rankReasons`), and its Apply button is the
+card's `row-link`, so the whole card opens the posting. Only http(s) is ever
+rendered as an href or an `<img src>`, and `POST /jobs` refuses any other
+apply link: these strings come from eleven third-party sources and a form.
+
 ### Grading a submission
 
 A mentor opens a verified submission and presses **Run AI review**. Everything

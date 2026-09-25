@@ -45,6 +45,11 @@ services:
       # device-session row in flight, logging every user out at the cutover.
       - key: MONGODB_URI
         sync: false
+      # The job feed, on skeo-job-pipeline's own Atlas cluster, read-only
+      # (server/jobsDb.js). Unset, the Jobs tab shows hand-posted openings
+      # only and says the feed is not connected - nothing else is affected.
+      - key: JOBS_MONGODB_URI
+        sync: false
       - key: JWT_SECRET
         sync: false
       # The mail transport. ZeptoMail is tried before Resend (utils/email.js),
