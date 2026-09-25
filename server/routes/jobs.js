@@ -18,7 +18,7 @@ import {
   candidateFilter,
   curate,
   applyFilters,
-  domainCounts,
+  facetCounts,
 } from '../utils/jobShortlist.js';
 
 const router = Router();
@@ -194,9 +194,10 @@ router.get('/', requireAuth, requireRole('student', 'admin'), async (req, res) =
   const page = Math.min(filters.page, pages);
   const start = (page - 1) * PAGE_SIZE;
 
-  // Counts over the whole shortlist, not the filtered page, so the domain menu
-  // says how many of the 300 each domain holds before you pick it.
-  const counts = domainCounts(all);
+  // Each chip's count is taken with the other filters applied, so a chip
+  // never promises results its click will not deliver.
+  const counts = facetCounts(all, filters);
+  const withCount = (list, tally) => list.map((o) => ({ ...o, count: tally[o.value] || 0 }));
 
   res.json({
     jobs: matching.slice(start, start + PAGE_SIZE),
@@ -208,10 +209,15 @@ router.get('/', requireAuth, requireRole('student', 'admin'), async (req, res) =
     feedAvailable,
     refreshedAt: cached.at ? new Date(cached.at) : null,
     facets: {
-      domains: DOMAINS.map((d) => ({ ...d, count: counts[d.value] || 0 })),
-      workTypes: WORK_TYPES,
-      levels: EXPERIENCE_LEVELS,
+      domains: withCount(DOMAINS, counts.domains),
+      domainTotal: counts.domainTotal,
+      levels: withCount(EXPERIENCE_LEVELS, counts.levels),
+      levelTotal: counts.levelTotal,
+      workTypes: withCount(WORK_TYPES, counts.workTypes),
+      workTypeTotal: counts.workTypeTotal,
       places: PLACES,
+      remote: counts.remote,
+      placeTotal: counts.placeTotal,
     },
   });
 });

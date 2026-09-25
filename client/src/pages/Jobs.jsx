@@ -16,15 +16,76 @@ import { Alert, Button, Checkbox, Input, Select, Skeleton, Textarea } from '../c
 // apply · matches claude"), because a curated list nobody can account for
 // reads as an arbitrary one.
 
-const EMPTY = { domain: '', place: '', workType: '', experience: '', search: '' };
+const EMPTY = { domain: '', experience: '', workType: '', remote: false, search: '' };
 
 const buildPath = (filters, page) => {
   const q = new URLSearchParams();
-  for (const [key, value] of Object.entries(filters)) if (value) q.set(key, value);
+  if (filters.domain) q.set('domain', filters.domain);
+  if (filters.experience) q.set('experience', filters.experience);
+  if (filters.workType) q.set('workType', filters.workType);
+  if (filters.remote) q.set('place', 'remote');
+  if (filters.search) q.set('search', filters.search);
   if (page > 1) q.set('page', String(page));
   const s = q.toString();
   return s ? `/jobs?${s}` : '/jobs';
 };
+
+/**
+ * The options a chip group offers: "All" first, then only the values that
+ * would return something. An option with nothing behind it is noise on a bar
+ * this wide - except the one already picked, which stays so the student can
+ * see what is filtering them and step back out of it.
+ */
+function chipOptions(list, { total, allLabel, picked, skip = [], short = false }) {
+  const options = (list || [])
+    .filter((o) => !skip.includes(o.value))
+    .filter((o) => o.count > 0 || o.value === picked)
+    .map((o) => ({ value: o.value, label: short && o.short ? o.short : o.label, title: o.label, count: o.count }));
+  return [{ value: '', label: allLabel, count: total }, ...options];
+}
+
+const SearchIcon = () => (
+  <svg className="jobs-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+    <circle cx="11" cy="11" r="7" />
+    <path d="m20 20-3.5-3.5" />
+  </svg>
+);
+
+/**
+ * A row of chips that picks one value.
+ *
+ * Real radio inputs, visually hidden, under the chip faces: the group gets
+ * arrow-key movement, one tab stop and a screen-reader announcement for free,
+ * and nothing here reimplements focus handling. A native <select> would have
+ * done the same, but its open list is drawn by the operating system and
+ * cannot be styled, and a filter the student sees every visit should not look
+ * like a form from 2004.
+ */
+function ChipGroup({ label, name, value, options, onChange, scroll = false }) {
+  const id = `chips-${name}`;
+  return (
+    <div className="fchip-group">
+      <span className="fchip-legend" id={id}>{label}</span>
+      <div className={`fchip-list ${scroll ? 'is-scroll' : ''}`} role="radiogroup" aria-labelledby={id}>
+        {options.map((o) => (
+          <label key={o.value || 'all'} className="fchip" title={o.title}>
+            <input
+              type="radio"
+              name={name}
+              value={o.value}
+              checked={value === o.value}
+              onChange={() => onChange(o.value)}
+            />
+            <span className="fchip-face">
+              {o.label}
+              {Number.isFinite(o.count) && <span className="fchip-count">{o.count}</span>}
+            </span>
+          </label>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 /** How long ago, in the units people think in. */
 function ago(value) {
@@ -101,8 +162,8 @@ export default function Jobs() {
     return () => clearTimeout(t);
   }, [searchBox]);
 
-  const setFilter = (key) => (e) => {
-    setFilters((f) => ({ ...f, [key]: e.target.value }));
+  const pick = (key) => (value) => {
+    setFilters((f) => ({ ...f, [key]: value }));
     setPage(1);
   };
 
@@ -119,18 +180,22 @@ export default function Jobs() {
 
   const facets = data?.facets;
   const filtered = Object.values(filters).some(Boolean);
-
-  // A domain with nothing in the 300 is shown and disabled rather than hidden,
-  // so the menu says "none right now" instead of looking incomplete.
-  const domainOptions = useMemo(
-    () => (facets?.domains || []).map((d) => ({
-      value: d.value,
-      label: `${d.label} (${d.count})`,
-      disabled: d.count === 0,
-    })),
-    [facets],
-  );
   const without = (list) => (list || []).filter((o) => o.value !== 'unspecified');
+
+  const domainChips = useMemo(
+    () => chipOptions(facets?.domains, { total: facets?.domainTotal, allLabel: 'All', picked: filters.domain, short: true }),
+    [facets, filters.domain],
+  );
+  const levelChips = useMemo(
+    () => chipOptions(facets?.levels, { total: facets?.levelTotal, allLabel: 'Any', picked: filters.experience, skip: ['unspecified'] }),
+    [facets, filters.experience],
+  );
+  // Internship is offered under Level, not here: it is both a level and an
+  // engagement, and two chips that do the same thing is one too many.
+  const typeChips = useMemo(
+    () => chipOptions(facets?.workTypes, { total: facets?.workTypeTotal, allLabel: 'Any', picked: filters.workType, skip: ['unspecified', 'internship'] }),
+    [facets, filters.workType],
+  );
 
   const labelOf = useMemo(() => {
     const map = new Map();
@@ -174,21 +239,44 @@ export default function Jobs() {
         </Alert>
       )}
 
-      <div className="jobs-bar">
-        <div className="jobs-search">
-          <Input
-            ariaLabel="Search jobs"
-            placeholder="Search role or company"
-            value={searchBox}
-            onChange={(e) => setSearchBox(e.target.value)}
-          />
+      {/* Filters. Nearly all 300 are in India, so place is one question -
+          remote or not - rather than a menu. Every chip carries a live count
+          and a chip with nothing behind it is not shown, so no click on this
+          panel can lead to an empty page. */}
+      <section className="panel jobs-filters" aria-label="Filter jobs">
+        <div className="jobs-filters-top">
+          <label className="jobs-search">
+            <span className="sr-only">Search jobs</span>
+            <SearchIcon />
+            <input
+              type="search"
+              placeholder="Search role or company"
+              value={searchBox}
+              onChange={(e) => setSearchBox(e.target.value)}
+            />
+          </label>
+
+          <label className="fchip fchip-toggle">
+            <input
+              type="checkbox"
+              checked={filters.remote}
+              onChange={(e) => pick('remote')(e.target.checked)}
+            />
+            <span className="fchip-face">
+              Remote only
+              {Number.isFinite(facets?.remote) && <span className="fchip-count">{facets.remote}</span>}
+            </span>
+          </label>
         </div>
-        <Select ariaLabel="Domain" placeholder="All domains" value={filters.domain} onChange={setFilter('domain')} options={domainOptions} />
-        <Select ariaLabel="Place" placeholder="Anywhere" value={filters.place} onChange={setFilter('place')} options={facets?.places || []} />
-        <Select ariaLabel="Type" placeholder="Any type" value={filters.workType} onChange={setFilter('workType')} options={without(facets?.workTypes)} />
-        <Select ariaLabel="Level" placeholder="Any level" value={filters.experience} onChange={setFilter('experience')} options={without(facets?.levels)} />
-        {filtered && <Button variant="ghost" size="sm" onClick={clearAll}>Clear</Button>}
-      </div>
+
+        {facets && (
+          <div className="jobs-filters-groups">
+            <ChipGroup label="Domain" name="domain" value={filters.domain} options={domainChips} onChange={pick('domain')} scroll />
+            <ChipGroup label="Level" name="experience" value={filters.experience} options={levelChips} onChange={pick('experience')} />
+            <ChipGroup label="Type" name="workType" value={filters.workType} options={typeChips} onChange={pick('workType')} />
+          </div>
+        )}
+      </section>
 
       {err && <Alert tone="error">{err}</Alert>}
 
@@ -200,7 +288,10 @@ export default function Jobs() {
             <strong>
               {filtered ? `${data.total} of ${data.shortlistSize}` : data.total} openings
             </strong>
-            {data.pages > 1 && <span className="muted">Page {data.page} of {data.pages}</span>}
+            <div className="jobs-count-side">
+              {data.pages > 1 && <span className="muted">Page {data.page} of {data.pages}</span>}
+              {filtered && <Button variant="ghost" size="sm" onClick={clearAll}>Clear filters</Button>}
+            </div>
           </div>
 
           {data.jobs.length === 0 ? (

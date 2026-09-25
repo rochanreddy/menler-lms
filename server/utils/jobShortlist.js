@@ -257,6 +257,43 @@ export function applyFilters(jobs, f) {
   });
 }
 
+/**
+ * Counts for every filter chip, each one computed with the OTHER filters
+ * applied and its own left off.
+ *
+ * So with Design picked, "Internship 3" means three design internships, not
+ * the 37 internships across the whole board. A count that ignores what is
+ * already chosen promises results the click will not deliver; one that
+ * respects it means a chip never leads to an empty page.
+ */
+export function facetCounts(jobs, f) {
+  const without = (over) => applyFilters(jobs, { ...f, ...over });
+  const tally = (list, key) => {
+    const counts = {};
+    for (const job of list) {
+      const value = job[key] || 'unspecified';
+      counts[value] = (counts[value] || 0) + 1;
+    }
+    return counts;
+  };
+
+  const forDomain = without({ domains: [] });
+  const forLevel = without({ levels: [] });
+  const forType = without({ workTypes: [] });
+  const forPlace = without({ places: [] });
+
+  return {
+    domains: tally(forDomain, 'domain'),
+    domainTotal: forDomain.length,
+    levels: tally(forLevel, 'experienceLevel'),
+    levelTotal: forLevel.length,
+    workTypes: tally(forType, 'workType'),
+    workTypeTotal: forType.length,
+    remote: forPlace.filter((job) => job.isRemote).length,
+    placeTotal: forPlace.length,
+  };
+}
+
 /** How many of the list fall in each domain, for the filter's counts. */
 export function domainCounts(jobs) {
   const counts = {};

@@ -13,18 +13,21 @@
 
 // The function of the job - what a student browses by. Filed by the
 // pipeline's pipeline/domain.js from the title and category.
+//
+// `short` is the chip on the filter bar, where eleven full labels would run
+// to three lines. The full label stays on the card and as the chip's tooltip.
 export const DOMAINS = [
-  { value: 'ai-ml', label: 'AI & Machine Learning' },
-  { value: 'ai-generalist', label: 'AI Generalist & Automation' },
-  { value: 'software', label: 'Full Stack & Software' },
-  { value: 'data', label: 'Data & Analytics' },
-  { value: 'product', label: 'Product' },
-  { value: 'founders-office', label: "Founder's Office & Strategy" },
-  { value: 'design', label: 'Design & Creative' },
-  { value: 'marketing', label: 'Marketing & Growth' },
-  { value: 'content', label: 'Content & Writing' },
-  { value: 'sales', label: 'Sales & Customer Success' },
-  { value: 'operations', label: 'Operations, HR & Finance' },
+  { value: 'ai-ml', label: 'AI & Machine Learning', short: 'AI & ML' },
+  { value: 'ai-generalist', label: 'AI Generalist & Automation', short: 'AI Generalist' },
+  { value: 'software', label: 'Full Stack & Software', short: 'Full Stack' },
+  { value: 'data', label: 'Data & Analytics', short: 'Data' },
+  { value: 'product', label: 'Product', short: 'Product' },
+  { value: 'founders-office', label: "Founder's Office & Strategy", short: "Founder's Office" },
+  { value: 'design', label: 'Design & Creative', short: 'Design' },
+  { value: 'marketing', label: 'Marketing & Growth', short: 'Marketing' },
+  { value: 'content', label: 'Content & Writing', short: 'Content' },
+  { value: 'sales', label: 'Sales & Customer Success', short: 'Sales' },
+  { value: 'operations', label: 'Operations, HR & Finance', short: 'Operations' },
 ];
 
 // How the work is engaged. `unspecified` is a real answer: most boards never

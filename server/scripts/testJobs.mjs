@@ -24,6 +24,7 @@ import {
   curate,
   applyFilters,
   domainCounts,
+  facetCounts,
 } from '../utils/jobShortlist.js';
 import { parseFilters, isHttpUrl, PAGE_SIZE } from '../routes/jobs.js';
 
@@ -205,6 +206,30 @@ ok(curate([job({ title: 'Spanish Search Quality Rater' })]).length === 0, 'an ex
 
   const counts = domainCounts(list);
   ok(counts['ai-ml'] === 2 && counts.product === 1, 'domain counts for the menu');
+}
+
+// ── chip counts respect the other filters ──────────────────────────────────
+{
+  const list = [
+    job({ title: 'Design Intern', domain: 'design', experienceLevel: 'internship', workType: 'internship', isRemote: true }),
+    job({ title: 'Design Lead', domain: 'design', experienceLevel: 'mid', workType: 'full-time' }),
+    job({ title: 'ML Intern', domain: 'ai-ml', experienceLevel: 'internship', workType: 'internship' }),
+    job({ title: 'ML Engineer', domain: 'ai-ml', experienceLevel: 'mid', workType: 'full-time', isRemote: true }),
+    job({ title: 'ML Researcher', domain: 'ai-ml', experienceLevel: 'entry', workType: 'full-time' }),
+  ];
+
+  const none = facetCounts(list, NO_FILTERS);
+  ok(none.domainTotal === 5 && none.domains.design === 2 && none.domains['ai-ml'] === 3, 'with nothing picked, counts cover the whole list');
+  ok(none.levels.internship === 2 && none.remote === 2, 'level and remote counts');
+
+  const design = facetCounts(list, { ...NO_FILTERS, domains: ['design'] });
+  ok(design.levels.internship === 1, 'with Design picked, "Internship" counts design internships only (1, not 2)');
+  ok(design.remote === 1, 'and "Remote" counts remote design roles only');
+  ok(design.domains['ai-ml'] === 3 && design.domainTotal === 5,
+    "a chip's own group ignores its own pick, so switching domain shows what each would give");
+
+  const both = facetCounts(list, { ...NO_FILTERS, domains: ['ai-ml'], levels: ['mid'] });
+  ok(both.remote === 1 && both.workTypes['full-time'] === 1, 'counts combine every other active filter');
 }
 
 // ── the query string is untrusted ───────────────────────────────────────────
