@@ -3019,58 +3019,75 @@ button.ds-slot-email:hover { color: var(--ink); }
    a .list-row.is-linked, so the whole panel opens the posting through the
    Apply link stretched over it, the same pattern the Webinar rows use. */
 
-/* ── The filter panel ──
-   Search and the remote switch on top, then one labelled row of chips per
-   question. Built entirely from tokens: this is the panel a student sees on
-   every visit, so it should look like the rest of the product and not like a
-   browser's default form controls. */
-.jobs-filters { display: flex; flex-direction: column; gap: var(--space-5); padding: var(--space-5) var(--space-6); margin-bottom: var(--space-6); }
-.jobs-filters-top { display: flex; align-items: center; gap: var(--space-3); }
+/* ── The filter bar ──
+   Search and four dropdowns in one row. Built from tokens only. The
+   dropdowns are FilterMenu (pages/Jobs.jsx), not native selects, because a
+   native select's open list is drawn by the operating system and cannot be
+   styled. */
+.jobs-bar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); margin-bottom: var(--space-6); }
 
-/* Scoped under .jobs-filters because both are <label>s inside a .panel, and
-   `.panel label` (display: block, a 12px top margin) would otherwise win. */
-.jobs-filters .jobs-search { position: relative; flex: 1; min-width: 0; display: block; margin: 0; }
+.jobs-search { position: relative; flex: 1 1 260px; min-width: 0; display: block; margin: 0; }
 .jobs-search-icon { position: absolute; left: var(--space-4); top: 50%; width: 18px; height: 18px; transform: translateY(-50%); color: var(--muted-foreground); pointer-events: none; }
 .jobs-search input {
   width: 100%; height: var(--space-11); margin: 0; padding: 0 var(--space-4) 0 var(--space-11);
-  border: var(--border-hairline) solid var(--input); border-radius: var(--radius-pill);
-  background: var(--surface-muted); color: var(--foreground);
+  border: var(--border-hairline) solid var(--input); border-radius: var(--radius-sm);
+  background: var(--card); color: var(--foreground); box-shadow: var(--shadow-sm);
   font-family: var(--font-ui); font-size: var(--text-base); line-height: var(--leading-base);
-  transition: border-color var(--duration-fast) var(--ease), background var(--duration-fast) var(--ease), box-shadow var(--duration-fast) var(--ease);
+  transition: border-color var(--duration-fast) var(--ease), box-shadow var(--duration-fast) var(--ease);
 }
 .jobs-search input::placeholder { color: var(--muted-foreground); }
 .jobs-search input:hover { border-color: var(--secondary-foreground); }
-.jobs-search input:focus { outline: none; background: var(--card); border-color: var(--ring-color); box-shadow: var(--ring); }
+.jobs-search input:focus { outline: none; border-color: var(--ring-color); box-shadow: var(--ring); }
 
-/* A label column and the chips beside it, so three rows of choices read as a
-   table rather than a heap. */
-.jobs-filters-groups { display: flex; flex-direction: column; gap: var(--space-3); padding-top: var(--space-5); border-top: var(--border-hairline) solid var(--border); }
-.fchip-group { display: grid; grid-template-columns: 76px minmax(0, 1fr); align-items: start; gap: var(--space-3); }
-.fchip-legend {
-  padding-top: var(--space-2); font-size: var(--text-xs); line-height: var(--leading-xs);
-  font-weight: var(--weight-semibold); letter-spacing: .08em; text-transform: uppercase; color: var(--muted-foreground);
+/* The dropdown: a trigger that looks like the select it replaces, and a
+   floating list under it. */
+.fmenu { position: relative; flex: 0 1 200px; min-width: 150px; }
+.fmenu-trigger {
+  width: 100%; height: var(--space-11); display: flex; align-items: center; justify-content: space-between; gap: var(--space-2);
+  padding: 0 var(--space-3) 0 var(--space-4); margin: 0;
+  border: var(--border-hairline) solid var(--input); border-radius: var(--radius-sm);
+  background: var(--card); color: var(--foreground); box-shadow: var(--shadow-sm); cursor: pointer; text-align: left;
+  font-family: var(--font-ui); font-size: var(--text-base); line-height: var(--leading-base); font-weight: var(--weight-regular);
+  transition: border-color var(--duration-fast) var(--ease), box-shadow var(--duration-fast) var(--ease), background var(--duration-fast) var(--ease);
 }
-.fchip-list { display: flex; flex-wrap: wrap; gap: var(--space-2); min-width: 0; }
+.fmenu-trigger:hover { border-color: var(--secondary-foreground); }
+.fmenu-trigger:focus-visible, .fmenu-trigger[aria-expanded='true'] { outline: none; border-color: var(--ring-color); box-shadow: var(--ring); }
+/* A filter that is on says so from across the page. */
+.fmenu-trigger.is-set { background: var(--secondary); border-color: var(--secondary-foreground); color: var(--primary); font-weight: var(--weight-semibold); }
+.fmenu-value { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fmenu-chevron { flex: none; width: 18px; height: 18px; color: var(--muted-foreground); transition: transform var(--duration-base) var(--ease); }
+.fmenu-trigger.is-set .fmenu-chevron { color: var(--primary); }
+.fmenu-trigger[aria-expanded='true'] .fmenu-chevron { transform: rotate(180deg); }
 
-/* The chip. The input is real and visually hidden, so the radio or checkbox
-   underneath keeps its keyboard and screen-reader behaviour; the face is
-   what shows. */
-.jobs-filters .fchip { position: relative; display: inline-flex; margin: 0; cursor: pointer; }
-.fchip input { position: absolute; opacity: 0; width: 1px; height: 1px; margin: 0; pointer-events: none; }
-.fchip-face {
-  display: inline-flex; align-items: center; gap: var(--space-2); white-space: nowrap;
-  padding: var(--space-2) var(--space-4); border: var(--border-hairline) solid var(--border); border-radius: var(--radius-pill);
-  background: var(--card); color: var(--foreground);
-  font-family: var(--font-ui); font-size: var(--text-sm); line-height: var(--leading-sm); font-weight: var(--weight-medium);
-  transition: background var(--duration-fast) var(--ease), border-color var(--duration-fast) var(--ease), color var(--duration-fast) var(--ease);
+.fmenu-list {
+  position: absolute; z-index: 40; top: calc(100% + var(--space-2)); left: 0;
+  min-width: 100%; width: max-content; max-width: min(340px, calc(100vw - var(--space-8)));
+  max-height: 340px; overflow-y: auto; margin: 0; padding: var(--space-2); list-style: none;
+  background: var(--popover); border: var(--border-hairline) solid var(--border); border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-lg); outline: none;
+  animation: fmenu-in var(--duration-fast) var(--ease);
 }
-.fchip:hover .fchip-face { border-color: var(--secondary-foreground); background: var(--secondary); }
-.fchip-count { font-size: var(--text-xs); line-height: var(--leading-xs); font-weight: var(--weight-semibold); color: var(--muted-foreground); font-variant-numeric: tabular-nums; }
-.fchip input:checked + .fchip-face { background: var(--primary); border-color: var(--primary); color: var(--primary-foreground); }
-.fchip input:checked + .fchip-face .fchip-count { color: var(--primary-foreground); opacity: .78; }
-.fchip input:focus-visible + .fchip-face { box-shadow: var(--ring); }
-/* The remote switch sits in the search row, so it matches the search box. */
-.fchip-toggle .fchip-face { height: var(--space-11); padding: 0 var(--space-5); }
+.fmenu-list.is-right { left: auto; right: 0; }
+@keyframes fmenu-in { from { opacity: 0; transform: translateY(calc(var(--space-1) * -1)); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .fmenu-list { animation: none; } .fmenu-chevron { transition: none; } }
+
+.fmenu-option {
+  display: flex; align-items: center; gap: var(--space-3); margin: 0;
+  padding: var(--space-2) var(--space-3); border-radius: calc(var(--radius-sm) - var(--space-1));
+  color: var(--foreground); cursor: pointer; white-space: nowrap;
+  font-family: var(--font-ui); font-size: var(--text-sm); line-height: var(--leading-sm);
+}
+.fmenu-option.is-active { background: var(--secondary); }
+.fmenu-option[aria-selected='true'] { color: var(--primary); font-weight: var(--weight-semibold); }
+.fmenu-check { flex: none; width: 16px; height: 16px; color: var(--primary); visibility: hidden; }
+.fmenu-option[aria-selected='true'] .fmenu-check { visibility: visible; }
+.fmenu-label { flex: 1; }
+.fmenu-count {
+  min-width: var(--space-6); padding: 0 var(--space-2); border-radius: var(--radius-pill); text-align: center;
+  background: var(--surface-muted); color: var(--muted-foreground);
+  font-size: var(--text-xs); line-height: var(--leading-sm); font-weight: var(--weight-semibold); font-variant-numeric: tabular-nums;
+}
+.fmenu-option[aria-selected='true'] .fmenu-count { background: var(--primary); color: var(--primary-foreground); }
 
 .jobs-count { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 4px; }
 .jobs-count-side { display: flex; align-items: center; gap: var(--space-3); }
@@ -3141,24 +3158,8 @@ button.ds-slot-email:hover { color: var(--ink); }
   .job-apply { flex: 1; max-width: 240px; }
   .jobs-post-grid { grid-template-columns: minmax(0, 1fr); }
 
-  /* On a phone the filters must not fill the first screen, or a student
-     opens Jobs and sees no jobs. So search takes its own row, the label goes
-     above its chips, and EVERY chip row scrolls sideways on one line instead
-     of wrapping three or four deep. The fade on the right edge is what tells
-     a thumb there is more; the extra right padding lets the last chip scroll
-     clear of it. */
-  .jobs-filters { padding: var(--space-4); gap: var(--space-4); }
-  .jobs-filters-top { flex-wrap: wrap; gap: var(--space-2); }
-  .jobs-filters .jobs-search { flex-basis: 100%; }
-  .jobs-filters-top .fchip-toggle { flex: 1; }
-  .jobs-filters-top .fchip-toggle .fchip-face { width: 100%; justify-content: center; }
-  .jobs-filters-groups { gap: var(--space-4); padding-top: var(--space-4); }
-  .fchip-group { grid-template-columns: minmax(0, 1fr); gap: var(--space-2); }
-  .fchip-legend { padding-top: 0; }
-  .fchip-list {
-    flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding-bottom: var(--space-1);
-    margin-right: calc(var(--space-4) * -1); padding-right: var(--space-10);
-    mask-image: linear-gradient(to right, black calc(100% - var(--space-10)), transparent);
-  }
-  .fchip-list::-webkit-scrollbar { display: none; }
+  /* Search on its own row, the four dropdowns two by two beneath it. */
+  .jobs-bar { gap: var(--space-2); }
+  .jobs-search { flex-basis: 100%; }
+  .fmenu { flex: 1 1 calc(50% - var(--space-1)); min-width: 0; }
 }

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { api } from '../api.js';
 import Empty from '../components/Empty.jsx';
@@ -16,31 +16,29 @@ import { Alert, Button, Checkbox, Input, Select, Skeleton, Textarea } from '../c
 // apply · matches claude"), because a curated list nobody can account for
 // reads as an arbitrary one.
 
-const EMPTY = { domain: '', experience: '', workType: '', remote: false, search: '' };
+const EMPTY = { domain: '', place: '', workType: '', experience: '', search: '' };
 
 const buildPath = (filters, page) => {
   const q = new URLSearchParams();
-  if (filters.domain) q.set('domain', filters.domain);
-  if (filters.experience) q.set('experience', filters.experience);
-  if (filters.workType) q.set('workType', filters.workType);
-  if (filters.remote) q.set('place', 'remote');
-  if (filters.search) q.set('search', filters.search);
+  for (const key of ['domain', 'place', 'workType', 'experience', 'search']) {
+    if (filters[key]) q.set(key, filters[key]);
+  }
   if (page > 1) q.set('page', String(page));
   const s = q.toString();
   return s ? `/jobs?${s}` : '/jobs';
 };
 
 /**
- * The options a chip group offers: "All" first, then only the values that
- * would return something. An option with nothing behind it is noise on a bar
- * this wide - except the one already picked, which stays so the student can
- * see what is filtering them and step back out of it.
+ * A dropdown's options: its "All …" row first, then only the values that
+ * would return something - an option with nothing behind it just leads to an
+ * empty page - except the one already picked, which stays so it can be seen
+ * and undone. Each carries a live count, taken with the other filters applied.
  */
-function chipOptions(list, { total, allLabel, picked, skip = [], short = false }) {
+function menuOptions(list, { total, allLabel, picked, skip = [] }) {
   const options = (list || [])
     .filter((o) => !skip.includes(o.value))
     .filter((o) => o.count > 0 || o.value === picked)
-    .map((o) => ({ value: o.value, label: short && o.short ? o.short : o.label, title: o.label, count: o.count }));
+    .map((o) => ({ value: o.value, label: o.label, short: o.short, count: o.count }));
   return [{ value: '', label: allLabel, count: total }, ...options];
 }
 
@@ -51,38 +49,156 @@ const SearchIcon = () => (
   </svg>
 );
 
+const ChevronIcon = () => (
+  <svg className="fmenu-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="m6 9 6 6 6-6" />
+  </svg>
+);
+
+const CheckIcon = () => (
+  <svg className="fmenu-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M20 6 9 17l-5-5" />
+  </svg>
+);
+
 /**
- * A row of chips that picks one value.
+ * A dropdown filter.
  *
- * Real radio inputs, visually hidden, under the chip faces: the group gets
- * arrow-key movement, one tab stop and a screen-reader announcement for free,
- * and nothing here reimplements focus handling. A native <select> would have
- * done the same, but its open list is drawn by the operating system and
- * cannot be styled, and a filter the student sees every visit should not look
- * like a form from 2004.
+ * Not a native <select>, because a native select's open list is drawn by the
+ * operating system - a blue system highlight in a system font - and no CSS
+ * reaches it. This is the same control with a menu that can match the page:
+ * a button that says what is picked, and a listbox under it with a count and
+ * a tick on each row.
+ *
+ * It keeps everything a select gives for free, because that is the part
+ * worth not getting wrong: Arrow keys, Home and End move, Enter or Space
+ * picks, Escape closes and hands focus back to the button, Tab and a click
+ * outside close it, and the listbox pattern tells a screen reader which row
+ * is highlighted and which is chosen.
  */
-function ChipGroup({ label, name, value, options, onChange, scroll = false }) {
-  const id = `chips-${name}`;
+function FilterMenu({ label, value, options, onChange }) {
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(0);
+  const [alignRight, setAlignRight] = useState(false);
+  const wrapRef = useRef(null);
+  const buttonRef = useRef(null);
+  const listRef = useRef(null);
+  const listId = useId();
+
+  const selected = Math.max(0, options.findIndex((o) => o.value === value));
+  const current = options[selected] || options[0];
+  const isSet = Boolean(value);
+
+  const openMenu = (at = selected) => {
+    setActive(at);
+    setAlignRight(false);
+    setOpen(true);
+  };
+  const close = (refocus = true) => {
+    setOpen(false);
+    if (refocus) buttonRef.current?.focus();
+  };
+  const choose = (index) => {
+    const option = options[index];
+    if (option) onChange(option.value);
+    close();
+  };
+
+  // A click anywhere else closes it, the way a select does.
+  useEffect(() => {
+    if (!open) return undefined;
+    const onDown = (e) => {
+      if (!wrapRef.current?.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [open]);
+
+  // Focus moves into the list, and a menu that would run off the right edge
+  // of the screen opens leftwards instead. Measured once per opening, from
+  // the left-aligned position.
+  useLayoutEffect(() => {
+    if (!open || !listRef.current) return;
+    listRef.current.focus();
+    const rect = listRef.current.getBoundingClientRect();
+    if (rect.right > window.innerWidth - 8) setAlignRight(true);
+  }, [open]);
+
+  // Keep the highlighted row in view in a long list.
+  useEffect(() => {
+    if (!open) return;
+    listRef.current?.querySelector(`[data-index="${active}"]`)?.scrollIntoView({ block: 'nearest' });
+  }, [active, open]);
+
+  const onButtonKeyDown = (e) => {
+    if (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      openMenu();
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      openMenu(options.length - 1);
+    }
+  };
+
+  const onListKeyDown = (e) => {
+    const last = options.length - 1;
+    if (e.key === 'ArrowDown') { e.preventDefault(); setActive((i) => Math.min(i + 1, last)); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setActive((i) => Math.max(i - 1, 0)); }
+    else if (e.key === 'Home') { e.preventDefault(); setActive(0); }
+    else if (e.key === 'End') { e.preventDefault(); setActive(last); }
+    else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); choose(active); }
+    else if (e.key === 'Escape') { e.preventDefault(); close(); }
+    else if (e.key === 'Tab') { setOpen(false); }
+  };
+
   return (
-    <div className="fchip-group">
-      <span className="fchip-legend" id={id}>{label}</span>
-      <div className={`fchip-list ${scroll ? 'is-scroll' : ''}`} role="radiogroup" aria-labelledby={id}>
-        {options.map((o) => (
-          <label key={o.value || 'all'} className="fchip" title={o.title}>
-            <input
-              type="radio"
-              name={name}
-              value={o.value}
-              checked={value === o.value}
-              onChange={() => onChange(o.value)}
-            />
-            <span className="fchip-face">
-              {o.label}
-              {Number.isFinite(o.count) && <span className="fchip-count">{o.count}</span>}
-            </span>
-          </label>
-        ))}
-      </div>
+    <div className="fmenu" ref={wrapRef}>
+      <button
+        ref={buttonRef}
+        type="button"
+        className={`fmenu-trigger ${isSet ? 'is-set' : ''}`}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-controls={open ? listId : undefined}
+        aria-label={`${label}: ${current.label}`}
+        onClick={() => (open ? close() : openMenu())}
+        onKeyDown={onButtonKeyDown}
+      >
+        {/* The short name on the button ("AI & ML"), where the full one would
+            be cut off; the menu and the screen-reader label keep the full one. */}
+        <span className="fmenu-value">{current.short || current.label}</span>
+        <ChevronIcon />
+      </button>
+
+      {open && (
+        <ul
+          ref={listRef}
+          id={listId}
+          className={`fmenu-list ${alignRight ? 'is-right' : ''}`}
+          role="listbox"
+          aria-label={label}
+          tabIndex={-1}
+          aria-activedescendant={`${listId}-${active}`}
+          onKeyDown={onListKeyDown}
+        >
+          {options.map((o, i) => (
+            <li
+              key={o.value || 'all'}
+              id={`${listId}-${i}`}
+              data-index={i}
+              role="option"
+              aria-selected={o.value === value}
+              className={`fmenu-option ${i === active ? 'is-active' : ''}`}
+              onMouseMove={() => active !== i && setActive(i)}
+              onClick={() => choose(i)}
+            >
+              <CheckIcon />
+              <span className="fmenu-label">{o.label}</span>
+              {Number.isFinite(o.count) && <span className="fmenu-count">{o.count}</span>}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
@@ -182,19 +298,27 @@ export default function Jobs() {
   const filtered = Object.values(filters).some(Boolean);
   const without = (list) => (list || []).filter((o) => o.value !== 'unspecified');
 
-  const domainChips = useMemo(
-    () => chipOptions(facets?.domains, { total: facets?.domainTotal, allLabel: 'All', picked: filters.domain, short: true }),
+  const domainOptions = useMemo(
+    () => menuOptions(facets?.domains, { total: facets?.domainTotal, allLabel: 'All domains', picked: filters.domain }),
     [facets, filters.domain],
   );
-  const levelChips = useMemo(
-    () => chipOptions(facets?.levels, { total: facets?.levelTotal, allLabel: 'Any', picked: filters.experience, skip: ['unspecified'] }),
-    [facets, filters.experience],
+  const placeOptions = useMemo(
+    () => menuOptions(
+      [
+        { value: 'india', label: 'India', count: facets?.india },
+        { value: 'remote', label: 'Remote', count: facets?.remote },
+      ],
+      { total: facets?.placeTotal, allLabel: 'Anywhere', picked: filters.place },
+    ),
+    [facets, filters.place],
   );
-  // Internship is offered under Level, not here: it is both a level and an
-  // engagement, and two chips that do the same thing is one too many.
-  const typeChips = useMemo(
-    () => chipOptions(facets?.workTypes, { total: facets?.workTypeTotal, allLabel: 'Any', picked: filters.workType, skip: ['unspecified', 'internship'] }),
+  const typeOptions = useMemo(
+    () => menuOptions(facets?.workTypes, { total: facets?.workTypeTotal, allLabel: 'Any type', picked: filters.workType, skip: ['unspecified'] }),
     [facets, filters.workType],
+  );
+  const levelOptions = useMemo(
+    () => menuOptions(facets?.levels, { total: facets?.levelTotal, allLabel: 'Any level', picked: filters.experience, skip: ['unspecified'] }),
+    [facets, filters.experience],
   );
 
   const labelOf = useMemo(() => {
@@ -239,44 +363,25 @@ export default function Jobs() {
         </Alert>
       )}
 
-      {/* Filters. Nearly all 300 are in India, so place is one question -
-          remote or not - rather than a menu. Every chip carries a live count
-          and a chip with nothing behind it is not shown, so no click on this
-          panel can lead to an empty page. */}
-      <section className="panel jobs-filters" aria-label="Filter jobs">
-        <div className="jobs-filters-top">
-          <label className="jobs-search">
-            <span className="sr-only">Search jobs</span>
-            <SearchIcon />
-            <input
-              type="search"
-              placeholder="Search role or company"
-              value={searchBox}
-              onChange={(e) => setSearchBox(e.target.value)}
-            />
-          </label>
-
-          <label className="fchip fchip-toggle">
-            <input
-              type="checkbox"
-              checked={filters.remote}
-              onChange={(e) => pick('remote')(e.target.checked)}
-            />
-            <span className="fchip-face">
-              Remote only
-              {Number.isFinite(facets?.remote) && <span className="fchip-count">{facets.remote}</span>}
-            </span>
-          </label>
-        </div>
-
-        {facets && (
-          <div className="jobs-filters-groups">
-            <ChipGroup label="Domain" name="domain" value={filters.domain} options={domainChips} onChange={pick('domain')} scroll />
-            <ChipGroup label="Level" name="experience" value={filters.experience} options={levelChips} onChange={pick('experience')} />
-            <ChipGroup label="Type" name="workType" value={filters.workType} options={typeChips} onChange={pick('workType')} />
-          </div>
-        )}
-      </section>
+      {/* Search and four dropdowns in one row, as before. Each menu shows a
+          live count per option and drops options with nothing behind them,
+          so no pick leads to an empty page. */}
+      <div className="jobs-bar" role="search">
+        <label className="jobs-search">
+          <span className="sr-only">Search jobs</span>
+          <SearchIcon />
+          <input
+            type="search"
+            placeholder="Search role or company"
+            value={searchBox}
+            onChange={(e) => setSearchBox(e.target.value)}
+          />
+        </label>
+        <FilterMenu label="Domain" value={filters.domain} options={domainOptions} onChange={pick('domain')} />
+        <FilterMenu label="Place" value={filters.place} options={placeOptions} onChange={pick('place')} />
+        <FilterMenu label="Type" value={filters.workType} options={typeOptions} onChange={pick('workType')} />
+        <FilterMenu label="Level" value={filters.experience} options={levelOptions} onChange={pick('experience')} />
+      </div>
 
       {err && <Alert tone="error">{err}</Alert>}
 

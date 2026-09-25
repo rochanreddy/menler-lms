@@ -290,6 +290,7 @@ export function facetCounts(jobs, f) {
     workTypes: tally(forType, 'workType'),
     workTypeTotal: forType.length,
     remote: forPlace.filter((job) => job.isRemote).length,
+    india: forPlace.filter((job) => job.country === 'India').length,
     placeTotal: forPlace.length,
   };
 }

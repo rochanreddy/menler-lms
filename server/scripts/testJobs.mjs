@@ -221,6 +221,7 @@ ok(curate([job({ title: 'Spanish Search Quality Rater' })]).length === 0, 'an ex
   const none = facetCounts(list, NO_FILTERS);
   ok(none.domainTotal === 5 && none.domains.design === 2 && none.domains['ai-ml'] === 3, 'with nothing picked, counts cover the whole list');
   ok(none.levels.internship === 2 && none.remote === 2, 'level and remote counts');
+  ok(none.india === 5 && none.placeTotal === 5, 'India count for the Place menu');
 
   const design = facetCounts(list, { ...NO_FILTERS, domains: ['design'] });
   ok(design.levels.internship === 1, 'with Design picked, "Internship" counts design internships only (1, not 2)');
