@@ -7,7 +7,8 @@ import {
 import { sessionReminderEmail } from './emailTemplates.js';
 
 /**
- * The two class reminders: one an hour before, one as the class starts.
+ * The three class reminders: a day before, an hour before, and as the class
+ * starts.
  *
  * The shape is the absence sweep's — a tick, a window, a stamp — but the
  * failure mode is the opposite way round, and that changes every decision
@@ -36,6 +37,17 @@ import { sessionReminderEmail } from './emailTemplates.js';
 // mail either way. Late beats never for a reminder.
 export const LEAD_MS = 60 * 60 * 1000;
 const LEAD_SLACK_MS = 15 * 60 * 1000;
+
+// The day-before mail: due when the class is 23 to 24 hours away.
+//
+// An hour of slack rather than fifteen minutes, for the same reason as above
+// scaled up: a day-before reminder that lands at 23h10m is exactly as useful as
+// one at 24h, and the wider window survives a long deploy. What it must NOT do
+// is reach further — a class 20 hours away is "tonight", not "tomorrow", and
+// the hour-before mail covers it. A class created less than 23 hours ahead
+// simply gets no day-before mail.
+export const DAY_MS = 24 * 60 * 60 * 1000;
+const DAY_SLACK_MS = 60 * 60 * 1000;
 
 // How late a reminder is still worth sending.
 //
@@ -177,6 +189,10 @@ async function mailCohort(session, kind) {
  */
 export function reminderWindows(now = Date.now()) {
   return {
+    day: {
+      remindedDayAt: null,
+      startsAt: { $gt: new Date(now + DAY_MS - DAY_SLACK_MS), $lte: new Date(now + DAY_MS) },
+    },
     hour: {
       remindedHourAt: null,
       startsAt: { $gt: new Date(now + LEAD_MS - LEAD_SLACK_MS), $lte: new Date(now + LEAD_MS) },
@@ -196,11 +212,25 @@ export async function sweepReminders(now = Date.now()) {
     return { hour: 0, start: 0, sent: 0, failed: 0, skipped: 'no cohort-capable mail transport' };
   }
 
+  let day = 0;
   let hour = 0;
   let start = 0;
   let sent = 0;
   let failed = 0;
   const windows = reminderWindows(now);
+
+  // ── a day out ──
+  // Due between now+23h and now+24h.
+  const dayDue = await Session.find(windows.day);
+  for (const s of dayDue) {
+    if (!await claim(s._id, 'remindedDayAt')) continue;
+    const r = await mailCohort(s, 'day');
+    if (!r.sent && r.failed) {
+      await release(s._id, 'remindedDayAt');
+      console.error(`[reminders] day-before for "${s.title}" reached nobody (${r.failed} failed) — will retry next tick`);
+    }
+    day += 1; sent += r.sent; failed += r.failed;
+  }
 
   // ── an hour out ──
   // Due between now+45m and now+60m, and never sent after the fact.
@@ -231,7 +261,7 @@ export async function sweepReminders(now = Date.now()) {
     start += 1; sent += r.sent; failed += r.failed;
   }
 
-  return { hour, start, sent, failed };
+  return { day, hour, start, sent, failed };
 }
 
 /**
@@ -261,10 +291,10 @@ export function startSessionReminders(everyMs = 60 * 1000) {
     return null;
   }
   const run = () => sweepReminders()
-    .then(({ hour, start, sent, failed }) => {
-      if (hour || start) {
+    .then(({ day, hour, start, sent, failed }) => {
+      if (day || hour || start) {
         console.log(
-          `[reminders] ${hour} hour-before + ${start} starting-now class(es)`
+          `[reminders] ${day} day-before + ${hour} hour-before + ${start} starting-now class(es)`
           + `, ${sent} mailed${failed ? `, ${failed} failed` : ''}`,
         );
       }

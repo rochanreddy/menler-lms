@@ -572,8 +572,24 @@ function sessionFacts({ title, batchName, startsAt, endsAt }) {
   ]);
 }
 
+// The calendar day of an instant in India, as "2026-10-04" — for comparing
+// dates, never for showing them.
+const istDateKey = (at) => new Date(at).toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+
+/** "tomorrow", "today", or "on Sunday, 4 Oct" — relative to now, in IST. */
+function dayWord(startsAt, now = Date.now()) {
+  const key = istDateKey(startsAt);
+  if (key === istDateKey(now + 24 * 60 * 60 * 1000)) return 'tomorrow';
+  if (key === istDateKey(now)) return 'today';
+  return `on ${new Date(startsAt).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short', timeZone: 'Asia/Kolkata' })}`;
+}
+
+const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+
 /**
- * The two class reminders: one an hour ahead, one as the class begins.
+ * The three class reminders: a day ahead, an hour ahead, and as the class
+ * begins. The day-before mail is the hour-before mail with the day named in
+ * place of "in about an hour".
  *
  * Same facts, different job. The hour-before mail is a prompt to finish up and
  * get to a desk, so it leads with the time. The starting-now mail is a prompt
@@ -596,17 +612,30 @@ export function sessionReminderEmail({
   const classUrl = appUrl('/app');
   const href = joinUrl || classUrl;
 
+  const time = istTime(startsAt);
+  // The day-before mail names the day the way a person would. It goes out 23 to
+  // 24 hours ahead, so it is nearly always "tomorrow" in IST — but a class just
+  // after midnight can be reminded about while it is still, technically, the
+  // same day's eve, so the word comes from the calendar, never assumed.
+  const day = dayWord(startsAt);
+
   const subject = soon
     ? `Starting now: ${title}`
-    : `In 1 hour: ${title} at ${istTime(startsAt)} IST`;
+    : when === 'day'
+      ? `${cap(day)}: ${title} at ${time} IST`
+      : `In 1 hour: ${title} at ${time} IST`;
 
   const opener = soon
     ? `<strong>${esc(title)}</strong> is starting now. The room is open.`
-    : `A reminder that <strong>${esc(title)}</strong> starts in about an hour, at <strong>${esc(istTime(startsAt))} IST</strong>.`;
+    : when === 'day'
+      ? `A reminder that <strong>${esc(title)}</strong> is ${esc(day)}, at <strong>${esc(time)} IST</strong>.`
+      : `A reminder that <strong>${esc(title)}</strong> starts in about an hour, at <strong>${esc(time)} IST</strong>.`;
 
   const openerText = soon
     ? `${title} is starting now. The room is open.`
-    : `A reminder that ${title} starts in about an hour, at ${istTime(startsAt)} IST.`;
+    : when === 'day'
+      ? `A reminder that ${title} is ${day}, at ${time} IST.`
+      : `A reminder that ${title} starts in about an hour, at ${time} IST.`;
 
   // Only facts the LMS itself defines. The five minutes is EARLY_MS in
   // utils/sessionTime.js — change it there and this line is wrong. Nothing here
@@ -618,7 +647,9 @@ export function sessionReminderEmail({
 
   const html = shell({
     title: subject,
-    preview: soon ? 'Your class is starting — the room is open.' : `Your class starts at ${istTime(startsAt)} IST.`,
+    preview: soon
+      ? 'Your class is starting — the room is open.'
+      : when === 'day' ? `Your class is ${day} at ${time} IST.` : `Your class starts at ${time} IST.`,
     greeting: first,
     body: [
       P(opener),

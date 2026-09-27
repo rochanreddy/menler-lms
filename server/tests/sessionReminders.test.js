@@ -12,7 +12,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { reminderWindows, LEAD_MS } from '../utils/sessionReminders.js';
+import { reminderWindows, LEAD_MS, DAY_MS } from '../utils/sessionReminders.js';
 
 const MIN = 60 * 1000;
 const NOW = Date.parse('2026-09-24T13:00:00+05:30');
@@ -130,4 +130,30 @@ test('reminders refuse a transport that cannot take a whole cohort', async (t) =
 
   set({ SMTP_HOST: 'h', SMTP_USER: 'u', SMTP_PASS: 'p' });
   assert.equal(canSendReminders(), true, 'SMTP has no daily wall');
+});
+
+const HOUR = 60 * MIN;
+
+test('the day-before mail goes out 23 to 24 hours ahead, and not outside it', () => {
+  const { day } = reminderWindows(NOW);
+
+  assert.equal(hits(day, at(DAY_MS)), true, 'a class exactly a day away is due');
+  assert.equal(hits(day, at(23 * HOUR + 30 * MIN)), true, 'twenty-three and a half hours out is still due');
+
+  assert.equal(hits(day, at(DAY_MS + MIN)), false, 'a day and a minute out is too early');
+  assert.equal(hits(day, at(23 * HOUR)), false, 'at twenty-three hours it is no longer a day-before mail');
+  assert.equal(hits(day, at(20 * HOUR)), false, 'a class created tonight for tomorrow afternoon gets no day-before mail');
+  assert.equal(hits(day, at(LEAD_MS)), false, 'an hour out belongs to the hour-before mail');
+});
+
+test('the day-before and hour-before windows never claim the same class', () => {
+  const { day, hour } = reminderWindows(NOW);
+  for (let m = 0; m <= 25 * 60; m += 1) {
+    assert.ok(!(hits(day, at(m * MIN)) && hits(hour, at(m * MIN))), `overlap at +${m} min`);
+  }
+});
+
+test('the day-before claim guard is part of its query', () => {
+  const { day } = reminderWindows(NOW);
+  assert.equal(day.remindedDayAt, null);
 });

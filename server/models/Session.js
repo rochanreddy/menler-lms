@@ -15,14 +15,16 @@ const sessionSchema = new mongoose.Schema(
     absenceSweptAt: { type: Date, default: null, index: true },
 
     // Stamped when the class reminders went out (utils/sessionReminders.js) —
-    // one field per mail, because the two fire an hour apart and a restart in
-    // between must not resend the first.
+    // one field per mail, because the three fire a day, an hour and zero
+    // minutes before the class, and a restart in between must not resend an
+    // earlier one.
     //
     // These are claimed with findOneAndUpdate BEFORE the send, not after. The
     // absence sweep can safely replay because its writes are idempotent
     // upserts; email is not, and a duplicate here is a second copy in a
     // student's inbox. Stamping first means a crash mid-sweep costs a missed
     // reminder rather than a double one, which is the right way round.
+    remindedDayAt: { type: Date, default: null },
     remindedHourAt: { type: Date, default: null },
     remindedStartAt: { type: Date, default: null },
   },
