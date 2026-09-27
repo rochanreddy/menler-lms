@@ -103,7 +103,9 @@ export default function AdminStudents() {
         {shown.map((s) => (
           <div className="panel list-row row-click" key={s.id} onClick={() => navigate(`/app/students/${s.id}`)}>
             <div>
-              <strong>{s.full_name || '-'}</strong>
+              {s.full_name
+                ? <strong>{s.full_name}</strong>
+                : <AddName student={s} onSaved={(u) => setStudents((list) => list.map((x) => (x.id === u.id ? u : x)))} />}
               {s.blocked?.lms && <span className="badge badge-blocked" style={{ marginLeft: 'var(--space-2)' }}>blocked</span>}
               <div className="muted">{s.email}</div>
             </div>
@@ -122,6 +124,51 @@ export default function AdminStudents() {
               : <Empty icon="students" title="No students yet." hint="Add one above, or enrol them straight into a cohort under Batches." />
         )}
       </div>
+    </div>
+  );
+}
+
+// A student created from an email alone has no name, and this list is where
+// that shows. The name goes in on the row itself, so filling in a batch of
+// them is type, Enter, next, rather than opening each student in turn.
+function AddName({ student, onSaved }) {
+  const [open, setOpen] = useState(false);
+  const [value, setValue] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState('');
+
+  async function save(e) {
+    e.preventDefault();
+    const fullName = value.trim();
+    if (!fullName || busy) return;
+    setBusy(true);
+    setErr('');
+    try {
+      const r = await api(`/users/${student.id}`, { method: 'PATCH', body: { fullName } });
+      onSaved(r.user);
+    } catch (e2) { setErr(e2.message); setBusy(false); }
+  }
+
+  // The row opens the student on click; nothing in here should.
+  return (
+    <div onClick={(e) => e.stopPropagation()}>
+      {open ? (
+        <form className="inline-form name-add" onSubmit={save}>
+          <input
+            autoFocus
+            placeholder="Full name"
+            aria-label={`Full name for ${student.email}`}
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Escape') { setOpen(false); setErr(''); } }}
+          />
+          <button className={`btn sm ${busy ? 'is-busy' : ''}`} disabled={busy || !value.trim()}>{busy ? 'Saving…' : 'Save'}</button>
+          <button type="button" className="btn sm ghost" onClick={() => { setOpen(false); setErr(''); }}>Cancel</button>
+          {err && <span className="error" role="alert">{err}</span>}
+        </form>
+      ) : (
+        <button type="button" className="btn sm ghost name-add-btn" onClick={() => setOpen(true)}>Add name</button>
+      )}
     </div>
   );
 }

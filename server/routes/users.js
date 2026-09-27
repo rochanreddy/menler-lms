@@ -20,6 +20,7 @@ import { FileAsset } from '../models/FileAsset.js';
 import { hashPassword, DEFAULT_TEMP_PASSWORD } from '../utils/password.js';
 import { trySendMail } from '../utils/email.js';
 import { accountCreatedEmail, mentorWelcomeEmail, passwordResetByAdminEmail, loginUrl } from '../utils/emailTemplates.js';
+import { nameForNewAccount } from '../utils/names.js';
 
 const router = Router();
 
@@ -69,7 +70,7 @@ router.post('/', requireAuth, requireRole('admin'), async (req, res) => {
   const temp = password || DEFAULT_TEMP_PASSWORD;
   const user = await User.create({
     email: clean,
-    fullName: fullName || '',
+    fullName: nameForNewAccount(fullName, clean),
     phone: phone || '',
     role,
     passwordHash: await hashPassword(temp),
@@ -355,7 +356,7 @@ router.patch('/:id', requireAuth, requireRole('admin'), async (req, res) => {
     if (dupe) return res.status(409).json({ error: 'That email already exists.' });
     user.email = clean;
   }
-  if (fullName !== undefined) user.fullName = String(fullName);
+  if (fullName !== undefined) user.fullName = String(fullName).trim();
   if (phone !== undefined) user.phone = String(phone);
   await user.save();
   invalidateUser(user._id);

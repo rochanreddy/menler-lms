@@ -35,6 +35,13 @@ cd server && node scripts/addMasterclassRecordings.js       # dry run; --apply t
                                # tab as past rows with their Drive recording, and
                                # notifies students (only students). Idempotent on
                                # the title (needs CONFIRM_DB to apply).
+cd server && node scripts/fillMissingNames.js              # dry run; --apply to write
+                               # names every account that has none from its email
+                               # (vanshika.madan26m@… → Vanshika Madan) and lists the
+                               # addresses that spell no name, for the admin to type
+                               # on the Students page. Never overwrites a name. New
+                               # accounts get the same rule (utils/names.js) when
+                               # created without one (needs CONFIRM_DB to apply).
 cd server && npm run test:flows # drives all three roles against a RUNNING server
 cd server && npm run test:rubric # the grading rubric's arithmetic, the curriculum
                                # classifier, the link checker's refusals and the

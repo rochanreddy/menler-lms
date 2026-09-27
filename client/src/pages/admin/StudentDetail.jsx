@@ -23,6 +23,7 @@ export default function StudentDetail() {
   const [msg, setMsg] = useState('');
   const [openSub, setOpenSub] = useState(null); // assignment id whose check detail is expanded
   const [rechecking, setRechecking] = useState(null);
+  const [form, setForm] = useState(null); // { fullName, email, phone } while an admin edits the profile
 
   const load = () => api(`/users/${id}/overview`).then(setData).catch((e) => setErr(e.message));
   useEffect(() => { load(); }, [id]);
@@ -67,6 +68,17 @@ export default function StudentDetail() {
     const ids = new Set(data.user.blocked?.module_ids || []);
     if (blocked) ids.delete(String(moduleId)); else ids.add(String(moduleId));
     return setBlocks({ moduleIds: [...ids] }, blocked ? 'Module unblocked' : 'Module blocked');
+  }
+
+  async function saveProfile(e) {
+    e.preventDefault();
+    setErr('');
+    try {
+      await api(`/users/${id}`, { method: 'PATCH', body: form });
+      setForm(null);
+      await load();
+      flash('Profile saved');
+    } catch (e2) { setErr(e2.message); }
   }
 
   async function resetPassword() {
@@ -117,6 +129,11 @@ export default function StudentDetail() {
         <div className="row">
           {msg && <span className="ws-flash">{msg}</span>}
           <button className="btn sm ghost" onClick={() => downloadFile(`/reports/student/${id}`)}>Download report (CSV)</button>
+          {isAdmin && !form && (
+            <button className="btn sm ghost" onClick={() => setForm({ fullName: u.full_name || '', email: u.email, phone: u.phone || '' })}>
+              {u.full_name ? 'Edit profile' : 'Add name'}
+            </button>
+          )}
           {isAdmin && <button className="btn sm ghost" onClick={resetPassword}>Reset password</button>}
           {isAdmin && (
             <button className={`btn sm ${lmsBlocked ? '' : 'danger'}`} onClick={toggleLms}>
@@ -127,6 +144,15 @@ export default function StudentDetail() {
         </div>
       </div>
       {err && <p className="error">{err}</p>}
+      {isAdmin && form && (
+        <form className="panel inline-form" style={{ marginTop: 'var(--space-2)' }} onSubmit={saveProfile}>
+          <input autoFocus placeholder="Full name" value={form.fullName} onChange={(e) => setForm((f) => ({ ...f, fullName: e.target.value }))} />
+          <input type="email" placeholder="Email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} required />
+          <input placeholder="Phone" value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} />
+          <button className="btn sm">Save</button>
+          <button type="button" className="btn sm ghost" onClick={() => setForm(null)}>Cancel</button>
+        </form>
+      )}
       {isAdmin && lmsBlocked && (
         <div className="blockbox">
           This student is blocked from the entire LMS{u.blocked.reason ? `, “${u.blocked.reason}”` : ''}. They cannot log in or use any feature until unblocked.

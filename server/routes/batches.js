@@ -6,6 +6,7 @@ import { canAccessBatch, myBatchIds } from '../utils/access.js';
 import { hashPassword, DEFAULT_TEMP_PASSWORD } from '../utils/password.js';
 import { trySendMail } from '../utils/email.js';
 import { accountCreatedEmail, loginUrl } from '../utils/emailTemplates.js';
+import { nameForNewAccount } from '../utils/names.js';
 
 const router = Router();
 
@@ -90,9 +91,14 @@ router.post('/:id/students', requireAuth, requireRole('admin'), async (req, res)
   let tempPassword;
   if (!user) {
     tempPassword = DEFAULT_TEMP_PASSWORD;
-    user = await User.create({ email, fullName: fullName || '', role: 'student', passwordHash: await hashPassword(tempPassword), mustChangePassword: true });
+    user = await User.create({ email, fullName: nameForNewAccount(fullName, email), role: 'student', passwordHash: await hashPassword(tempPassword), mustChangePassword: true });
   } else if (user.role !== 'student') {
     return res.status(400).json({ error: 'That email belongs to a non-student account.' });
+  } else if (!user.fullName && String(fullName || '').trim()) {
+    // Enrolling someone already on the system never renames them, but an
+    // account made from an email alone takes the name it is enrolled under.
+    user.fullName = String(fullName).trim();
+    await user.save();
   }
   const batch = await Batch.findByIdAndUpdate(req.params.id, { $addToSet: { studentIds: user._id } }, { new: true }).populate('programId', 'title');
   await User.findByIdAndUpdate(user._id, { $addToSet: { batchIds: req.params.id } });
@@ -101,7 +107,7 @@ router.post('/:id/students', requireAuth, requireRole('admin'), async (req, res)
   // programme it was just enrolled in. An existing account gets nothing —
   // they already have a password, and enrolment shows on their next load.
   const mail = tempPassword
-    ? await trySendMail({ to: email, ...accountCreatedEmail({ fullName, email, password: tempPassword, role: 'student', loginUrl: loginUrl(), programme: batch?.programId?.title || batch?.name }) })
+    ? await trySendMail({ to: email, ...accountCreatedEmail({ fullName: user.fullName, email, password: tempPassword, role: 'student', loginUrl: loginUrl(), programme: batch?.programId?.title || batch?.name }) })
     : {};
   res.json({ ok: true, user: user.toPublic(), created: !!tempPassword, tempPassword, ...mail });
 });

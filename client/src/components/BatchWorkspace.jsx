@@ -30,6 +30,7 @@ export default function BatchWorkspace({ batchId, mode }) {
   const [pickMentor, setPickMentor] = useState('');
   const [pickStudent, setPickStudent] = useState('');
   const [newEmail, setNewEmail] = useState('');
+  const [newName, setNewName] = useState('');
 
   const loadBatch = () => api(`/batches/${batchId}`).then((d) => setBatch(d.batch)).catch(() => {});
   const loadSessions = () => api(`/sessions?batchId=${batchId}`).then((d) => setSessions(d.sessions || [])).catch(() => {});
@@ -78,8 +79,9 @@ export default function BatchWorkspace({ batchId, mode }) {
     if (!newEmail.trim()) return;
     setNewStudent(null);
     try {
-      const res = await api(`/batches/${batchId}/students`, { method: 'POST', body: { email: newEmail } });
+      const res = await api(`/batches/${batchId}/students`, { method: 'POST', body: { email: newEmail, fullName: newName } });
       setNewEmail('');
+      setNewName('');
       loadBatch();
       if (res.created) { setNewStudent({ email: res.user.email, password: res.tempPassword, emailed: res.emailed, error: res.error }); loadPeople(); }
       else flash('Student enrolled');
@@ -211,6 +213,7 @@ export default function BatchWorkspace({ batchId, mode }) {
               <div className="rc-card">
                 <label>New paid student</label>
                 <form className="rc-form" onSubmit={enrolNew}>
+                  <input className="rc-input" placeholder="Full name" value={newName} onChange={(e) => setNewName(e.target.value)} />
                   <input className="rc-input" type="email" placeholder="Email they enrolled with" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} />
                   <button className="btn sm ghost rc-btn">Create &amp; enrol</button>
                 </form>

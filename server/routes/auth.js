@@ -6,6 +6,7 @@ import { User, ROLES } from '../models/User.js';
 import { signAccessToken, signRefreshToken, verifyToken } from '../utils/token.js';
 import { isMailConfigured, sendMail } from '../utils/email.js';
 import { passwordOtpEmail } from '../utils/emailTemplates.js';
+import { nameForNewAccount } from '../utils/names.js';
 import { invalidateUser, requireAuth } from '../middleware/auth.js';
 import { hashPassword, needsRehash } from '../utils/password.js';
 import { rateLimit } from '../utils/rateLimit.js';
@@ -45,7 +46,7 @@ router.post('/register', async (req, res) => {
     const user = await User.create({
       email: clean,
       passwordHash: await hashPassword(password),
-      fullName: fullName || '',
+      fullName: nameForNewAccount(fullName, clean),
       phone: phone || '',
       role: 'student',
     });
