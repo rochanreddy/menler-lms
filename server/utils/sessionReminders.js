@@ -112,6 +112,21 @@ async function claim(sessionId, field) {
   return Boolean(won);
 }
 
+/**
+ * Give a claim back when not one student was reached.
+ *
+ * The claim is held before the send so a restart cannot mail a batch twice.
+ * But when EVERY send failed — the provider refused the sender, the token was
+ * wrong, the API was down — nobody has the mail, so there is no duplicate to
+ * protect against, only a class stamped as reminded that nobody was told
+ * about. Releasing it lets the next tick try again while the class is still
+ * inside its window. A partial failure keeps the claim: some students already
+ * have the mail, and a retry would send it to them twice.
+ */
+async function release(sessionId, field) {
+  await Session.updateOne({ _id: sessionId }, { $set: { [field]: null } });
+}
+
 /** Mail one reminder to one cohort. Assumes the claim is already held. */
 async function mailCohort(session, kind) {
   const { batch, students } = await audienceFor(session);
@@ -193,6 +208,10 @@ export async function sweepReminders(now = Date.now()) {
   for (const s of hourDue) {
     if (!await claim(s._id, 'remindedHourAt')) continue;
     const r = await mailCohort(s, 'hour');
+    if (!r.sent && r.failed) {
+      await release(s._id, 'remindedHourAt');
+      console.error(`[reminders] hour-before for "${s.title}" reached nobody (${r.failed} failed) — will retry next tick`);
+    }
     hour += 1; sent += r.sent; failed += r.failed;
   }
 
@@ -205,6 +224,10 @@ export async function sweepReminders(now = Date.now()) {
   for (const s of startDue) {
     if (!await claim(s._id, 'remindedStartAt')) continue;
     const r = await mailCohort(s, 'start');
+    if (!r.sent && r.failed) {
+      await release(s._id, 'remindedStartAt');
+      console.error(`[reminders] starting-now for "${s.title}" reached nobody (${r.failed} failed) — will retry next tick`);
+    }
     start += 1; sent += r.sent; failed += r.failed;
   }
 

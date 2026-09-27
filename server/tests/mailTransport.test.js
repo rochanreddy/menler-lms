@@ -10,9 +10,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { transportFor } from '../utils/email.js';
+import { fromAddress, transportFor } from '../utils/email.js';
 
-const KEYS = ['ZEPTOMAIL_TOKEN', 'RESEND_API_KEY', 'SMTP_HOST', 'SMTP_USER', 'SMTP_PASS'];
+const KEYS = ['ZEPTOMAIL_TOKEN', 'RESEND_API_KEY', 'SMTP_HOST', 'SMTP_USER', 'SMTP_PASS', 'MAIL_FROM', 'ZEPTOMAIL_FROM', 'SMTP_FROM'];
 
 /** Runs `fn` with exactly these mail variables set, then restores the rest. */
 function withEnv(vars, fn) {
@@ -71,5 +71,22 @@ test('an unknown route is treated as the default, not as ZeptoMail', () => {
   withEnv({ ZEPTOMAIL_TOKEN: 'z', RESEND_API_KEY: 'r' }, () => {
     assert.equal(transportFor('resend'), 'resend');
     assert.equal(transportFor('nonsense'), 'resend');
+  });
+});
+
+// The sender follows the transport. ZeptoMail and Resend verify different
+// addresses, and one shared MAIL_FROM set for Resend made ZeptoMail refuse
+// every class reminder ("401 Sender address not verified") on 27 Sept 2026.
+test('reminders are sent from ZEPTOMAIL_FROM, admin mail from MAIL_FROM', () => {
+  withEnv({ MAIL_FROM: 'Menler <hello@menler.in>', ZEPTOMAIL_FROM: 'Menler <no-reply@support.menler.in>' }, () => {
+    assert.equal(fromAddress('zeptomail'), 'Menler <no-reply@support.menler.in>');
+    assert.equal(fromAddress('resend'), 'Menler <hello@menler.in>');
+    assert.equal(fromAddress(), 'Menler <hello@menler.in>');
+  });
+});
+
+test('without ZEPTOMAIL_FROM, ZeptoMail falls back to MAIL_FROM as before', () => {
+  withEnv({ MAIL_FROM: 'Menler <no-reply@support.menler.in>' }, () => {
+    assert.equal(fromAddress('zeptomail'), 'Menler <no-reply@support.menler.in>');
   });
 });

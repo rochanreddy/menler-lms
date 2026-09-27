@@ -44,7 +44,21 @@ export function isMailConfigured() {
 // are stripped because a dashboard (Render, say) passes them through verbatim
 // where a .env file would have eaten them, and Resend 422s on the result.
 const unquote = (s) => String(s || '').trim().replace(/^["']+|["']+$/g, '').trim();
-function fromAddress() {
+/**
+ * Who a mail is from, for the transport it is going out on.
+ *
+ * ZeptoMail and Resend each verify their own sender, and they are not the same
+ * address: ZeptoMail's agent is verified for support.menler.in, Resend for
+ * whatever domain its dashboard has. One MAIL_FROM for both meant that setting
+ * it for Resend (when admin mail moved there) silently broke every reminder —
+ * ZeptoMail answers "401 Sender address not verified" to each student, and the
+ * sweep has already stamped the class as reminded.
+ *
+ * So ZeptoMail reads ZEPTOMAIL_FROM first. MAIL_FROM stays the fallback, which
+ * keeps a deployment that only ever set MAIL_FROM behaving exactly as before.
+ */
+export function fromAddress(transport) {
+  if (transport === 'zeptomail' && unquote(process.env.ZEPTOMAIL_FROM)) return unquote(process.env.ZEPTOMAIL_FROM);
   return unquote(process.env.MAIL_FROM) || unquote(process.env.SMTP_FROM) || (process.env.SMTP_USER ? `Menler <${process.env.SMTP_USER}>` : 'Menler <onboarding@resend.dev>');
 }
 
@@ -176,7 +190,7 @@ export async function sendMail({ to, subject, text, html, replyTo, attachments, 
     console.log(`\n[email:dev] to=${to}\nsubject=${subject}\n${files}${text || ''}\n`);
     return { dev: true };
   }
-  const from = fromAddress();
+  const from = fromAddress(transportName);
   const reply = replyTo || unquote(process.env.MAIL_REPLY_TO) || undefined;
   if (transportName === 'zeptomail') return sendViaZepto({ from, to, subject, text, html, replyTo: reply, attachments });
   if (transportName === 'resend') return sendViaResend({ from, to, subject, text, html, replyTo: reply, attachments });
