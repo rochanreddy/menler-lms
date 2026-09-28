@@ -534,8 +534,17 @@ and the student's page says before they press it that it is one-way.
 
 **What they attach lasts one evening.** A doubt is usually easier to show
 than to write, so a booking carries up to three files (5 MB each: screenshots
-— PNG/JPG/GIF/WebP — or a PDF), and the admin opens them from the booked
-sheet before the call. Students only: the files travel one way, which is what
+— PNG/JPG/GIF/WebP — a PDF, Word/Excel/PowerPoint old or new, or a text or
+code file such as `.py`, `.ipynb`, `.csv`), and the admin opens them from the
+booked sheet before the call. The box is on the booking form itself: picks
+made before there is a booking are held in the browser and uploaded the
+moment "Book this slot" succeeds. Office files are recognised from their bytes
+(zip part names / OLE stream names) and refused if they carry a VBA project,
+since the admin opens them in Office; text is the one type taken by extension,
+and only if the bytes are NUL-free UTF-8, and is served as `text/plain`. The
+stored name is given the extension its bytes deserve (`attachmentName()`), and
+a file the browser cannot show downloads under that name rather than as a
+nameless blob. Students only: the files travel one way, which is what
 makes deleting them at the end coherent.
 
 They are deleted, and that is the feature rather than housekeeping.

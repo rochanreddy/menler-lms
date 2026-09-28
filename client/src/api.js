@@ -290,14 +290,30 @@ export const isStoredFile = (url) => /^\/uploads\//.test(url || '');
 // Open one of our stored files in a new tab. It sits behind requireAuth, so a
 // plain <a href> would 401 -- the bytes have to be fetched with the token and
 // handed to the browser as a blob.
-export async function openStoredFile(path) {
+//
+// A browser can show a PDF, an image or text in a tab; anything else (a Word
+// file, a spreadsheet) it can only download, and a blob downloads under a
+// random name with no extension, which the OS then cannot open. So when the
+// file's `name` is known and the browser cannot show it, it is saved under
+// that name instead.
+export async function openStoredFile(path, name) {
   const res = await authedFetch(path);
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
     throw new Error(data.error || 'Could not open that file.');
   }
-  const url = URL.createObjectURL(await res.blob());
-  window.open(url, '_blank', 'noopener');
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  if (name && !/^(application\/pdf|image\/|text\/plain)/.test(blob.type)) {
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  } else {
+    window.open(url, '_blank', 'noopener');
+  }
   // The tab has the blob by now; releasing the handle keeps it out of memory.
   setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }

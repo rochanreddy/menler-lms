@@ -153,7 +153,7 @@ function SlotFiles({ files }) {
             type="button"
             key={f._id}
             className="ds-slot-file"
-            onClick={() => openStoredFile(f.url).catch((e) => setErr(e.message))}
+            onClick={() => openStoredFile(f.url, f.name).catch((e) => setErr(e.message))}
           >
             {f.name}
           </button>

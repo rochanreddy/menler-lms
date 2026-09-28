@@ -18,29 +18,51 @@ const time = (d) => new Date(d).toLocaleTimeString([], { hour: 'numeric', minute
 const day = (d) => new Date(d).toLocaleDateString([], { weekday: 'long', day: 'numeric', month: 'long' });
 
 const MAX_ATTACHMENTS = 3;
-const ACCEPT = '.pdf,.png,.jpg,.jpeg,.gif,.webp';
+// Mirrors ATTACHMENT_ACCEPT in server/utils/doubtAttachments.js. The picker is
+// a convenience; the server reads the bytes and has the last word.
+const ACCEPT = '.pdf,.png,.jpg,.jpeg,.gif,.webp,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.md,.csv,.json,.ipynb,.py,.js,.ts,.sql,.log';
+const ACCEPT_EXT = new RegExp(`(${ACCEPT.split(',').map((e) => `\\${e}`).join('|')})$`, 'i');
+const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024;
 const kb = (n) => (n >= 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(n / 1024))} KB`);
 
 /** What the mentor should look at before the call.
  *
  *  A doubt is usually easier to show than to write: the stack trace, the cell
- *  that will not run, the brief being argued with. The box only appears once a
- *  slot is booked, because a file attached to an evening nobody has claimed has
- *  no one to reach.
+ *  that will not run, the brief being argued with.
+ *
+ *  The box sits on the booking form itself, because that is where a student
+ *  describes the problem and so where they think of the screenshot. The server
+ *  hangs files on a booking, though, so before there is one (`pending` is set)
+ *  the picks are held in the browser and uploaded the moment "Book this slot"
+ *  succeeds. After that each pick uploads straight away.
  *
  *  The sentence about them being deleted is not decoration. It is the reason a
  *  student is willing to paste a screenshot of their half-finished work at all,
  *  and the sweep on the server is what keeps it true. */
-function Attachments({ sessionId, items, onChange }) {
+function Attachments({ sessionId, items, onChange, pending, onPendingChange }) {
   const pickRef = useRef(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
-  const room = MAX_ATTACHMENTS - items.length;
+  const held = Boolean(pending);
+  const shown = held ? pending : items;
+  const room = MAX_ATTACHMENTS - shown.length;
 
   async function take(list) {
     const files = [...(list || [])];
     if (!files.length || busy) return;
-    setBusy(true); setErr('');
+    setErr('');
+    if (files.length > room) {
+      setErr(room > 0 ? `You can attach ${room} more file${room === 1 ? '' : 's'}.` : 'That is the limit. Remove one to add another.');
+      return;
+    }
+    // Only a first pass, so a wrong pick is caught before the booking rather
+    // than after it. The server reads the bytes and has the last word.
+    const tooBig = files.find((f) => f.size > MAX_ATTACHMENT_BYTES);
+    if (tooBig) { setErr(`${tooBig.name} is over the 5 MB limit.`); return; }
+    const wrong = files.find((f) => !ACCEPT_EXT.test(f.name));
+    if (wrong) { setErr(`${wrong.name} is not a file type we take. Attach a screenshot, PDF, Word, Excel, PowerPoint, text or code file.`); return; }
+    if (held) { onPendingChange([...pending, ...files]); return; }
+    setBusy(true);
     try {
       const r = await addDoubtAttachments(sessionId, files);
       onChange(r.attachments);
@@ -49,6 +71,7 @@ function Attachments({ sessionId, items, onChange }) {
 
   async function drop(id) {
     if (busy) return;
+    if (held) { onPendingChange(pending.filter((_, i) => i !== id)); return; }
     setBusy(true); setErr('');
     try {
       const r = await removeDoubtAttachment(sessionId, id);
@@ -58,24 +81,27 @@ function Attachments({ sessionId, items, onChange }) {
 
   async function open(a) {
     setErr('');
-    try { await openStoredFile(a.url); } catch (e) { setErr(e.message); }
+    try { await openStoredFile(a.url, a.name); } catch (e) { setErr(e.message); }
   }
 
   return (
     <div>
       <Text role="label">Anything to show them?</Text>
       <Text role="caption">
-        A screenshot of the error, or the PDF you are stuck on. Up to {MAX_ATTACHMENTS} files, 5 MB each.
+        A screenshot of the error, or the file you are stuck on — PDF, Word, Excel, PowerPoint, text or code.
+        {' '}Up to {MAX_ATTACHMENTS} files, 5 MB each.
         {' '}These are deleted once the session is over.
       </Text>
 
-      {items.length > 0 && (
+      {shown.length > 0 && (
         <ul className="ds-files">
-          {items.map((a) => (
-            <li key={a._id} className="ds-file">
-              <button type="button" className="ds-file-name" onClick={() => open(a)}>{a.name}</button>
-              <span className="ds-file-size">{kb(a.size)}</span>
-              <Button size="sm" variant="ghost" disabled={busy} onClick={() => drop(a._id)}>Remove</Button>
+          {shown.map((a, i) => (
+            <li key={held ? `${a.name}-${i}` : a._id} className="ds-file">
+              {held
+                ? <span className="ds-file-name">{a.name}</span>
+                : <button type="button" className="ds-file-name" onClick={() => open(a)}>{a.name}</button>}
+              <span className="ds-file-size">{held ? `${kb(a.size)} · sent when you book` : kb(a.size)}</span>
+              <Button size="sm" variant="ghost" disabled={busy} onClick={() => drop(held ? i : a._id)}>Remove</Button>
             </li>
           ))}
         </ul>
@@ -97,7 +123,7 @@ function Attachments({ sessionId, items, onChange }) {
           disabled={room <= 0}
           onClick={() => pickRef.current?.click()}
         >
-          {items.length ? 'Attach another' : 'Attach a file'}
+          {shown.length ? 'Attach another' : 'Attach a file'}
         </Button>
         {room <= 0 && <Text role="caption" tone="muted">That is the limit. Remove one to add another.</Text>}
       </div>
@@ -115,6 +141,7 @@ export default function DoubtSession() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [saved, setSaved] = useState(false);
+  const [pending, setPending] = useState([]); // files picked before there is a booking
 
   // Adopt whatever the server says, including after a clash — the 409 carries
   // the refreshed grid, so a student who lost a race picks again from what is
@@ -152,6 +179,19 @@ export default function DoubtSession() {
       const r = await api(`/doubt-sessions/${session._id}/book`, { method: 'POST', body: { slotAt, name: name.trim(), doubts } });
       adopt(r.session);
       setSaved(true);
+      // The slot is theirs now, so the files have somewhere to go. If they
+      // fail, the booking still stands; say so, and the box below (now in
+      // upload-straight-away mode) is where they try again.
+      if (pending.length) {
+        const files = pending;
+        setPending([]);
+        try {
+          const up = await addDoubtAttachments(r.session._id, files);
+          setSession((s) => ({ ...s, booking: { ...s.booking, attachments: up.attachments } }));
+        } catch (e3) {
+          setErr(`You're booked, but your files did not upload: ${e3.message} Attach them again below.`);
+        }
+      }
     } catch (e2) {
       // A clash comes back as 409 with the fresh grid attached.
       if (e2.data?.session) { adopt(e2.data.session); setSlotAt(''); }
@@ -292,13 +332,16 @@ export default function DoubtSession() {
               />
             )}
 
-            {/* Only once there is a booking to hang them on: the server says the
-                same, and offering the box before that would be a dead button. */}
-            {session.booking && (
+            {/* Before a booking the picks are held and go up with "Book this
+                slot"; after it they upload at once. Hidden only when booking is
+                closed and there is no slot to hang them on. */}
+            {(session.booking || !closed) && (
               <Attachments
                 sessionId={session._id}
-                items={session.booking.attachments || []}
+                items={session.booking?.attachments || []}
                 onChange={(attachments) => setSession((s) => ({ ...s, booking: { ...s.booking, attachments } }))}
+                pending={session.booking ? null : pending}
+                onPendingChange={setPending}
               />
             )}
 

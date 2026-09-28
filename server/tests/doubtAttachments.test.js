@@ -15,7 +15,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { sniffAttachment } from '../utils/doubtAttachments.js';
+import { attachmentName, sniffAttachment } from '../utils/doubtAttachments.js';
 import { attachmentsExpired, SWEEP_GRACE_MS } from '../utils/doubtAttachmentSweep.js';
 
 const file = (bytes) => ({ buffer: Buffer.from(bytes) });
@@ -36,6 +36,50 @@ test('the formats a student actually attaches are read from their bytes', () => 
   webp.write('RIFF', 0, 'latin1');
   webp.write('WEBP', 8, 'latin1');
   assert.equal(sniffAttachment({ buffer: webp }), 'image/webp');
+});
+
+// Office 2007+ is a zip whose part names sit in the clear; 97–2003 is an OLE
+// file whose stream names are UTF-16. Enough of each to be recognised.
+const zipOf = (...names) => Buffer.concat([Buffer.from([0x50, 0x4b, 0x03, 0x04]), Buffer.alloc(26), ...names.map((n) => Buffer.from(n))]);
+const oleOf = (...streams) => Buffer.concat([
+  Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]), Buffer.alloc(64), ...streams.map((s) => Buffer.from(s, 'utf16le')),
+]);
+
+test('Word, Excel and PowerPoint are read from their bytes, old formats and new', () => {
+  assert.equal(sniffAttachment({ buffer: zipOf('[Content_Types].xml', 'word/document.xml') }),
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+  assert.equal(sniffAttachment({ buffer: zipOf('[Content_Types].xml', 'xl/workbook.xml') }),
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  assert.equal(sniffAttachment({ buffer: zipOf('[Content_Types].xml', 'ppt/presentation.xml') }),
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation');
+  assert.equal(sniffAttachment({ buffer: oleOf('WordDocument') }), 'application/msword');
+  assert.equal(sniffAttachment({ buffer: oleOf('Workbook') }), 'application/vnd.ms-excel');
+  assert.equal(sniffAttachment({ buffer: oleOf('PowerPoint Document') }), 'application/vnd.ms-powerpoint');
+});
+
+test('a document carrying macros is refused, whatever it is called', () => {
+  const docm = { buffer: zipOf('[Content_Types].xml', 'word/document.xml', 'word/vbaProject.bin'), originalname: 'notes.docx' };
+  assert.equal(sniffAttachment(docm), null);
+  assert.equal(sniffAttachment({ buffer: oleOf('WordDocument', '_VBA_PROJECT') }), null);
+  assert.equal(sniffAttachment({ buffer: oleOf('SummaryInformation') }), null, 'an OLE file that is no Office document');
+});
+
+test('text and code are taken by name only when the bytes really are text', () => {
+  assert.equal(sniffAttachment({ buffer: Buffer.from('print("hi")\n'), originalname: 'rag.py' }), 'text/plain; charset=utf-8');
+  assert.equal(sniffAttachment({ buffer: Buffer.from('{"cells": []}'), originalname: 'rag.ipynb' }), 'text/plain; charset=utf-8');
+  assert.equal(sniffAttachment({ buffer: Buffer.from('a,b\n1,2'), originalname: 'data.csv' }), 'text/plain; charset=utf-8');
+  assert.equal(sniffAttachment({ buffer: Buffer.from('plain words'), originalname: 'notes.exe' }), null, 'not a text name');
+  assert.equal(sniffAttachment({ buffer: Buffer.from(pad([0x4d, 0x5a])), originalname: 'notes.txt' }), null, 'binary called .txt');
+  assert.equal(sniffAttachment({ buffer: Buffer.from([0xc3, 0x28, 0x41]), originalname: 'notes.txt' }), null, 'not valid UTF-8');
+});
+
+test('the saved name always carries the extension the bytes deserve', () => {
+  const DOCX = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+  assert.equal(attachmentName('draft.docx', DOCX), 'draft.docx');
+  assert.equal(attachmentName('draft', DOCX), 'draft.docx');
+  assert.equal(attachmentName('draft.exe', DOCX), 'draft.exe.docx');
+  assert.equal(attachmentName('photo.JPEG', 'image/jpeg'), 'photo.JPEG');
+  assert.equal(attachmentName('rag.py', 'text/plain; charset=utf-8'), 'rag.py');
 });
 
 test('the declared type decides nothing — a renamed file is still refused', () => {
