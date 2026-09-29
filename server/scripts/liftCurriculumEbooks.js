@@ -34,6 +34,7 @@ import { Program } from '../models/Program.js';
 import { FileAsset } from '../models/FileAsset.js';
 import { User } from '../models/User.js';
 import { ruleFiles, applyCurriculumEbooks, liftSharedMedia, ensureCurriculumPdf } from '../utils/curriculumPdfAssets.js';
+import { titleQuery } from '../utils/programmes.js';
 
 const APPLY = process.argv.includes('--apply');
 // Name a programme to leave every other one exactly as it is.
@@ -73,7 +74,8 @@ async function run() {
     k + ['readingUrl', 'notesUrl'].filter((f) => ch[f]).length
       + ch.topics.reduce((j, t) => j + ['readingUrl', 'notesUrl'].filter((f) => t[f]).length, 0), 0), 0);
 
-  const programs = await Program.find(ONLY ? { title: ONLY } : {});
+  // "Generalist" or "AI Generalist": either spelling names the one programme.
+  const programs = await Program.find(ONLY ? titleQuery(ONLY) : {});
   if (ONLY && !programs.length) throw new Error(`No programme titled "${ONLY}".`);
   for (const p of programs) {
     const before = JSON.stringify(p.modules);

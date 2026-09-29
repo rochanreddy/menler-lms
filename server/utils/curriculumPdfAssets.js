@@ -10,6 +10,7 @@ import { createHash } from 'crypto';
 import { readFileSync, existsSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
+import { bareTitle } from './programmes.js';
 import { FileAsset } from '../models/FileAsset.js';
 
 const ASSETS_DIR = join(dirname(fileURLToPath(import.meta.url)), '../assets/curriculum-pdfs');
@@ -56,12 +57,22 @@ export const CURRICULUM_PDF_RULES = {
     { module: 'WEEK 2', session: 'S2', file: 'Menler-Fellowship-Week2-Session2-Ebook.pdf' },
     { module: 'WEEK 2', session: 'Weekly Assignment', lesson: 'Submission', file: 'Menler-Fellowship-Week2-Assignment.pdf', notes: 'Menler-Fellowship-Week2-Assignment-Solution-Book.pdf' },
     { module: 'WEEK 2', session: 'Milestone Project 1', lesson: 'Submission', file: 'Menler-Fellowship-Week2-Assignment.pdf', notes: 'Menler-Fellowship-Week2-Assignment-Solution-Book.pdf' },
+    // Week 3's book, like Week 2's, names itself the week's milestone —
+    // Milestone Project 2 — so both submissions carry the same pair.
+    { module: 'WEEK 3', file: 'Menler-Fellowship-Week3-Ebook.pdf' },
+    { module: 'WEEK 3', session: 'Weekly Assignment', lesson: 'Submission', file: 'Menler-Fellowship-Week3-Assignment.pdf', notes: 'Menler-Fellowship-Week3-Assignment-Solution-Book.pdf' },
+    { module: 'WEEK 3', session: 'Milestone Project 2', lesson: 'Submission', file: 'Menler-Fellowship-Week3-Assignment.pdf', notes: 'Menler-Fellowship-Week3-Assignment-Solution-Book.pdf' },
   ],
 };
 
+// The rules are keyed on the bare name, while a live programme is titled
+// "AI Generalist" since the rename. Looking one up by the title as stored
+// found nothing, so a lift on live attached no ebook at all — silently.
+const rulesFor = (programTitle) => CURRICULUM_PDF_RULES[bareTitle(programTitle)] || [];
+
 /** Every file the rules mention, for one programme or for all of them. */
 export const ruleFiles = (programTitle) =>
-  [...new Set((programTitle ? CURRICULUM_PDF_RULES[programTitle] || [] : Object.values(CURRICULUM_PDF_RULES).flat())
+  [...new Set((programTitle ? rulesFor(programTitle) : Object.values(CURRICULUM_PDF_RULES).flat())
     .flatMap((r) => [r.file, r.notes]).filter(Boolean))];
 
 // Stand-ins that seedFull.js writes onto every lesson so the fixture cohort has
@@ -157,7 +168,7 @@ const startsWith = (title, prefix) => String(title || '').startsWith(prefix);
  * from curricula.js and on a Mongoose document's subdocuments alike.
  */
 export function applyCurriculumEbooks(modules, programTitle, urlByFile) {
-  const rules = CURRICULUM_PDF_RULES[programTitle] || [];
+  const rules = rulesFor(programTitle);
   const url = (file) => (file && urlByFile[file]) || '';
   const ruleUrls = new Set(rules.flatMap((r) => [url(r.file), url(r.notes)]).filter(Boolean));
 
