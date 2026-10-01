@@ -7,10 +7,13 @@ import { Alert, Button, Checkbox, Input, Select, Skeleton, Textarea } from '../c
 // The job board. Students and admins read the same list; only the admin can
 // post an opening by hand, and remove one they posted.
 //
-// It is NOT the whole feed. The server picks the 300 postings that best fit
-// what Menler teaches (server/utils/jobShortlist.js) and this page is those
-// 300, fifty to a page. Every filter narrows within them. A board of 25,000
-// is a search engine; a student finishing the course needs an editor.
+// It is NOT the whole feed. The server picks the 750 postings that best fit
+// what Menler teaches (server/utils/jobShortlist.js) - lane by lane, so
+// product, founder's office, freelance and non-tech roles sit beside the AI
+// ones - and this page is those 750, fifty to a page. Every filter narrows
+// within them. A board of 35,000 is a search engine; a student finishing the
+// course needs an editor. The figures above it (components/JobStats.jsx) say
+// how much it was chosen from.
 //
 // Each card says why it made the list ("internship · Bengaluru · direct
 // apply · matches claude"), because a curated list nobody can account for
@@ -336,8 +339,8 @@ export default function Jobs() {
           <div className="eyebrow">Jobs</div>
           <h1>{isAdmin ? 'Job board' : 'Jobs picked for you'}</h1>
           <p>
-            The 300 openings that best fit what Menler teaches, chosen from every live listing and
-            refreshed each morning.
+            The 750 openings that best fit what Menler teaches, across AI, product, founder's office,
+            freelance and more. Chosen from every live listing and refreshed each morning.
           </p>
         </div>
         {isAdmin && !postOpen && (
@@ -404,9 +407,9 @@ export default function Jobs() {
               <Empty
                 inline
                 icon="jobs"
-                title={filtered ? 'Nothing in the 300 matches these filters.' : 'No openings on the board right now.'}
+                title={filtered ? `Nothing in the ${data.shortlistSize} matches these filters.` : 'No openings on the board right now.'}
                 hint={filtered
-                  ? 'The board holds the 300 best-fit roles, so a narrow filter can come up empty. Loosen one and try again.'
+                  ? `The board holds the ${data.shortlistSize} best-fit roles, so a narrow filter can come up empty. Loosen one and try again.`
                   : 'New roles arrive every morning.'}
                 action={filtered ? { label: 'Clear filters', onClick: clearAll } : undefined}
               />
