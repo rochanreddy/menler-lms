@@ -20,6 +20,7 @@ import {
   applyFilters,
   facetCounts,
   displayCompany,
+  MARKETPLACES,
 } from '../utils/jobShortlist.js';
 
 const router = Router();
@@ -31,6 +32,9 @@ const router = Router();
 // fit what Menler teaches, lane by lane, and the board is those 750 - fifteen
 // pages of fifty - with every filter narrowing within them rather than
 // reaching back into the 35,000 behind. See that file for how they are chosen.
+//
+// GET /stats is the other half: what the pipeline has collected in all, for
+// the figures over the board and on the admin dashboard.
 
 /** A job shows for its first FRESH_DAYS days. Mirrors the pipeline and Skeo. */
 export const FRESH_DAYS = 10;
@@ -223,6 +227,100 @@ router.get('/', requireAuth, requireRole('student', 'admin'), async (req, res) =
       placeTotal: counts.placeTotal,
     },
   });
+});
+
+// ── The lifetime figures ─────────────────────────────────────────────────────
+
+/**
+ * What the pipeline has collected, for the figures over the board.
+ *
+ *   collected   every posting it has ever stored. The jobs collection cannot
+ *               say this by itself: the pipeline deletes rows sixty days past
+ *               their posting date to stay inside the free Atlas tier. So it
+ *               keeps a running total in pipeline_stats (db/pipelineStats.js
+ *               in skeo-job-pipeline). Until that has been written, the count
+ *               of what is stored is the honest floor, and it is never shown
+ *               below it.
+ *   since       when collecting began
+ *   live        on the board right now: active and inside the ten-day window
+ *   newLastRun  first seen by the most recent run. Every row a run touches is
+ *               stamped with that run's start as lastSeenAt, and fetchedAt is
+ *               written once, on insert - so a row first fetched at or after
+ *               the newest lastSeenAt arrived in that run. The same reading
+ *               the pipeline's own dashboard uses.
+ *
+ * Cached as the shortlist is, for the same reason: it changes once a day.
+ */
+let statsCache = { at: 0, value: null };
+let statsInFlight = null;
+
+async function loadStats() {
+  const Scraped = ScrapedJob();
+  if (!Scraped) return null;
+
+  if (statsCache.value && Date.now() - statsCache.at < CACHE_MS) return statsCache.value;
+  if (statsInFlight) return statsInFlight;
+
+  statsInFlight = (async () => {
+    const since = freshSince();
+    const [stored, live, latest, earliest, lifetime] = await Promise.all([
+      Scraped.estimatedDocumentCount(),
+      Scraped.countDocuments({
+        isActive: { $ne: false },
+        $or: [{ postedAt: { $gte: since } }, { postedAt: null, fetchedAt: { $gte: since } }],
+      }),
+      Scraped.findOne({}, 'lastSeenAt').sort({ lastSeenAt: -1 }).lean(),
+      Scraped.findOne({}, 'fetchedAt').sort({ fetchedAt: 1 }).lean(),
+      // Missing until the pipeline's first run with the counter; not an error.
+      Scraped.db.collection('pipeline_stats').findOne({ _id: 'lifetime' }).catch(() => null),
+    ]);
+
+    const lastRunAt = latest?.lastSeenAt || null;
+    const newLastRun = lastRunAt ? await Scraped.countDocuments({ fetchedAt: { $gte: lastRunAt } }) : 0;
+
+    const value = {
+      collected: Math.max(Number(lifetime?.jobsCollected) || 0, stored),
+      since: lifetime?.firstSeenAt || earliest?.fetchedAt || null,
+      live,
+      newLastRun,
+      lastRunAt,
+    };
+    statsCache = { at: Date.now(), value };
+    return value;
+  })().finally(() => {
+    statsInFlight = null;
+  });
+
+  return statsInFlight;
+}
+
+const MARKETPLACE_NAMES = new Set(Object.values(MARKETPLACES));
+
+// GET /api/lms/jobs/stats - the lifetime figures, for students and admins.
+router.get('/stats', requireAuth, requireRole('student', 'admin'), async (req, res) => {
+  const manual = await JobPosting.countDocuments({ postedAt: { $gte: freshSince() } });
+  const shared = Math.min(manual, 50);
+
+  try {
+    const [pipeline, shortlist] = await Promise.all([loadStats(), loadShortlist()]);
+    if (!pipeline) return res.json({ feedAvailable: false, onBoard: shared });
+
+    // The board as GET / builds it: the team's postings, then the feed.
+    const feed = (shortlist || []).slice(0, Math.max(SHORTLIST_SIZE - shared, 0));
+    const companies = new Set(
+      feed.map(displayCompany).filter((name) => name && !MARKETPLACE_NAMES.has(name)).map((name) => name.toLowerCase()),
+    );
+
+    res.json({
+      feedAvailable: true,
+      ...pipeline,
+      onBoard: shared + feed.length,
+      companies: companies.size,
+    });
+  } catch (err) {
+    console.error('Job stats unavailable:', err.message);
+    res.json({ feedAvailable: false, onBoard: shared });
+  }
 });
 
 // POST /api/lms/jobs - an admin adds an opening by hand.
