@@ -2,10 +2,10 @@
 //
 //   npm run test:jobs
 //
-// Everything that decides WHICH 300 jobs a Menler student sees lives in
+// Everything that decides WHICH 750 jobs a Menler student sees lives in
 // utils/jobShortlist.js as pure functions, so it can be proved here: the
-// weighting, the gates, the exclusions, the de-duplication and the per-employer
-// cap. If the board ever starts showing a senior role, a Spanish-speaker
+// weighting, the gates, the lanes, the exclusions, the de-duplication and the
+// per-employer cap. If the board ever starts showing a senior role, a Spanish-speaker
 // rater, the same opening three times or forty postings from one company,
 // this says so in a second.
 
@@ -25,6 +25,13 @@ import {
   applyFilters,
   domainCounts,
   facetCounts,
+  LANES,
+  laneOf,
+  passesLane,
+  laneCounts,
+  TITLE_BOOST,
+  displayCompany,
+  laneTargets,
 } from '../utils/jobShortlist.js';
 import { parseFilters, isHttpUrl, PAGE_SIZE } from '../routes/jobs.js';
 
@@ -43,6 +50,7 @@ const job = (over = {}) => ({
   achievability: 88,
   indiaFit: 92,
   easeOfApply: 60,
+  matchedSkills: ['claude'],
   postedAt: new Date('2026-09-24'),
   ...over,
 });
@@ -65,13 +73,15 @@ ok(menlerScore(aiRole) > menlerScore(walkIn), `on-topic AI role ${menlerScore(ai
 // ── the gates ───────────────────────────────────────────────────────────────
 const since = new Date('2026-09-15');
 const f = candidateFilter(since);
-ok(f.relevance.$gte === GATES.minRelevance, `relevance gate at ${GATES.minRelevance}`);
 ok(f.indiaFit.$gte === GATES.minIndiaFit, `indiaFit gate at ${GATES.minIndiaFit} (drops onsite-abroad 12 and visa-gated 8, keeps remote-unstated 48)`);
 ok(GATES.minIndiaFit > 12 && GATES.minIndiaFit <= 48, 'the indiaFit gate sits between onsite-abroad and remote-unstated');
 ok(f.achievability.$gte === GATES.minAchievability, `achievability gate at ${GATES.minAchievability}`);
-ok(f['matchedSkills.0'].$exists === true, 'a job must name at least one thing the syllabus teaches');
-ok(f.$or[0].postedAt.$gte === since && f.$or[1].postedAt === null, 'the ten-day window, with the first-seen fallback');
+ok(f.$and[0].$or[0].postedAt.$gte === since && f.$and[0].$or[1].postedAt === null, 'the ten-day window, with the first-seen fallback');
 ok(f.isActive.$ne === false, 'withdrawn listings are excluded');
+ok(f.$and[1].$or[0].relevance.$gte === 10, 'the read is narrowed to relevance 10, the lowest bar a domain lane sets');
+ok(f.$and[1].$or.some((c) => c.title instanceof RegExp && c.title.test("Founder's Office Intern")),
+  "but a founder's office title is read whatever its relevance");
+ok(f.$and[1].$or.some((c) => c.domain === 'product'), 'and so is a product role');
 
 // ── title exclusions ────────────────────────────────────────────────────────
 for (const t of [
@@ -181,11 +191,122 @@ ok(sameJobKey(job({ title: 'AI Intern', company: 'Acme Ltd.' })) === sameJobKey(
 {
   const flood = Array.from({ length: 900 }, (_, i) => job({ title: `AI Engineer ${i}`, company: `Co ${i}` }));
   ok(curate(flood).length === SHORTLIST_SIZE, `never more than ${SHORTLIST_SIZE}, however many qualify`);
-  ok(SHORTLIST_SIZE / PAGE_SIZE === 6, `${SHORTLIST_SIZE} at ${PAGE_SIZE} a page is six pages`);
+  ok(SHORTLIST_SIZE === 750 && SHORTLIST_SIZE / PAGE_SIZE === 15, `${SHORTLIST_SIZE} at ${PAGE_SIZE} a page is fifteen pages`);
 }
 ok(curate([job({ title: 'Spanish Search Quality Rater' })]).length === 0, 'an excluded title never reaches the list');
 
-// ── filters narrow within the 300 ───────────────────────────────────────────
+for (const t of [
+  'AI Video Content For Lingerie Brand',
+  'AI Video: Celebrity Dictator Parody',
+  'Casino Games Associate Product Manager',
+  'AVP - LoanIQ Business Analyst',
+  'Director of AI Strategy',
+  'Head of Growth',
+  'Strategic Leadership Training course - Must be in Canada or US',
+]) ok(isExcludedTitle(t), `excluded: "${t}"`);
+for (const t of ["Kids' Stories & Grammar Worksheets", 'Updating AI Data Pipelines', 'Lead Generation Executive']) {
+  ok(!isExcludedTitle(t), `kept: "${t}"`);
+}
+
+// ── lanes ───────────────────────────────────────────────────────────────────
+// The first board was nearly all AI: 4 product roles and 18 founder's office
+// roles cleared the single relevance gate, against 539 AI ones, and freelance
+// was capped at five. These are what the lanes exist to fix.
+{
+  const shares = LANES.reduce((a, l) => a + l.share, 0);
+  ok(Math.abs(shares - 1) < 1e-9, `lane shares sum to 1 (${shares})`);
+  ok(new Set(LANES.map((l) => l.key)).size === LANES.length, 'no lane is listed twice');
+
+  const lane = (over) => laneOf(job(over))?.key ?? null;
+  ok(lane({ title: 'Associate Product Manager', domain: 'product' }) === 'product', 'a PM is product');
+  ok(lane({ title: 'AI Product Engineer Intern', domain: 'ai-ml' }) === 'product', 'a product engineer joins product from any domain');
+  ok(lane({ title: 'Product Engineer - Development Engineering', domain: 'software', company: 'Husky Injection Molding' }) !== 'product',
+    'a factory product engineer is not a product role, even when only the employer says so');
+  ok(lane({ title: "Founder's Office Intern", domain: 'data' }) === 'founders-office', "a founder's office title joins the lane from any domain");
+  ok(lane({ title: 'Tour Consultant', domain: 'founders-office', relevance: 12 }) === null,
+    "a generic consultant filed under founder's office needs syllabus evidence to join it");
+  ok(lane({ title: 'AI Strategy Consultant', domain: 'founders-office', relevance: 40 }) === 'founders-office', 'and joins with it');
+  ok(lane({ title: 'n8n Automation Developer Needed', domain: 'ai-generalist', workType: 'freelance' }) === 'freelance',
+    'a freelance AI gig counts as freelance');
+  ok(lane({ title: 'AI-Driven Keyword Strategy', domain: 'founders-office', workType: 'freelance', relevance: 50 }) === 'freelance',
+    "a gig the pipeline filed under founder's office is still a gig");
+  ok(lane({ domain: 'ai-ml' }) === 'ai' && lane({ domain: 'ai-generalist' }) === 'ai', 'both AI domains share the AI lane');
+  ok(lane({ title: 'Graphic Designer', domain: 'design' }) === 'design', 'everything else by its domain');
+  ok(lane({ domain: null, title: 'Mystery Role' }) === null, 'a job with no domain and no lane title is not placed');
+
+  const ai = LANES.find((l) => l.key === 'ai');
+  const product = LANES.find((l) => l.key === 'product');
+  const design = LANES.find((l) => l.key === 'design');
+  ok(!passesLane(job({ relevance: 29 }), ai) && passesLane(job({ relevance: 30 }), ai), 'the AI lane keeps the old bar of 30');
+  ok(!passesLane(job({ relevance: 80, matchedSkills: [] }), ai), 'and still needs a matched syllabus term');
+  ok(passesLane(job({ title: 'Associate Product Manager', relevance: 0, matchedSkills: [] }), product),
+    'a product role needs no AI keyword - "Associate Product Manager" names none');
+  ok(!passesLane(job({ domain: 'design', relevance: 14 }), design) && passesLane(job({ domain: 'design', relevance: 15 }), design),
+    'design needs 15, so it is the AI-flavoured design work');
+}
+
+{
+  // A flood of strong AI jobs cannot crowd out the rest.
+  const aiFlood = Array.from({ length: 900 }, (_, i) => job({ title: `AI Engineer ${i}`, company: `AI Co ${i}`, relevance: 90 }));
+  const pms = Array.from({ length: 10 }, (_, i) =>
+    job({ title: `Associate Product Manager ${i}`, company: `PM Co ${i}`, domain: 'product', relevance: 0, matchedSkills: [] }));
+  const list = curate([...aiFlood, ...pms]);
+  ok(list.length === SHORTLIST_SIZE, 'the board is still full');
+  ok(list.filter((j) => j.lane === 'product').length === 10, 'and every product role is on it, despite scoring far lower');
+
+  // A lane short of its share does not leave the board short.
+  const counts = laneCounts(list);
+  ok(counts.ai === SHORTLIST_SIZE - 10, 'the unused shares go to the best of the rest');
+}
+
+{
+  // Each lane stops at its share when every lane has plenty.
+  const pool = [];
+  for (const l of LANES) {
+    for (let i = 0; i < 300; i++) {
+      const base = { title: `${l.label} Associate ${i}`, company: `${l.key} ${i}`, relevance: 40 };
+      if (l.key === 'product') pool.push(job({ ...base, title: `Product Manager ${i}`, domain: 'product' }));
+      else if (l.key === 'founders-office') pool.push(job({ ...base, title: `Founder's Office Intern ${i}`, domain: 'founders-office' }));
+      else if (l.key === 'freelance') pool.push(job({ ...base, title: `Freelance Designer ${i}`, workType: 'freelance', domain: 'design' }));
+      else if (l.key === 'ai') pool.push(job({ ...base, domain: 'ai-ml' }));
+      else pool.push(job({ ...base, domain: l.key }));
+    }
+  }
+  const list = curate(pool);
+  const counts = laneCounts(list);
+  const targets = laneTargets(SHORTLIST_SIZE);
+  ok([...targets.values()].reduce((a, b) => a + b, 0) === SHORTLIST_SIZE, 'the lane targets add up to the board exactly');
+  ok(LANES.every((l) => counts[l.key] === targets.get(l.key)),
+    `every lane gets exactly its share (${LANES.map((l) => `${l.key} ${counts[l.key]}`).join(', ')})`);
+
+  // Interleaved: the first page is a cross-section, not the top of one lane.
+  const firstPage = new Set(list.slice(0, PAGE_SIZE).map((j) => j.lane));
+  ok(firstPage.size === LANES.length, `page one holds every lane (${firstPage.size} of ${LANES.length})`);
+  const aiOnPageOne = list.slice(0, PAGE_SIZE).filter((j) => j.lane === 'ai').length;
+  ok(aiOnPageOne >= 13 && aiOnPageOne <= 17, `and the AI lane in proportion to its share (${aiOnPageOne} of ${PAGE_SIZE})`);
+}
+
+{
+  // Inside a lane, the explicit title leads.
+  const list = curate([
+    job({ title: 'Security Advisor', company: 'A', domain: 'founders-office', relevance: 30 }),
+    job({ title: "Founder's Office Intern", company: 'B', domain: 'founders-office', relevance: 20 }),
+  ]);
+  ok(list[0]?.title === "Founder's Office Intern", `a founder's office title outranks a vaguer role with more AI words (+${TITLE_BOOST})`);
+}
+
+// ── marketplace gigs ────────────────────────────────────────────────────────
+{
+  const gigs = Array.from({ length: 12 }, (_, i) =>
+    job({ title: `AI Chatbot Build ${i}`, company: null, source: 'freelancer', workType: 'freelance', url: `https://f.test/${i}` }));
+  ok(curate(gigs).length === 12, 'twelve gigs from twelve unnamed clients are twelve employers, not one capped bucket');
+  ok(menlerScore(gigs[0]) === menlerScore({ ...gigs[0], company: 'Acme' }), 'a marketplace gig carries no unnamed-employer penalty');
+  ok(displayCompany(gigs[0]) === 'Client on Freelancer.com', 'and its card names the marketplace');
+  ok(displayCompany(job({ company: 'null', source: 'indeed' })) === null, 'an unnamed job elsewhere still shows no employer');
+  ok(displayCompany(job({ company: ' Acme ' })) === 'Acme', 'a named employer is shown as named');
+}
+
+// ── filters narrow within the 750 ───────────────────────────────────────────
 {
   const list = [
     job({ title: 'A', domain: 'ai-ml', country: 'India', isRemote: false }),
