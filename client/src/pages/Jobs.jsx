@@ -2,6 +2,7 @@ import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 're
 import { useOutletContext } from 'react-router-dom';
 import { api } from '../api.js';
 import Empty from '../components/Empty.jsx';
+import JobStats from '../components/JobStats.jsx';
 import { Alert, Button, Checkbox, Input, Select, Skeleton, Textarea } from '../components/ui/index.js';
 
 // The job board. Students and admins read the same list; only the admin can
@@ -347,6 +348,8 @@ export default function Jobs() {
           <Button onClick={() => setPostOpen(true)}>Post an opening</Button>
         )}
       </div>
+
+      <JobStats isAdmin={isAdmin} />
 
       {isAdmin && postOpen && (
         <PostOpening

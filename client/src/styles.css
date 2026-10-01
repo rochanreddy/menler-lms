@@ -3224,6 +3224,9 @@ button.ds-slot-email:hover { color: var(--ink); }
 .job-new::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
 .job-apply { min-width: 132px; padding: 12px 26px; font-size: 15px; }
 
+/* The admin's "Post an opening" keeps to one line beside a two-line intro. */
+.jobs .page-head > .ui-btn { flex: none; white-space: nowrap; }
+
 /* ── The board's figures (components/JobStats.jsx) ──
    Four tiles. The lifetime total leads, on the inverted surface, because it
    is the one figure nothing else on the page shows; the other three sit on
