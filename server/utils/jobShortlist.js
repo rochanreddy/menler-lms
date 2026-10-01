@@ -65,10 +65,21 @@ export const GATES = {
  * name a location abroad in the title ("(USA)", "USDS", "LATAM"). None of the
  * language-locked ones is based in India, so excluding them costs nothing.
  * Indian languages are deliberately absent from the list.
+ *
+ * The third line came with the freelance lane. A marketplace takes any client,
+ * and among the gigs were adult-brand shoots, betting sites and deepfake
+ * parodies of real people: nothing a programme should put in front of its
+ * students under its own name.
+ *
+ * The fourth is seniority the pipeline's achievability score misses when the
+ * rest of the posting reads junior: an "AVP - LoanIQ Business Analyst" scored
+ * 50 and reached the list.
  */
 export const EXCLUDED_TITLE = [
   /\b(spanish|arabic|french|german|japanese|korean|portuguese|italian|dutch|mandarin|chinese|cantonese|russian|turkish|polish|swedish|norwegian|danish|finnish|hebrew|greek|czech|hungarian|romanian|thai|vietnamese|indonesian|malay|tagalog|filipino)\b/i,
-  /\((usa|us|u\.s\.|uk|canada|eu|europe|australia|germany)\)|\b(us|usa|uk|eu)[\s-]only\b|\busds\b|\bus[\s-]based\b|\bnorth america\b|\blatam\b|\bemea\b/i,
+  /\((usa|us|u\.s\.|uk|canada|eu|europe|australia|germany)\)|\b(us|usa|uk|eu)[\s-]only\b|\busds\b|\bus[\s-]based\b|\bnorth america\b|\blatam\b|\bemea\b|\bmust be (based |located )?in (the )?(us|usa|united states|canada|uk|europe|australia)\b/i,
+  /\b(lingerie|adult|nsfw|onlyfans|erotic|escort|dating|casino|gambling|betting|parody|deepfake)\b/i,
+  /\b(avp|svp|evp|vp|vice president|director|head of)\b/i,
 ];
 
 /**
