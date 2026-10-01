@@ -5,8 +5,8 @@ import { Submission } from '../models/Submission.js';
 import { canAccessBatch, isMentorOfBatch, isBlockedFromAssignment, myBatchIds } from '../utils/access.js';
 import { notify } from '../utils/notify.js';
 import { verifyDriveFolder } from '../utils/driveVerify.js';
-import { collectSubmissionContent } from '../utils/submissionContent.js';
-import { reviewSubmission, AI_GRADE_MODEL } from '../utils/aiGrade.js';
+import { AI_GRADE_MODEL } from '../utils/aiGrade.js';
+import { performReview } from '../utils/autoGrade.js';
 
 const router = Router();
 
@@ -64,7 +64,9 @@ router.post('/', requireAuth, async (req, res) => {
 
   const sub = await Submission.findOneAndUpdate(
     { assignmentId: a._id, studentId: req.user._id },
-    { $set: { driveLink, isDeleted: false, checkStatus: 'PENDING_CHECK', errorDetail: null, status: 'submitted', locked: false } },
+    // submittedAt starts the automatic grader's fifteen-minute clock
+    // (utils/autoGrade.js); a fresh hand-in also gets fresh attempts.
+    { $set: { driveLink, isDeleted: false, checkStatus: 'PENDING_CHECK', errorDetail: null, status: 'submitted', locked: false, submittedAt: new Date(), 'aiReview.attempts': 0 } },
     { upsert: true, new: true, setDefaultsOnInsert: true },
   );
 
@@ -163,6 +165,10 @@ router.patch('/:id', requireAuth, async (req, res) => {
   sub.checkStatus = 'PENDING_CHECK';
   sub.errorDetail = null;
   sub.status = 'submitted';
+  // An edit restarts the automatic grader's clock, so the grade is of what
+  // the student meant to hand in.
+  sub.submittedAt = new Date();
+  sub.aiReview.attempts = 0;
   await sub.save();
 
   await runCheck(sub, assignment);
@@ -190,6 +196,7 @@ router.patch('/:id/grade', requireAuth, async (req, res) => {
   sub.score = score === undefined || score === null || score === '' ? null : Number(score);
   sub.feedback = feedback || '';
   sub.status = 'graded';
+  sub.gradedBy = 'mentor';
   sub.locked = true;
   await sub.save();
   notify(sub.studentId, { type: 'grade', text: `Your submission was graded${sub.score != null ? `: ${sub.score}` : ''}.`, link: '/app/learning' });
@@ -208,17 +215,13 @@ router.post('/:id/recheck', requireAuth, requireRole('mentor', 'admin'), async (
   res.json({ submission: sub });
 });
 
-// POST /api/lms/submissions/:id/ai-review — mentor/admin runs the automated
-// review (utils/aiGrade.js, scored against utils/rubric.js) over a verified
-// submission.
+// POST /api/lms/submissions/:id/ai-review — mentor/admin runs the rubric
+// review (utils/aiGrade.js) over a verified submission on demand.
 //
-// Advisory only: this writes to sub.aiReview and never touches score/feedback/
-// status/locked. The mentor still grades via PATCH /:id/grade. The student is
-// not notified — they should hear a verdict from their mentor, not a model.
-//
-// Runs synchronously: up to three model calls, so expect this to take a while.
-// If it grows past what a request can hold, move it to a queue and let the
-// stored aiReview.status = 'running' be what the UI polls.
+// This only refreshes sub.aiReview, the breakdown; it never sets the grade.
+// The grade is set automatically fifteen minutes after hand-in
+// (utils/autoGrade.js, which reuses a review run here rather than paying for
+// a second one), or by a mentor through PATCH /:id/grade.
 router.post('/:id/ai-review', requireAuth, requireRole('mentor', 'admin'), async (req, res) => {
   const sub = await Submission.findOne({ _id: req.params.id, isDeleted: false })
     .populate({
@@ -240,6 +243,7 @@ router.post('/:id/ai-review', requireAuth, requireRole('mentor', 'admin'), async
   // The previous run's fingerprint is kept across a re-run: it is a property of
   // the submitted text, and clearing it would take this student out of every
   // other student's duplicate check for as long as the re-run takes.
+  // startedAt lets the automatic grader reclaim a run that dies here.
   sub.aiReview.status = 'running';
   sub.aiReview.final = null;
   sub.aiReview.writeup = null;
@@ -247,63 +251,12 @@ router.post('/:id/ai-review', requireAuth, requireRole('mentor', 'admin'), async
   sub.aiReview.model = AI_GRADE_MODEL;
   sub.aiReview.error = null;
   sub.aiReview.reviewedAt = null;
+  sub.aiReview.startedAt = new Date();
   await sub.save();
 
   try {
-    // Class D is the creative work (the Week 3 Media Kit, the Creative Asset
-    // Set). Its images are the deliverable and are judged on craft; everywhere
-    // else an image is a screenshot proving a thing ran. Nothing about the file
-    // itself tells you which, so the rubric class does.
-    const manifest = await collectSubmissionContent(sub, { creative: assignment.rubricClass === 'D' });
-
-    // Video alone is not something to grade. It is listed for the mentor and
-    // never sent to a model, so a folder holding only a Loom has nothing in it
-    // this review can read, and saying so is better than scoring it.
-    const readable = manifest.items.filter((it) => it.kind !== 'video' && !it.unreadable);
-    if (!readable.length) {
-      throw new Error('Nothing readable was found in this submission. Documents, Claude Artifacts, PDFs and screenshots are reviewed; video is left for you to watch.');
-    }
-
-    // Everyone else who has handed in THIS assignment and has already been
-    // reviewed, so the write-up can be compared against theirs. Only the stored
-    // fingerprint is loaded, never their text: the comparison is between two
-    // sketches, and a mentor reviewing one student has no business pulling
-    // another student's work into memory.
-    const peers = (await Submission.find({
-      assignmentId: assignment._id,
-      _id: { $ne: sub._id },
-      isDeleted: false,
-      'aiReview.fingerprint': { $ne: null },
-    }).select('studentId aiReview.fingerprint').populate('studentId', 'fullName').limit(200))
-      .map((p) => ({
-        studentName: p.studentId?.fullName || 'another student',
-        fingerprint: p.aiReview?.fingerprint,
-      }))
-      .filter((p) => p.fingerprint);
-
-    const final = await reviewSubmission({
-      manifest,
-      peers,
-      assignmentTitle: assignment.title,
-      assignmentType: assignment.type,
-      programName: assignment.batchId?.programId?.title || 'Menler',
-      rubricClass: assignment.rubricClass,
-      brief: assignment.description,
-      deliverables: assignment.deliverables,
-      taught: assignment.taught,
-    });
-
-    const { fingerprint, ...result } = final;
-    sub.aiReview = {
-      status: 'done',
-      final: result,
-      fingerprint,
-      writeup: null,
-      screenshots: null,
-      model: AI_GRADE_MODEL,
-      error: null,
-      reviewedAt: new Date(),
-    };
+    const review = await performReview(sub);
+    sub.aiReview = { ...review, startedAt: sub.aiReview.startedAt, attempts: sub.aiReview.attempts || 0 };
     await sub.save();
     res.json({ submission: sub });
   } catch (err) {

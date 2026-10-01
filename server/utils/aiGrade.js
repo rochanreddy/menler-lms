@@ -33,9 +33,10 @@
 //     weighted score, the band and the letter grade are all derived in
 //     utils/rubric.js. A model asked to add up its own scores can drift; a
 //     model asked only to judge cannot make 3+4 equal 8.
-//   * Every result is ADVISORY. Nothing here writes to Submission.score /
-//     .feedback / .status. A mentor reads this and still grades by hand. That
-//     matters most for red flags, which are accusations, not measurements.
+//   * Nothing HERE writes to Submission.score / .feedback / .status. The
+//     grade is set from this result by utils/autoGrade.js, fifteen minutes
+//     after hand-in, and a mentor can regrade over it. Red flags never move a
+//     number: they are accusations, not measurements, and go to the mentor.
 //   * Video is never sent to a model. It is listed in the manifest for the
 //     mentor to watch and verify themselves, and its absence is never held
 //     against a student. Nor is a failure on OUR side: an image we could not

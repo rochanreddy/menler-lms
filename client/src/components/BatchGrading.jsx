@@ -142,9 +142,24 @@ export function Attendance({ session, students, onDone }) {
   );
 }
 
+// Where a submission sits, for the filter and the row's chip. "fix" is a
+// folder that failed the Drive check: nothing to grade until the student
+// fixes it or a mentor rechecks.
+const stageOf = (s) => (s.status === 'graded' ? 'graded'
+  : s.checkStatus === 'NEEDS_FIXES' || s.checkStatus === 'CHECK_FAILED' ? 'fix' : 'todo');
+
+const FILTERS = [
+  { key: 'todo', label: 'To grade' },
+  { key: 'graded', label: 'Graded' },
+  { key: 'fix', label: 'Folder needs fixes' },
+  { key: 'all', label: 'All' },
+];
+
 export function Submissions({ assignmentId }) {
   const [subs, setSubs] = useState(null);
   const [open, setOpen] = useState(false);
+  const [filter, setFilter] = useState(null); // null until the mentor picks one
+  const [expanded, setExpanded] = useState(null);
   const load = () => api(`/submissions/assignment/${assignmentId}`).then((d) => setSubs(d.submissions || [])).catch(() => setSubs([]));
   async function grade(id, score, feedback) { await api(`/submissions/${id}/grade`, { method: 'PATCH', body: { score, feedback } }); load(); }
   async function recheck(id) { await api(`/submissions/${id}/recheck`, { method: 'POST' }); load(); }
@@ -157,25 +172,68 @@ export function Submissions({ assignmentId }) {
     if (subs === null) load();
   }
 
+  const counts = { todo: 0, graded: 0, fix: 0, all: subs?.length || 0 };
+  for (const x of subs || []) counts[stageOf(x)] += 1;
+  // Open on what needs doing; once everything is graded, show everything.
+  const active = filter || (counts.todo ? 'todo' : 'all');
+  const shown = (subs || []).filter((x) => active === 'all' || stageOf(x) === active);
+
   return (
     <div className="subs">
       <button className="btn sm ghost" onClick={toggle}>
-        {open ? 'Hide submissions' : 'View submissions'}
+        {open ? 'Hide submissions' : `View submissions${subs ? ` (${subs.length})` : ''}`}
       </button>
       {open && (
         subs === null ? <Loading rows={2} inline /> :
-          subs.length === 0 ? <Empty inline icon="grades" title="No submissions yet." hint="They appear here as students hand in their Drive folders." /> :
-            subs.map((s) => <GradeRow key={s._id} sub={s} onGrade={grade} onRecheck={recheck} onUnlock={unlock} onReload={load} />)
+          subs.length === 0 ? <Empty inline icon="grades" title="No submissions yet." hint="They appear here as students hand in their Drive folders." /> : (
+            <>
+              <div className="subs-bar">
+                <label className="subs-filter">
+                  <span className="muted">Show</span>
+                  <select value={active} onChange={(e) => { setFilter(e.target.value); setExpanded(null); }}>
+                    {FILTERS.map((o) => <option key={o.key} value={o.key}>{o.label} ({counts[o.key]})</option>)}
+                  </select>
+                </label>
+                <span className="muted">{counts.graded} of {counts.all} graded</span>
+              </div>
+              {shown.length === 0
+                ? <Empty inline icon="grades" title={active === 'todo' ? 'Nothing waiting to be graded.' : 'Nothing here.'} />
+                : shown.map((x) => (
+                  <GradeRow
+                    key={x._id}
+                    sub={x}
+                    open={expanded === x._id}
+                    onToggle={() => setExpanded(expanded === x._id ? null : x._id)}
+                    onGrade={grade}
+                    onRecheck={recheck}
+                    onUnlock={unlock}
+                    onReload={load}
+                  />
+                ))}
+            </>
+          )
       )}
     </div>
   );
 }
 
-function GradeRow({ sub, onGrade, onRecheck, onUnlock, onReload }) {
+const STAGE_CHIP = {
+  graded: { label: 'Graded', cls: 'badge-student' },
+  todo: { label: 'To grade', cls: 'badge-submitted' },
+  fix: { label: 'Needs fixes', cls: 'badge-fix' },
+};
+
+// One line per submission until it is opened — a batch of forty was forty
+// stacked review panels. Only one is open at a time.
+function GradeRow({ sub, open, onToggle, onGrade, onRecheck, onUnlock, onReload }) {
   const [score, setScore] = useState(sub.score ?? '');
   const [feedback, setFeedback] = useState(sub.feedback || '');
   const [busy, setBusy] = useState(false);
   const [grading, setGrading] = useState(false);
+  // A graded submission shows its grade, not an empty form asking for one.
+  const [regrading, setRegrading] = useState(false);
+  const stage = stageOf(sub);
+  const isGraded = stage === 'graded';
 
   async function recheck() {
     setBusy(true);
@@ -186,44 +244,68 @@ function GradeRow({ sub, onGrade, onRecheck, onUnlock, onReload }) {
   function applySuggestion({ score: s, feedback: f }) {
     setScore(String(s));
     if (f) setFeedback(f);
+    if (isGraded) setRegrading(true);
   }
 
   // Grading writes a score — guard against a double-click posting it twice.
   async function grade() {
     if (grading) return;
     setGrading(true);
-    try { await onGrade(sub._id, score, feedback); } finally { setGrading(false); }
+    try { await onGrade(sub._id, score, feedback); setRegrading(false); } finally { setGrading(false); }
   }
 
+  const chip = STAGE_CHIP[stage];
   return (
-    <div className="grade-row-stack">
-      <div className="grade-row-top">
-        <strong>{sub.studentId?.fullName || sub.studentId?.email}</strong>
-        <span className={`badge ${sub.status === 'graded' ? 'badge-student' : sub.status === 'submitted' ? 'badge-submitted' : ''}`}>{sub.status}</span>
-      </div>
+    <div className={`grade-row-stack ${open ? 'is-open' : ''}`}>
+      <button type="button" className="grade-sum" onClick={onToggle} aria-expanded={open}>
+        <strong className="grade-sum-name">{sub.studentId?.fullName || sub.studentId?.email}</strong>
+        <span className={`badge ${chip.cls}`}>{chip.label}</span>
+        {isGraded && sub.score != null && (
+          <span className="grade-sum-score">{sub.score}/10{sub.gradedBy === 'ai' ? ' · AI' : ''}</span>
+        )}
+        <span className="spacer" />
+        <span className="grade-sum-chev" aria-hidden="true">{open ? '▴' : '▾'}</span>
+      </button>
 
-      {/* Drive verification — its own block, independent of the grade below. */}
-      <SubmissionCheckPanel
-        submission={{ ...sub, driveLink: sub.driveLink || sub.url }}
-        onRecheck={recheck}
-        busy={busy}
-      />
+      {open && (
+        <div className="grade-body">
+          {/* Drive verification — its own block, independent of the grade below. */}
+          <SubmissionCheckPanel
+            submission={{ ...sub, driveLink: sub.driveLink || sub.url }}
+            onRecheck={recheck}
+            busy={busy}
+          />
 
-      {/* Automated review. Advisory: the only thing it can do to the form
-          below is fill it in — the mentor still presses Grade. */}
-      <AiReview submission={sub} onDone={onReload} onApply={applySuggestion} />
+          {/* The AI review. The server grades from it fifteen minutes after
+              hand-in; saving the form below regrades by hand. */}
+          <AiReview submission={sub} onDone={onReload} onApply={applySuggestion} />
 
-      <div className="inline-form">
-        {sub.locked && <button type="button" className="btn sm ghost" onClick={() => onUnlock(sub._id)}>Unlock</button>}
-        <label className="sr-only" htmlFor={`score-${sub._id}`}>Score</label>
-        <select id={`score-${sub._id}`} className="grade-score" value={score} onChange={(e) => setScore(e.target.value)}>
-          <option value="">Score…</option>
-          {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => <option key={n} value={n}>{n} / 10</option>)}
-        </select>
-        <label className="sr-only" htmlFor={`fb-${sub._id}`}>Feedback</label>
-        <input id={`fb-${sub._id}`} placeholder="Feedback" value={feedback} onChange={(e) => setFeedback(e.target.value)} />
-        <button className={`btn sm ${grading ? 'is-busy' : ''}`} onClick={grade} disabled={grading}>{grading ? 'Saving…' : 'Grade'}</button>
-      </div>
+          {isGraded && !regrading ? (
+            <div className="grade-done">
+              <div className="grade-done-head">
+                <strong>{sub.score != null ? `${sub.score}/10` : 'Graded'}</strong>
+                <span className="muted">{sub.gradedBy === 'ai' ? 'graded by AI' : 'graded by a mentor'}</span>
+                <span className="spacer" />
+                {sub.locked && <button type="button" className="btn sm ghost" onClick={() => onUnlock(sub._id)}>Unlock</button>}
+                <button type="button" className="btn sm ghost" onClick={() => setRegrading(true)}>Regrade</button>
+              </div>
+              {sub.feedback && <p className="grade-done-fb">{sub.feedback}</p>}
+            </div>
+          ) : stage === 'fix' ? null : (
+            <div className="inline-form">
+              <label className="sr-only" htmlFor={`score-${sub._id}`}>Score</label>
+              <select id={`score-${sub._id}`} className="grade-score" value={score} onChange={(e) => setScore(e.target.value)}>
+                <option value="">Score…</option>
+                {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => <option key={n} value={n}>{n} / 10</option>)}
+              </select>
+              <label className="sr-only" htmlFor={`fb-${sub._id}`}>Feedback</label>
+              <input id={`fb-${sub._id}`} placeholder="Feedback" value={feedback} onChange={(e) => setFeedback(e.target.value)} />
+              <button className={`btn sm ${grading ? 'is-busy' : ''}`} onClick={grade} disabled={grading || score === ''}>{grading ? 'Saving…' : isGraded ? 'Save regrade' : 'Grade'}</button>
+              {regrading && <button type="button" className="btn sm ghost" onClick={() => setRegrading(false)}>Cancel</button>}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

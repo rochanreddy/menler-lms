@@ -23,10 +23,11 @@ const submissionFileSchema = new mongoose.Schema(
 // groups so each can evolve without touching the others:
 //   1. Drive folder verification (checkStatus/errorDetail/files/checkedAt) —
 //      automated structural check, see utils/driveVerify.js.
-//   2. Mentor grading (status/score/feedback) — unchanged, human-driven.
-//   3. Automated content scoring (aiReview) — see utils/aiGrade.js. Advisory
-//      only: it never writes to #2's score/feedback/status. A mentor reads it
-//      and still grades by hand.
+//   2. The grade (status/score/feedback/gradedBy). Set automatically fifteen
+//      minutes after a verified hand-in (utils/autoGrade.js); a mentor can
+//      still regrade by hand, which wins.
+//   3. Automated content scoring (aiReview) — see utils/aiGrade.js. The full
+//      rubric breakdown behind #2, kept for the mentor and admin.
 const submissionSchema = new mongoose.Schema(
   {
     assignmentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Assignment', required: true, index: true },
@@ -37,6 +38,15 @@ const submissionSchema = new mongoose.Schema(
     score: { type: Number, default: null },
     feedback: { type: String, default: '' },
     status: { type: String, enum: ['submitted', 'graded'], default: 'submitted', index: true },
+    // Who set score/feedback: the automatic grader (utils/autoGrade.js) or a
+    // mentor by hand. A mentor regrading an AI grade turns it into 'mentor'.
+    gradedBy: { type: String, enum: ['ai', 'mentor', null], default: null },
+
+    // When the student last handed this in (created or edited). The automatic
+    // grade waits AUTO_GRADE_DELAY_MS from here, so an edit restarts the clock.
+    // Null on submissions made before auto-grading existed, which it leaves
+    // alone rather than grading a whole backlog the minute it ships.
+    submittedAt: { type: Date, default: null, index: true },
 
     // Drive folder verification (see utils/driveVerify.js). Null until a
     // driveLink submission has been checked at least once.
@@ -71,6 +81,11 @@ const submissionSchema = new mongoose.Schema(
       model: { type: String, default: '' },
       error: { type: String, default: null },
       reviewedAt: { type: Date, default: null },
+      // For the automatic grader: when the running review was claimed (so one
+      // that died mid-run can be reclaimed) and how many runs have failed on
+      // this hand-in (so a submission the model cannot read stops being retried).
+      startedAt: { type: Date, default: null },
+      attempts: { type: Number, default: 0 },
     },
 
     // Set once a mentor grades the submission; blocks further student edits

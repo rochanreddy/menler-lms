@@ -1,20 +1,18 @@
 // Mentor-facing UI for the automated submission review (server: utils/aiGrade.js
 // scored against utils/rubric.js, POST /submissions/:id/ai-review).
 //
-// The single rule this component exists to enforce visually: THE REVIEW IS
-// ADVISORY. The server never writes score/feedback/status from it, and neither
-// does this panel. The only action it offers is filling the mentor's own grade
-// form, which the mentor still has to submit. That is why there is no
-// "accept grade" button anywhere below — the closest thing, `onApply`, is
-// labelled as populating the form and nothing else.
+// Fifteen minutes after a verified hand-in the server grades it from this
+// review (utils/autoGrade.js): the score out of 10 and the student feedback
+// are sent, and the submission is locked. This panel is the breakdown behind
+// that grade. A mentor who disagrees fills their own form (`onApply`, or by
+// hand) and grades over it; a mentor grade always wins.
 //
 // Three consequences of that rule shape the layout:
 //   * Red flags are accusations, not measurements (the grader's own words), so
 //     they always ship with the evidence that triggered them and are never
 //     folded into a number.
-//   * Students never see this. The student-facing prose the model drafts is
-//     shown here as a DRAFT for the mentor to copy and edit, not as something
-//     already sent.
+//   * Students see only the score and the student feedback, never the
+//     criteria, the flags or the notes on this panel.
 //   * Anything the review could NOT read — a video, an unreadable file, a
 //     criterion left out of the score — is said out loud, because the mentor is
 //     the one who has to cover that gap.
@@ -200,7 +198,7 @@ function LegacyResult({ review }) {
       </p>
       <Flags flags={[...(writeup?.red_flags || []), ...(screenshots?.red_flags || [])]} />
       <Prose kicker="For you" text={final.mentor_notes} />
-      <Prose kicker="Draft feedback for the student" text={final.student_feedback} note="Not sent." />
+      <Prose kicker="Feedback for the student" text={final.student_feedback} />
     </>
   );
 }
@@ -208,6 +206,11 @@ function LegacyResult({ review }) {
 export default function AiReview({ submission, onApply, onDone }) {
   const review = submission.aiReview;
   const ready = submission.checkStatus === 'READY';
+  // Who set the grade. Grades from before auto-grading carry no gradedBy and
+  // were a mentor's; a hand-in from before it has no submittedAt and is left
+  // for a mentor rather than auto-graded.
+  const grader = submission.gradedBy
+    || (submission.status === 'graded' ? 'mentor' : submission.submittedAt ? 'pending' : 'manual');
 
   const [busy, setBusy] = useState(false);
   const [elapsed, setElapsed] = useState(0);
@@ -269,9 +272,11 @@ export default function AiReview({ submission, onApply, onDone }) {
           <LineIcon name="check" size={14} />
           AI review
         </span>
-        {/* The framing, stated once and always visible — not buried in a
-            tooltip. Everything in this panel is a second opinion. */}
-        <span className="badge badge-muted">advisory</span>
+        {/* Whether this review is the grade the student got, stated once
+            and always visible. */}
+        <span className="badge badge-muted">
+          {{ ai: 'graded by AI', mentor: 'mentor graded', pending: 'auto-grades 15 min after hand-in', manual: 'grade by hand' }[grader]}
+        </span>
         {hasResult && !legacy && final.rubric_class && (
           <span className="air-model">Rubric {final.rubric_class} · {final.rubric_class_name}</span>
         )}
@@ -403,9 +408,14 @@ export default function AiReview({ submission, onApply, onDone }) {
                 person actually reading this screen. ── */}
           <Prose kicker="For you" text={final.mentor_notes} />
           <Prose
-            kicker="Draft feedback for the student"
-            text={final.student_feedback}
-            note="Not sent. Copy it into the feedback field below, or edit it first."
+            kicker="Feedback for the student"
+            text={grader === 'ai' ? submission.feedback : final.student_feedback}
+            note={{
+              ai: 'Sent to the student with the grade.',
+              mentor: 'Not sent: a mentor graded this by hand.',
+              pending: 'Sent with the grade unless you grade first.',
+              manual: 'Not sent. Copy it into the feedback field below, or edit it first.',
+            }[grader]}
             onCopy={() => copy('student', final.student_feedback)}
             copied={copied === 'student'}
           />

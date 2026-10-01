@@ -512,6 +512,7 @@ a:focus-visible,
      tags    → quiet neutral (file types, counts, "locked", batch state)      */
 .badge-submitted { background: var(--a3-soft); color: var(--a3-ink); }  /* amber: awaiting */
 .badge-muted { background: var(--line-soft); color: var(--muted); }     /* neutral metadata */
+.badge-fix { background: var(--danger-soft); color: var(--danger); }   /* red: blocked on the student */
 
 
 /* ── Status pills (work state, not role) ── */
@@ -1744,6 +1745,22 @@ h1.md-h { font-size: 22px; } h2.md-h { font-size: 19px; } h3.md-h { font-size: 1
 /* Mentor grading row — stacked so the check block sits above the grade form. */
 .grade-row-stack { background: var(--sunken); padding: 12px 14px; border-radius: 9px; margin-top: 8px; }
 .grade-row-top { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+
+/* Collapsed to one line until opened: the whole summary is the toggle. */
+.subs-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 10px; font-size: 13px; }
+.subs-filter { display: inline-flex; align-items: center; gap: 8px; }
+.subs-filter select { padding: 7px 10px; border: 1px solid var(--line); border-radius: 9px; font-size: 13px; font-family: var(--font); background: var(--card); color: inherit; }
+.grade-row-stack:has(> .grade-sum) { padding: 0; }
+.grade-sum { display: flex; align-items: center; gap: 9px; width: 100%; padding: 11px 14px; background: none; border: 0; border-radius: 9px; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.grade-sum:hover { background: var(--line-soft); }
+.grade-sum:focus-visible { outline: 2px solid var(--violet); outline-offset: -2px; }
+.grade-sum-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.grade-sum-score { font-weight: 700; font-size: 13px; font-variant-numeric: tabular-nums; }
+.grade-sum-chev { color: var(--muted); font-size: 12px; }
+.grade-body { padding: 0 14px 12px; }
+.grade-done { margin-top: 10px; padding: 10px 12px; background: var(--card); border: 1px solid var(--line-soft); border-radius: 9px; }
+.grade-done-head { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; font-size: 13.5px; }
+.grade-done-fb { margin: 6px 0 0; font-size: 13.5px; line-height: 1.5; }
 
 /* Student submission form */
 .sub-form { margin-top: 14px; }

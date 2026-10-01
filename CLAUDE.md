@@ -42,6 +42,12 @@ cd server && node scripts/fillMissingNames.js              # dry run; --apply to
                                # on the Students page. Never overwrites a name. New
                                # accounts get the same rule (utils/names.js) when
                                # created without one (needs CONFIRM_DB to apply).
+cd server && node scripts/gradeBacklog.js                  # dry run lists every ungraded
+                               # submission; --apply puts the ones that passed the
+                               # Drive check through the AI grader (submissions
+                               # from before auto-grading have no submittedAt and
+                               # are otherwise never picked up). Notifies students
+                               # and admins (needs CONFIRM_DB to apply).
 cd server && npm run test:flows # drives all three roles against a RUNNING server
 cd server && npm run test:rubric # the grading rubric's arithmetic, the curriculum
                                # classifier, the link checker's refusals and the
@@ -739,11 +745,34 @@ apply link: these strings come from eleven third-party sources and a form.
 
 ### Grading a submission
 
-A mentor opens a verified submission and presses **Run AI review**. Everything
-it produces is **advisory**: nothing writes to `Submission.score`, `.feedback`
-or `.status`, and the only button on the panel fills the mentor's own form. The
-student is never shown it and is never notified — a verdict comes from their
-mentor, not a model. Full reasoning in
+**Assignments are graded by the AI, end to end**
+([utils/autoGrade.js](server/utils/autoGrade.js)). Fifteen minutes after a
+hand-in passes the Drive check (`Submission.submittedAt`; an edit restarts the
+clock, because the first minutes are when a student notices the missing file),
+a one-minute sweep runs the rubric review and its result IS the grade: score
+out of 10 (the rubric's /100 ÷ 10), the student feedback, `gradedBy: 'ai'`,
+locked — what a mentor pressing Grade does. The student is notified, and so is
+every admin, with the student's name, the batch and the score. Each submission
+is claimed with one atomic update before the model is called, and the grade is
+applied only if the hand-in did not change and no mentor graded it meanwhile.
+A mentor can still regrade by hand; that wins. **Run AI review** on the mentor's
+panel refreshes the breakdown only, and the sweep reuses it rather than paying
+twice.
+
+**Average for real work, high for strong work.** The prompt calibrates an honest
+attempt at 3s and tells the model to give strong work 4s and 5s, and the grade
+is floored at 5/10 (`AUTO_GRADE_FLOOR`) unless the review found no real work
+(`insufficient content`, `copied brief`). **The student's feedback is about
+the assignment only**: the prompt forbids remarks on documentation style,
+formatting, grammar and the like, and `assignmentOnly()` strips any sentence
+that still carries one, unless the brief itself asks for that thing.
+
+A folder with nothing readable goes to the admins at once; any other failure is
+retried three times before the admins are told to grade it by hand. Google's
+429 costs no attempt and pauses the sweep fifteen minutes. Hand-ins from before
+this shipped carry no `submittedAt` and are left for a mentor. No
+`GEMINI_API_KEY`, or `AUTO_GRADE=off`, and nothing is auto-graded. Rules in
+`tests/autoGrade.test.js`. Full rubric reasoning in
 [docs/AI-GRADING-RUBRIC.md](docs/AI-GRADING-RUBRIC.md).
 
 **Text and photos are evaluated; nothing else.** Documents, Claude Artifacts,
