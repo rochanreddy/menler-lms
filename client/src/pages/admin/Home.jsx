@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { api, downloadFile } from '../../api.js';
 import AtRiskPanel from '../../components/AtRiskPanel.jsx';
 import Empty from '../../components/Empty.jsx';
+import JobStats from '../../components/JobStats.jsx';
 import { Donut, MiniLine, SERIES, SEQ, SEQ_AQUA } from '../../components/Charts.jsx';
 
 // Admin platform overview — headline counts, distribution donuts, signup trend,
@@ -40,6 +41,8 @@ export default function AdminHome() {
           </div>
         ))}
       </div>
+
+      <JobStats isAdmin withLink />
 
       {(s.blockedUsers ?? 0) > 0 && (
         <div className="blockbox" style={{ marginBottom: 'var(--space-5)' }}>
