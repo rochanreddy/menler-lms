@@ -333,16 +333,26 @@ export default function Jobs() {
     return (v) => map.get(v) || v;
   }, [facets]);
 
+  // The domain's short name ("AI Generalist"), for the card on a phone, where
+  // "AI GENERALIST & AUTOMATION" in capitals took a row to itself.
+  const shortOf = useMemo(() => {
+    const map = new Map((facets?.domains || []).map((o) => [o.value, o.short || o.label]));
+    return (v) => map.get(v) || labelOf(v);
+  }, [facets, labelOf]);
+
   return (
     <div className="jobs">
       <div className="page-head" ref={topRef}>
         <div>
           <div className="eyebrow">Jobs</div>
           <h1>{isAdmin ? 'Job board' : 'Jobs picked for you'}</h1>
-          <p>
+          {/* Two versions of the line, because on a phone the long one took
+              four lines and pushed the first job below the fold. */}
+          <p className="jobs-intro-long">
             The 750 openings that best fit what Menler teaches, across AI, product, founder's office,
             freelance and more. Chosen from every live listing and refreshed each morning.
           </p>
+          <p className="jobs-intro-short">750 best-fit openings, refreshed every morning.</p>
         </div>
         {isAdmin && !postOpen && (
           <Button onClick={() => setPostOpen(true)}>Post an opening</Button>
@@ -420,7 +430,7 @@ export default function Jobs() {
           ) : (
             <div className="list">
               {data.jobs.map((job) => (
-                <JobRow key={job.id} job={job} isAdmin={isAdmin} labelOf={labelOf} onRemoved={load} />
+                <JobRow key={job.id} job={job} isAdmin={isAdmin} labelOf={labelOf} shortOf={shortOf} onRemoved={load} />
               ))}
             </div>
           )}
@@ -442,9 +452,13 @@ export default function Jobs() {
   );
 }
 
-function JobRow({ job, isAdmin, labelOf, onRemoved }) {
+function JobRow({ job, isAdmin, labelOf, shortOf, onRemoved }) {
   const [busy, setBusy] = useState(false);
   const place = job.location || job.country || '';
+  // A tag that only repeats the location line ("Remote, IN" over INDIA and
+  // REMOTE) is marked minor, and a phone drops it to keep the tags to a row.
+  const placeSaysIndia = /\b(india|in)\b/i.test(place);
+  const placeSaysRemote = /\bremote\b/i.test(place);
   const workType = job.workType !== 'unspecified' ? job.workType : '';
   const level = job.experienceLevel !== 'unspecified' ? job.experienceLevel : '';
   const canRemove = isAdmin && job.origin === 'manual';
@@ -477,10 +491,15 @@ function JobRow({ job, isAdmin, labelOf, onRemoved }) {
           </div>
 
           <div className="job-tags">
-            {job.domain && <span className="badge">{labelOf(job.domain)}</span>}
+            {job.domain && (
+              <span className="badge" title={labelOf(job.domain)}>
+                <span className="tag-full">{labelOf(job.domain)}</span>
+                <span className="tag-short">{shortOf(job.domain)}</span>
+              </span>
+            )}
             {job.origin === 'manual' && <span className="badge badge-submitted">Shared by the team</span>}
-            {job.country === 'India' && <span className="badge badge-muted">India</span>}
-            {job.isRemote && <span className="badge badge-muted">Remote</span>}
+            {job.country === 'India' && <span className={`badge badge-muted ${placeSaysIndia ? 'is-minor' : ''}`}>India</span>}
+            {job.isRemote && <span className={`badge badge-muted ${placeSaysRemote ? 'is-minor' : ''}`}>Remote</span>}
             {workType && <span className="badge badge-muted">{labelOf(workType)}</span>}
             {/* An internship is a level and an engagement at once; printing it
                 twice makes the row look broken. */}
