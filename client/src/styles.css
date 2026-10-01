@@ -1746,6 +1746,21 @@ h1.md-h { font-size: 22px; } h2.md-h { font-size: 19px; } h3.md-h { font-size: 1
 .grade-row-stack { background: var(--sunken); padding: 12px 14px; border-radius: 9px; margin-top: 8px; }
 .grade-row-top { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
 
+/* "Show: …" drop-downs that narrow a long list (assignments, classes, the
+   curriculum tree, the teacher-notes page) instead of making you scroll it. */
+.list-filter { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 10px 0 4px; font-size: 13px; }
+.list-filter label { display: inline-flex; align-items: center; gap: 8px; min-width: 0; max-width: 100%; }
+.list-filter select { padding: 7px 10px; border: 1px solid var(--line); border-radius: 9px; font-size: 13px; font-family: var(--font); background: var(--card); color: inherit; max-width: 100%; min-width: 0; }
+.ce-pick { margin: 0 0 10px; }
+.ce-pick select { width: 100%; font-weight: 600; }
+.mm-pick { margin-bottom: 12px; }
+.mm-pick label { flex: 1; }
+.mm-pick select { flex: 1; }
+/* An assignment folds to its head line; the head is the toggle. */
+.asg-toggle { width: 100%; background: none; border: 0; padding: 0; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.asg-toggle:focus-visible { outline: 2px solid var(--violet); outline-offset: 3px; border-radius: 6px; }
+.asg-fold:not(.is-open) .subs { margin-top: 6px; }
+
 /* Collapsed to one line until opened: the whole summary is the toggle. */
 .subs-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 10px; font-size: 13px; }
 .subs-filter { display: inline-flex; align-items: center; gap: 8px; }

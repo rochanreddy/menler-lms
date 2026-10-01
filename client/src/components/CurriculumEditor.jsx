@@ -39,6 +39,10 @@ export default function CurriculumEditor({ programId, batch, onClose }) {
     window.addEventListener('keydown', onKey);
     return () => { document.body.style.overflow = ''; window.removeEventListener('keydown', onKey); };
   }, [sheet]);
+  // Which week (module index) the tree shows, or 'all'. Sixty lessons of tree
+  // was minutes of scrolling to reach the one being edited; one week at a time
+  // is the size of a sitting.
+  const [view, setView] = useState(0);
   const [dirty, setDirty] = useState(false);
   const [msg, setMsg] = useState('');
   const [importing, setImporting] = useState(false);
@@ -63,10 +67,10 @@ export default function CurriculumEditor({ programId, batch, onClose }) {
   }, [modules]);
 
   // ── Tree mutators ──
-  const addModule = () => touch((m) => m.push({ title: 'New module', order: m.length, chapters: [] }));
+  const addModule = () => { if (view !== 'all') setView(modules.length); touch((m) => m.push({ title: 'New module', order: m.length, chapters: [] })); };
   const addChapter = (mi) => touch((m) => m[mi].chapters.push({ title: 'New chapter', order: m[mi].chapters.length, topics: [] }));
   const addTopic = (mi, ci) => touch((m) => m[mi].chapters[ci].topics.push({ title: 'New lesson', contentType: 'text', contentUrl: '', body: '', classLink: '', readingUrl: '', notesUrl: '', materials: [], order: m[mi].chapters[ci].topics.length }));
-  const delModule = (mi) => { touch((m) => m.splice(mi, 1)); setSel(null); };
+  const delModule = (mi) => { touch((m) => m.splice(mi, 1)); setSel(null); if (view !== 'all') setView(Math.max(0, mi - 1)); };
   const delChapter = (mi, ci) => { touch((m) => m[mi].chapters.splice(ci, 1)); setSel(null); };
   const delTopic = (mi, ci, ti) => { touch((m) => m[mi].chapters[ci].topics.splice(ti, 1)); setSel(null); };
   const setModuleTitle = (mi, v) => touch((m) => { m[mi].title = v; });
@@ -76,7 +80,14 @@ export default function CurriculumEditor({ programId, batch, onClose }) {
   const setTopicField = (mi, ci, ti, patch) => touch((m) => {
     m[mi].chapters[ci].topics[ti] = { ...m[mi].chapters[ci].topics[ti], ...patch };
   });
-  const move = (mi, dir) => touch((m) => { const j = mi + dir; if (j < 0 || j >= m.length) return; [m[mi], m[j]] = [m[j], m[mi]]; });
+  const move = (mi, dir) => {
+    const j = mi + dir;
+    if (j < 0 || j >= modules.length) return;
+    touch((m) => { [m[mi], m[j]] = [m[j], m[mi]]; });
+    // The picker follows the week being moved, and the open form with it.
+    if (view === mi) setView(j);
+    if (sel?.mi === mi) setSel({ ...sel, mi: j });
+  };
 
   async function onImport(e) {
     const file = e.target.files?.[0];
@@ -165,7 +176,22 @@ export default function CurriculumEditor({ programId, batch, onClose }) {
       <div className="ce-grid">
         <aside className="ce-tree">
           {modules.length === 0 && <Empty inline icon="learning" title="No content yet." hint="Import a document above, or add a module by hand." />}
-          {modules.map((m, mi) => (
+          {modules.length > 1 && (
+            <div className="list-filter ce-pick">
+              <select
+                value={String(view)}
+                onChange={(e) => { const v = e.target.value === 'all' ? 'all' : Number(e.target.value); setView(v); setSel(null); }}
+                aria-label="Which week to show"
+              >
+                {modules.map((m, mi) => {
+                  const n = (m.chapters || []).reduce((k, c) => k + (c.topics || []).length, 0);
+                  return <option key={mi} value={mi}>{m.title || `Module ${mi + 1}`} ({n})</option>;
+                })}
+                <option value="all">All weeks ({stats.topics})</option>
+              </select>
+            </div>
+          )}
+          {modules.map((m, mi) => (view !== 'all' && view !== mi && modules.length > 1 ? null : (
             <div key={mi} className="ce-mod">
               <div className={`ce-mod-head ${isSel(mi, undefined, undefined) ? 'active' : ''}`}>
                 <input className="ce-mod-input" value={m.title} onChange={(e) => setModuleTitle(mi, e.target.value)} />
@@ -198,7 +224,7 @@ export default function CurriculumEditor({ programId, batch, onClose }) {
               ))}
               <button className="ce-add" onClick={() => addChapter(mi)}>+ chapter</button>
             </div>
-          ))}
+          )))}
           <button className="btn ghost sm ce-addmod" onClick={addModule}>+ Add module</button>
         </aside>
 

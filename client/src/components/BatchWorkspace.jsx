@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api, downloadFile, mailNote } from '../api.js';
 import LineIcon from './LineIcon.jsx';
@@ -55,6 +55,32 @@ export default function BatchWorkspace({ batchId, mode }) {
   }, [mode, batchId]);
 
   const [editingId, setEditingId] = useState(''); // session whose edit form is open
+
+  // Long lists are narrowed by a drop-down rather than scrolled. Classes open
+  // on what is ahead (a past class is one click away, for its recording);
+  // assignments on everything, folded to one line each.
+  const [sessView, setSessView] = useState('upcoming');
+  const dayStart = new Date(); dayStart.setHours(0, 0, 0, 0);
+  const isAhead = (s) => new Date(s.startsAt) >= dayStart;
+  const sessCounts = { upcoming: sessions.filter(isAhead).length, past: sessions.filter((s) => !isAhead(s)).length };
+  const shownSessions = sessView === 'all' ? sessions
+    : sessions.filter((s) => (sessView === 'upcoming' ? isAhead(s) : !isAhead(s)));
+
+  // Assignments group the way the syllabus does ("Session 01", "Week 3",
+  // "Portfolio projects"), in programme order.
+  const [asgGroup, setAsgGroup] = useState('all');
+  const [openAsg, setOpenAsg] = useState('');
+  const asgGroups = useMemo(() => {
+    const by = new Map();
+    for (const a of assignments) {
+      const label = a.groupLabel || (a.week ? `Week ${a.week}` : a.type === 'project' ? 'Projects' : 'Other');
+      if (!by.has(label)) by.set(label, { key: label, label, order: a.week ?? 999, items: [] });
+      by.get(label).items.push(a);
+    }
+    return [...by.values()].sort((x, y) => x.order - y.order || x.label.localeCompare(y.label));
+  }, [assignments]);
+  const shownAssignments = asgGroup === 'all' ? assignments
+    : asgGroups.find((g) => g.key === asgGroup)?.items || assignments;
 
   async function removeSession(s) {
     if (!window.confirm(`Remove "${s.title}"? Any attendance recorded for it is removed too.`)) return;
@@ -259,8 +285,20 @@ export default function BatchWorkspace({ batchId, mode }) {
             />
           </>
         )}
+        {sessions.length > 0 && (
+          <div className="list-filter">
+            <label>
+              <span className="muted">Show</span>
+              <select value={sessView} onChange={(e) => setSessView(e.target.value)}>
+                <option value="upcoming">Today &amp; upcoming ({sessCounts.upcoming})</option>
+                <option value="past">Past ({sessCounts.past})</option>
+                <option value="all">All ({sessions.length})</option>
+              </select>
+            </label>
+          </div>
+        )}
         <div className="session-list">
-          {sessions.map((s) => {
+          {shownSessions.map((s) => {
             const d = new Date(s.startsAt);
             return (
               <div key={s._id} className="session-row">
@@ -294,6 +332,9 @@ export default function BatchWorkspace({ batchId, mode }) {
               </div>
             );
           })}
+          {sessions.length > 0 && shownSessions.length === 0 && (
+            <Empty inline icon="webinar" title={sessView === 'upcoming' ? 'No classes ahead.' : 'No past classes yet.'} hint="Pick another view above." />
+          )}
           {sessions.length === 0 && (
             <Empty
               inline
@@ -311,26 +352,49 @@ export default function BatchWorkspace({ batchId, mode }) {
         {canManage && (
           <AssignmentForm onAdd={(body) => act(() => api('/assignments', { method: 'POST', body: { batchId, ...body } }).then(loadAssignments), 'Assignment created')} />
         )}
-        {assignments.map((a) => (
-          <div key={a._id} className="assignment">
-            <div className="assignment-head">
-              <strong>{a.title}</strong>
-              <span className={`badge ${a.type === 'project' ? 'badge-mentor' : ''}`}>{a.type}</span>
-              {a.startDate && <span className="assignment-due"><LineIcon name="clock" size={13} /> Opens {dueLabel(a.startDate)}</span>}
-              {a.dueDate && <span className="assignment-due"><LineIcon name="clock" size={13} /> Due {dueLabel(a.dueDate)}</span>}
-            </div>
-            {(a.requiredDriveTypes || []).length > 0 && (
-              <div className="assignment-reqs">
-                <span className="muted">Requires in Drive folder:</span>
-                {a.requiredDriveTypes.map((t) => (
-                  <span key={t} className="badge badge-muted">{DRIVE_TYPES.find((d) => d.key === t)?.label || t}</span>
-                ))}
-              </div>
-            )}
-            {a.description && <div className="assignment-desc"><Markdown text={a.description} /></div>}
-            {canManage && <Submissions assignmentId={a._id} />}
+        {assignments.length > 0 && (
+          <div className="list-filter">
+            <label>
+              <span className="muted">Show</span>
+              <select value={asgGroup} onChange={(e) => { setAsgGroup(e.target.value); setOpenAsg(''); }}>
+                <option value="all">All ({assignments.length})</option>
+                {asgGroups.map((g) => <option key={g.key} value={g.key}>{g.label} ({g.items.length})</option>)}
+              </select>
+            </label>
+            <span className="muted">Click one to open its brief and submissions.</span>
           </div>
-        ))}
+        )}
+        {shownAssignments.map((a) => {
+          const isOpen = openAsg === a._id;
+          return (
+            <div key={a._id} className={`assignment asg-fold ${isOpen ? 'is-open' : ''}`}>
+              <button type="button" className="assignment-head asg-toggle" onClick={() => setOpenAsg(isOpen ? '' : a._id)} aria-expanded={isOpen}>
+                <strong>{a.title}</strong>
+                <span className={`badge ${a.type === 'project' ? 'badge-mentor' : ''}`}>{a.type}</span>
+                {a.startDate && <span className="assignment-due"><LineIcon name="clock" size={13} /> Opens {dueLabel(a.startDate)}</span>}
+                {a.dueDate && <span className="assignment-due"><LineIcon name="clock" size={13} /> Due {dueLabel(a.dueDate)}</span>}
+                <span className="spacer" />
+                <span className="grade-sum-chev" aria-hidden="true">{isOpen ? '▴' : '▾'}</span>
+              </button>
+              {isOpen && (
+                <>
+                  {(a.requiredDriveTypes || []).length > 0 && (
+                    <div className="assignment-reqs">
+                      <span className="muted">Requires in Drive folder:</span>
+                      {a.requiredDriveTypes.map((t) => (
+                        <span key={t} className="badge badge-muted">{DRIVE_TYPES.find((d) => d.key === t)?.label || t}</span>
+                      ))}
+                    </div>
+                  )}
+                  {a.description && <div className="assignment-desc"><Markdown text={a.description} /></div>}
+                </>
+              )}
+              {/* Submissions stay reachable from the closed row: grading is
+                  the everyday job, the brief is the occasional one. */}
+              {canManage && <Submissions assignmentId={a._id} />}
+            </div>
+          );
+        })}
         {assignments.length === 0 && <Empty inline icon="grades" title="No assignments yet." hint="Set one above. Students submit a Drive folder, which is checked automatically." />}
       </section>
 

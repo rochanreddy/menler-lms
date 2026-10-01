@@ -33,9 +33,9 @@ export default function MaterialsManager({ programId, onClose }) {
   const [program, setProgram] = useState(null);
   const [error, setError] = useState('');
   const [msg, setMsg] = useState('');
-  // Which weeks are unfolded. The first is open on arrival so the page is
-  // never a list of six closed headings; the rest open on tap.
-  const [open, setOpen] = useState(() => new Set([0]));
+  // Which class is on screen. One at a time, picked from a drop-down: a stack
+  // of folding weeks grew into a page you scrolled through to find Tuesday.
+  const [cur, setCur] = useState(0);
 
   useEffect(() => {
     api(`/programs/${programId}`)
@@ -76,7 +76,6 @@ export default function MaterialsManager({ programId, onClose }) {
     flash(`Removed ${material.name || 'the file'}.`);
   }
 
-  const toggle = (mi) => setOpen((s) => { const n = new Set(s); if (n.has(mi)) n.delete(mi); else n.add(mi); return n; });
   const countUnder = (m) => (m.materials || []).length + (m.chapters || []).reduce((k, c) => k + (c.materials || []).length + (c.topics || []).reduce((j, t) => j + (t.materials || []).length, 0), 0);
 
   if (error) return <div className="panel"><Empty icon="programs" title="Couldn’t open this programme." hint={error} /></div>;
@@ -105,21 +104,30 @@ export default function MaterialsManager({ programId, onClose }) {
         <Empty icon="learning" title="This programme has no weeks yet." hint="An admin builds the curriculum under Programs → Manage curriculum; the rows to drop files on appear here once it exists." />
       )}
 
-      {(program.modules || []).map((m, mi) => {
-        const isOpen = open.has(mi);
-        const under = countUnder(m);
+      {(program.modules || []).length > 0 && (() => {
+        const mods = program.modules;
+        const mi = Math.min(cur, mods.length - 1);
+        const m = mods[mi];
         const names = tierNames(m.title);
         return (
-          <section className={`mm-week ${isOpen ? 'open' : ''}`} key={m._id || mi}>
-            <button type="button" className="mm-week-head" onClick={() => toggle(mi)} aria-expanded={isOpen}>
-              <span className="mm-week-chev"><LineIcon name="chevron" size={14} /></span>
-              <span className="mm-week-title">{m.title}</span>
-              <span className="muted mm-week-count">{under === 0 ? 'no files yet' : `${under} ${under === 1 ? 'file' : 'files'}`}</span>
-            </button>
-
-            {isOpen && (
+          <>
+            <div className="list-filter mm-pick">
+              <label>
+                <span className="muted">Class</span>
+                <select value={mi} onChange={(e) => setCur(Number(e.target.value))}>
+                  {mods.map((x, i) => {
+                    const n = countUnder(x);
+                    return <option key={x._id || i} value={i}>{x.title} · {n === 0 ? 'no files yet' : `${n} ${n === 1 ? 'file' : 'files'}`}</option>;
+                  })}
+                </select>
+              </label>
+              <button type="button" className="btn sm ghost" onClick={() => setCur(mi - 1)} disabled={mi === 0} aria-label="Previous class">←</button>
+              <button type="button" className="btn sm ghost" onClick={() => setCur(mi + 1)} disabled={mi === mods.length - 1} aria-label="Next class">→</button>
+            </div>
+            <section className="mm-week open" key={m._id || mi}>
               <div className="mm-week-body">
                 <MaterialRow
+                  key={m._id || mi}
                   kind="week"
                   label={names.top}
                   title={names.topWhole}
@@ -130,10 +138,10 @@ export default function MaterialsManager({ programId, onClose }) {
                   onRemove={(x) => remove({ mi }, x)}
                 />
               </div>
-            )}
-          </section>
+            </section>
+          </>
         );
-      })}
+      })()}
     </div>
   );
 }
