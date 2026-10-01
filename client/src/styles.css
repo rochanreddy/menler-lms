@@ -3231,52 +3231,6 @@ button.ds-slot-email:hover { color: var(--ink); }
 /* The admin's "Post an opening" keeps to one line beside a two-line intro. */
 .jobs .page-head > .ui-btn { flex: none; white-space: nowrap; }
 
-/* ── The board's figures (components/JobStats.jsx) ──
-   Four tiles. The lifetime total leads, on the inverted surface, because it
-   is the one figure nothing else on the page shows; the other three sit on
-   cards. Tokens only. On the admin dashboard it gets a heading and a link. */
-.jstats-wrap { margin-bottom: var(--space-6); }
-.jstats-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); margin-bottom: var(--space-3); }
-.jstats-head .eyebrow { margin: 0; }
-.jstats-link { font-family: var(--font-ui); font-size: var(--text-sm); line-height: var(--leading-sm); font-weight: var(--weight-semibold); color: var(--primary); text-decoration: none; }
-.jstats-link:hover { text-decoration: underline; }
-.jstats-link:focus-visible { outline: none; box-shadow: var(--ring); border-radius: var(--radius-sm); }
-
-.jstats { display: grid; grid-template-columns: minmax(0, 1.35fr) repeat(3, minmax(0, 1fr)); gap: var(--space-3); }
-.jstat {
-  position: relative; min-width: 0; overflow: hidden;
-  padding: var(--space-5) var(--space-5) var(--space-4);
-  border: var(--border-hairline) solid var(--border); border-radius: var(--radius-md);
-  background: var(--card); color: var(--card-foreground); box-shadow: var(--shadow-sm);
-}
-.jstat-label {
-  font-family: var(--font-ui); font-size: var(--text-xs); line-height: var(--leading-xs);
-  font-weight: var(--weight-semibold); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted-foreground);
-}
-.jstat-value {
-  margin-top: var(--space-2); font-family: var(--font-heading); font-size: var(--text-3xl); line-height: var(--leading-3xl);
-  font-weight: var(--weight-semibold); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; color: var(--foreground);
-}
-.jstat-note { margin-top: var(--space-1); font-family: var(--font-ui); font-size: var(--text-xs); line-height: var(--leading-xs); color: var(--muted-foreground); }
-
-.jstat.is-lead { background: var(--surface-inverted); border-color: var(--surface-inverted); box-shadow: var(--shadow-md); }
-.jstat.is-lead .jstat-value { color: var(--surface-inverted-foreground); }
-.jstat.is-lead .jstat-label, .jstat.is-lead .jstat-note { color: var(--surface-inverted-foreground); opacity: 0.72; }
-/* A soft disc of the brand colour in the corner, so the lead tile reads as
-   the headline without a louder number. */
-.jstat.is-lead::after {
-  content: ''; position: absolute; pointer-events: none;
-  width: calc(var(--space-12) * 3); height: calc(var(--space-12) * 3);
-  right: calc(var(--space-12) * -1.2); top: calc(var(--space-12) * -1.4);
-  border-radius: var(--radius-pill); background: var(--primary); opacity: 0.45;
-}
-.jstat.is-lead > * { position: relative; z-index: 1; }
-
-.jstat.is-loading { min-height: calc(var(--space-12) * 2.5); background: var(--surface-muted); border-color: var(--border); box-shadow: none; animation: jstat-pulse var(--duration-shimmer) var(--ease) infinite; }
-.jstat.is-loading::after { display: none; }
-@keyframes jstat-pulse { 50% { opacity: 0.55; } }
-@media (prefers-reduced-motion: reduce) { .jstat.is-loading { animation: none; } }
-
 .jobs-pager { display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: 24px; }
 .jobs-pager span { font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
 
@@ -3316,15 +3270,6 @@ button.ds-slot-email:hover { color: var(--ink); }
   .job-apply { flex: 1; max-width: none; min-width: 0; padding: var(--space-3) var(--space-5); font-size: var(--text-sm); }
   .jobs-post-grid { grid-template-columns: minmax(0, 1fr); }
 
-  /* The figures two by two, every tile the same height, notes dropped: at
-     half a phone the labels say enough. The lead keeps its dark tile. */
-  .jstats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); }
-  .jstats-wrap { margin-bottom: var(--space-4); }
-  .jstat, .jstat.is-lead { padding: var(--space-3) var(--space-4); border-radius: var(--radius-sm); }
-  .jstat-value { margin-top: var(--space-1); font-size: var(--text-xl); line-height: var(--leading-xl); }
-  .jstat-note { display: none; }
-  .jstat.is-lead::after { width: calc(var(--space-12) * 1.6); height: calc(var(--space-12) * 1.6); right: calc(var(--space-6) * -1); top: calc(var(--space-6) * -1); }
-  .jstat.is-loading { min-height: calc(var(--space-12) * 1.5); }
 
   /* Search on its own row, the four dropdowns two by two beneath it. */
   .jobs-bar { gap: var(--space-2); }

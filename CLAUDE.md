@@ -753,15 +753,7 @@ rule without a network or database.
 
 The shortlist is cached for ten minutes: the feed changes once a day, and a
 student paging through fifteen pages should see one consistent list. The admin's
-hand-posted openings lead page one and **count toward the 750**.
-
-**The figures over the board** ([JobStats.jsx](client/src/components/JobStats.jsx),
-`GET /jobs/stats`, also on the admin dashboard): jobs collected since the
-pipeline began, live now, new in the last run, and how many are on this board
-from how many companies. "Collected" cannot be counted from the feed, because
-the pipeline deletes rows sixty days past posting; it reads the running total
-the pipeline keeps in `pipeline_stats`, and never shows less than what is
-stored. Each card
+hand-posted openings lead page one and **count toward the 750**. Each card
 says why it made the list (`rankReasons`), and its Apply button is the
 card's `row-link`, so the whole card opens the posting. Only http(s) is ever
 rendered as an href or an `<img src>`, and `POST /jobs` refuses any other

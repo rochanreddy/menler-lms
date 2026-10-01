@@ -2,7 +2,6 @@ import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 're
 import { useOutletContext } from 'react-router-dom';
 import { api } from '../api.js';
 import Empty from '../components/Empty.jsx';
-import JobStats from '../components/JobStats.jsx';
 import { Alert, Button, Checkbox, Input, Select, Skeleton, Textarea } from '../components/ui/index.js';
 
 // The job board. Students and admins read the same list; only the admin can
@@ -13,8 +12,7 @@ import { Alert, Button, Checkbox, Input, Select, Skeleton, Textarea } from '../c
 // product, founder's office, freelance and non-tech roles sit beside the AI
 // ones - and this page is those 750, fifty to a page. Every filter narrows
 // within them. A board of 35,000 is a search engine; a student finishing the
-// course needs an editor. The figures above it (components/JobStats.jsx) say
-// how much it was chosen from.
+// course needs an editor.
 //
 // Each card says why it made the list ("internship · Bengaluru · direct
 // apply · matches claude"), because a curated list nobody can account for
@@ -358,8 +356,6 @@ export default function Jobs() {
           <Button onClick={() => setPostOpen(true)}>Post an opening</Button>
         )}
       </div>
-
-      <JobStats isAdmin={isAdmin} />
 
       {isAdmin && postOpen && (
         <PostOpening
