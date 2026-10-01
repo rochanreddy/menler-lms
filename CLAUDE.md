@@ -705,9 +705,9 @@ openings live in `lms_job_postings` instead, so a bug here cannot damage data
 Skeo also reads. Unset, the tab shows hand-posted openings and says the feed
 is not connected; nothing else is affected.
 
-**It is 300 jobs, not the feed.** The feed holds ~25,000 live listings; Skeo
-shows all of them. Menler shows the 300 that best fit what it teaches, fifty
-a page, and every filter narrows *within* the 300 rather than reaching back
+**It is 750 jobs, not the feed.** The feed holds ~35,000 live listings; Skeo
+shows all of them. Menler shows the 750 that best fit what it teaches, fifty
+a page, and every filter narrows *within* the 750 rather than reaching back
 into the rest. [utils/jobShortlist.js](server/utils/jobShortlist.js) picks them:
 
 - **Syllabus first.** The pipeline stores four scores per job. Skeo sorts on
@@ -715,10 +715,23 @@ into the rest. [utils/jobShortlist.js](server/utils/jobShortlist.js) picks them:
   entry-level customer-service walk-in above an AI automation role. Menler
   recombines the same four with relevance at 0.45. Nothing is recomputed from
   text, so it can never disagree with the pipeline about a posting.
-- **Gates, then exclusions.** Relevance ≥ 30, indiaFit ≥ 40, achievability ≥
-  30 and at least one syllabus term matched: ~856 of 25,000 pass, so the 300
-  are picked from nearly three times as many. Then out go titles needing a
-  foreign language ("Spanish Search Quality Rater"), titles that are only a
+- **Lanes, so it is not all AI.** It was once 300 on one relevance gate, and
+  came out nearly all AI and ML: the syllabus vocabulary is AI vocabulary, so
+  a product manager or a founder's office intern scores low however good a
+  first job it is (4 and 18 cleared the gate, against 539 AI roles). Now each
+  kind of job has a lane (`LANES`) with a share of the 750 and its own
+  relevance bar: AI 30% at relevance 30 plus a matched term, freelance 15%,
+  product and founder's office 8% each with no bar (their titles decide),
+  then full stack, data, design, marketing, content at 15 and sales and
+  operations at 10. Inside a lane the Menler score still orders, so the
+  AI-flavoured marketing role beats the plain one; an explicit lane title
+  ("Founder's Office Intern", "Associate Product Manager") gets +15. A lane
+  short of its share is topped up from the best of the rest, and the lanes
+  are interleaved so page one is a cross-section, not the top of one lane.
+- **Gates, then exclusions.** indiaFit ≥ 40 and achievability ≥ 30 for every
+  lane. Then out go titles needing a foreign language ("Spanish Search
+  Quality Rater"), senior titles the score missed ("AVP", "Director", "Head
+  of"), adult, betting and deepfake gigs, titles that are only a
   topic ("generative AI"), and non-Indian roles whose location names a place
   (`isTiedAbroad`). That last one mattered most: 61 of the first 300 were
   "remote" with a location of "Portland, OR, US" or "Hong Kong, Singapore,
@@ -729,15 +742,26 @@ into the rest. [utils/jobShortlist.js](server/utils/jobShortlist.js) picks them:
   job, kept at its best score. At most five per employer, with all unnamed
   employers sharing one cap, because the raw top 300 gave 45 slots to listings
   naming no employer. Those also lose eight points: a student cannot check who
-  they would work for, so one should not open the board.
+  they would work for, so one should not open the board. The exception is a
+  marketplace (`MARKETPLACES`): a Freelancer.com gig never names its client,
+  so each gig is its own employer, carries no penalty, and its card says
+  "Client on Freelancer.com". Without that, 3,000 gigs shared five slots.
 
-Measured after all of it: 296 of 300 in India, every one with an http(s)
-apply link, page one entirely named Indian employers. `npm run test:jobs`
-covers every rule without a network or database.
+Measured after all of it: 636 of 750 in India, 114 freelance, 566 employers,
+AI 300 of 750, page one spanning ten domains. `npm run test:jobs` covers every
+rule without a network or database.
 
 The shortlist is cached for ten minutes: the feed changes once a day, and a
-student paging through six pages should see one consistent list. The admin's
-hand-posted openings lead page one and **count toward the 300**. Each card
+student paging through fifteen pages should see one consistent list. The admin's
+hand-posted openings lead page one and **count toward the 750**.
+
+**The figures over the board** ([JobStats.jsx](client/src/components/JobStats.jsx),
+`GET /jobs/stats`, also on the admin dashboard): jobs collected since the
+pipeline began, live now, new in the last run, and how many are on this board
+from how many companies. "Collected" cannot be counted from the feed, because
+the pipeline deletes rows sixty days past posting; it reads the running total
+the pipeline keeps in `pipeline_stats`, and never shows less than what is
+stored. Each card
 says why it made the list (`rankReasons`), and its Apply button is the
 card's `row-link`, so the whole card opens the posting. Only http(s) is ever
 rendered as an href or an `<img src>`, and `POST /jobs` refuses any other
