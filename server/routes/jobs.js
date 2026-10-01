@@ -19,6 +19,7 @@ import {
   curate,
   applyFilters,
   facetCounts,
+  displayCompany,
 } from '../utils/jobShortlist.js';
 
 const router = Router();
@@ -26,10 +27,10 @@ const router = Router();
 // The job board: Students and admins. Mentors get no tab - they are not job
 // hunting, and a board a student reads is not one a mentor needs to police.
 //
-// Not the whole feed. utils/jobShortlist.js picks the 300 postings that best
-// fit what Menler teaches, and the board is those 300 - six pages of fifty -
-// with every filter narrowing within them rather than reaching back into the
-// 25,000 behind. See that file for how the 300 are chosen.
+// Not the whole feed. utils/jobShortlist.js picks the 750 postings that best
+// fit what Menler teaches, lane by lane, and the board is those 750 - fifteen
+// pages of fifty - with every filter narrowing within them rather than
+// reaching back into the 35,000 behind. See that file for how they are chosen.
 
 /** A job shows for its first FRESH_DAYS days. Mirrors the pipeline and Skeo. */
 export const FRESH_DAYS = 10;
@@ -43,7 +44,7 @@ const freshSince = () => new Date(Date.now() - FRESH_DAYS * DAY_MS);
  *
  * The feed changes once a day, when the pipeline runs at 6 am, so recomputing
  * on every page flip would be work for nothing. Ten minutes means a student
- * paging through six pages sees one consistent list, and a fresh morning run
+ * paging through fifteen pages sees one consistent list, and a fresh morning run
  * is on the board within ten minutes of landing.
  */
 const CACHE_MS = 10 * 60 * 1000;
@@ -124,7 +125,8 @@ export function isHttpUrl(value) {
 const shapeScraped = (job) => ({
   id: String(job._id),
   title: job.title,
-  company: job.company,
+  // A Freelancer.com gig names no client, so the card names the marketplace.
+  company: displayCompany(job),
   // Only an http(s) logo reaches an <img src>. The pipeline already filters,
   // and this is the second check on a string that came from a third party.
   companyLogo: isHttpUrl(job.companyLogo) ? job.companyLogo : null,
@@ -136,7 +138,7 @@ const shapeScraped = (job) => ({
   workType: job.workType || 'unspecified',
   experienceLevel: job.experienceLevel || 'unspecified',
   postedAt: job.postedAt || job.fetchedAt || null,
-  // Why it made the 300 - "internship · Bengaluru · direct apply · matches
+  // Why it made the 750 - "internship · Bengaluru · direct apply · matches
   // claude". Without it a curated list looks like an arbitrary one.
   reasons: job.rankReasons?.length ? job.rankReasons : job.matchedSkills || [],
   description: '',
@@ -167,7 +169,7 @@ router.get('/', requireAuth, requireRole('student', 'admin'), async (req, res) =
 
   // The team's own postings lead. There are a handful of them, and they are
   // the ones somebody chose to put in front of these particular students. They
-  // count toward the 300, so the board never grows past it.
+  // count toward the 750, so the board never grows past it.
   const manualRows = await JobPosting.find({ postedAt: { $gte: freshSince() } })
     .sort({ postedAt: -1 })
     .limit(50)
