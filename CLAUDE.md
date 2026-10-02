@@ -163,10 +163,10 @@ showed the WEEK's ebook — harmless while it said "Reading material",
 a lie the moment it says "Assignment brief". **A piece of work therefore
 never resolves upwards**: its own file, plus the chapter's where the
 chapter IS the work, and otherwise nothing. `No brief yet` is the honest
-answer, and the four Kickstarter portfolio projects give it, because
-`CURRICULUM_PDF_RULES` has no file for them. The same reasoning already
-kept the session's materials off an assignment; projects are now in that
-exception too.
+answer where a node has nothing, which is where the Generalist weeks past
+the last authored ebook still sit. The same reasoning already kept the
+session's materials off an assignment; projects are now in that exception
+too.
 
 **The same two chips are on the Assignments & Projects tab.** The brief
 and the solution book are attached to the *curriculum* node while the
@@ -179,10 +179,17 @@ matches an Assignment to its curriculum node **by title** — which is what
 and hangs `briefUrl`, `solutionUrl` and `materials` on the row as it goes
 out. Resolved at read time, never copied onto the row: the media is the
 admin's and changes in the curriculum editor whenever they like, and a
-snapshot would go stale without anyone re-running a script. A card with
-neither shows no chips at all — unlike the reader, where the chips are the
-lesson's only furniture, the brief is written out on the card regardless,
-and a permanently dead pair of chips teaches people to ignore chips.
+snapshot would go stale without anyone re-running a script.
+
+**Both chips show even with nothing behind them**, greyed, exactly as the
+reader's do. The card used to drop the row when a piece of work had no PDF,
+on the reasoning that a dead chip teaches people to ignore chips. That was
+wrong: the four Kickstarter portfolio projects carried no file on the
+lesson, none on the chapter, and a project never climbs to the session
+ebook — so their cards showed no row at all, and the absence read as a
+feature that had not been built rather than as a file nobody had uploaded.
+`No project brief yet` is a fact a student can act on and an admin can act
+on. The fix is always a PDF on the node, never a fallback.
 
 [server/assets/curriculum-pdfs/](server/assets/curriculum-pdfs/) holds the
 ebooks that ship with the repo, committed so a seed is reproducible off one
@@ -191,9 +198,18 @@ laptop. `CURRICULUM_PDF_RULES` in
 title prefix — optionally a session or a lesson prefix inside it — to its PDF;
 the seed loads each into Mongo once (keyed on the content hash, so re-seeding
 never duplicates a blob or moves a URL) and attaches it there if the slot is
-empty. A lesson rule carries two files: the one-page assignment brief as
-reading material and the solution book as teacher notes (Kickstarter has one
-per session, on every `Assignment:` lesson of that session). A rule-mapped file lives
+empty. A lesson rule carries two files — the brief as reading material and
+the solution book as teacher notes. Kickstarter has one assignment pair per
+session, landing on every `Assignment:` lesson in it, and one pair per
+portfolio project, landing on its `Pnn · …` lesson. **The project rules match
+on the number alone**, because each PDF's own header declares it
+("PROJECT 01 INSTRUCTIONS") while the words after the number no longer agree
+with the tree: P01 is "Personal Research Agent" on the PDF against "Personal
+AI Operating System" in `curricula.js`, and the four date themselves Day 5 /
+7 / 9 / 10 against a four-session course. The files are attached and the copy
+is left alone on purpose — renaming a lesson retires it and its progress (see
+**Lesson ids are load-bearing**), so reconciling the two is a decision for
+whoever owns the curriculum. A rule-mapped file lives
 only where its rule puts it — a copy anywhere else is cleared — while files no
 rule knows about are never touched. Nodes with no rule keep an empty slot,
 which the lesson UI renders honestly as "No reading yet".

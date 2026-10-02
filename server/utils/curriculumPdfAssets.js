@@ -42,6 +42,24 @@ export const CURRICULUM_PDF_RULES = {
     { module: 'S02', lesson: 'Assignment:', file: 'Menler-Kickstarter-S2-Assignment1.pdf', notes: 'Menler-Kickstarter-S2-Assignment1-Solution-Book.pdf' },
     { module: 'S03', lesson: 'Assignment:', file: 'Menler-Kickstarter-S3-Assignment1.pdf', notes: 'Menler-Kickstarter-S3-Assignment1-Solution-Book.pdf' },
     { module: 'S04', lesson: 'Assignment:', file: 'Menler-Kickstarter-S4-Assignment1.pdf', notes: 'Menler-Kickstarter-S4-Assignment1-Solution-Book.pdf' },
+    // The four portfolio projects, one brief and one reference build each —
+    // instructions as the project brief, solution as the project solution.
+    // Keyed on the Pnn prefix, which is what each PDF's own header declares
+    // ("PROJECT 01 INSTRUCTIONS"); the lesson's words after it are the
+    // curriculum's and the two no longer agree (see the note below), so the
+    // number is the only thing safe to match on. The module is named because
+    // a rule has to name one — P01 and P02 are both lessons of S02.
+    { module: 'S02', lesson: 'P01', file: 'Menler-Kickstarter-P01-Personal-Research-Agent-Instructions.pdf', notes: 'Menler-Kickstarter-P01-Personal-Research-Agent-Solution.pdf' },
+    { module: 'S02', lesson: 'P02', file: 'Menler-Kickstarter-P02-Study-Planner-Agent-Instructions.pdf', notes: 'Menler-Kickstarter-P02-Study-Planner-Agent-Solution.pdf' },
+    { module: 'S03', lesson: 'P03', file: 'Menler-Kickstarter-P03-Content-Engine-Instructions.pdf', notes: 'Menler-Kickstarter-P03-Content-Engine-Solution.pdf' },
+    { module: 'S04', lesson: 'P04', file: 'Menler-Kickstarter-P04-Automation-Suite-Instructions.pdf', notes: 'Menler-Kickstarter-P04-Automation-Suite-Solution.pdf' },
+    // NOTE: these four PDFs describe a NEWER Kickstarter than curricula.js
+    // holds. The numbers line up, the names do not: P01 is "Personal Research
+    // Agent" on the PDF against "Personal AI Operating System" in the tree,
+    // and the PDFs date themselves Day 5 / 7 / 9 / 10 against a four-session
+    // course. Nothing here guesses at that — renaming a lesson retires it and
+    // its progress (see "Lesson ids are load-bearing"), so the curriculum copy
+    // is a decision for whoever owns it, not a side effect of attaching a file.
   ],
   Generalist: [
     // The week ebook on the week, a session ebook on each session, and the

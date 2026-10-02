@@ -141,29 +141,35 @@ export default function AssignmentCard({ a, onChange, onSubmissionChange, defaul
     if (opensInReader(it.url)) setViewer({ label: L.notes, subtitle: it.name === L.notes ? a.title : it.name, url: it.url });
     else window.open(it.url, '_blank', 'noopener');
   };
-  // Nothing attached, nothing shown. Unlike the reader — where the chips are
-  // the lesson's only furniture and a missing one reads as a missing file —
-  // the brief is already written out on this card, so a permanently dead pair
-  // of chips on every row would be chrome that teaches people to ignore chips.
-  const files = (a.briefUrl || solutions.length) ? (
+  // Both chips always, greyed when there is nothing on the node — the same
+  // honesty the reader's chips keep. Hiding the row when a piece of work had
+  // no PDF was the wrong call: the four Kickstarter portfolio projects carry
+  // none, so their cards showed no row at all, and nobody could tell a brief
+  // that was missing from a brief the screen had never been built to show.
+  // A greyed chip says which, and says it to the admin too.
+  const files = (
     <div className="work-files">
-      {a.briefUrl && (
-        <button type="button" className="wchip" onClick={() => setViewer({ label: L.reading, subtitle: a.title, url: a.briefUrl })}>
-          <LessonIcon type="pdf" size={14} /> {L.reading}
-        </button>
-      )}
-      {solutions.length > 0 && (
-        <button
-          type="button"
-          className="wchip"
-          onClick={() => (solutions.length === 1 ? openSolution(solutions[0]) : setPicker(true))}
-        >
-          <LineIcon name="slides" size={14} /> {solutions.length === 1 ? L.notes : `${solutions.length} ${L.notesMany}`}
-          {solutions.length > 1 && <span className="rchip-caret" aria-hidden="true"><LineIcon name="chevron" size={12} /></span>}
-        </button>
-      )}
+      <button
+        type="button"
+        className="wchip"
+        disabled={!a.briefUrl}
+        title={a.briefUrl ? undefined : `Your mentor hasn’t attached the ${L.reading.toLowerCase()} for this yet`}
+        onClick={() => setViewer({ label: L.reading, subtitle: a.title, url: a.briefUrl })}
+      >
+        <LessonIcon type="pdf" size={14} /> {a.briefUrl ? L.reading : L.noReading}
+      </button>
+      <button
+        type="button"
+        className="wchip"
+        disabled={!solutions.length}
+        title={solutions.length ? undefined : `Your mentor hasn’t attached the ${L.notes.toLowerCase()} for this yet`}
+        onClick={() => (solutions.length === 1 ? openSolution(solutions[0]) : setPicker(true))}
+      >
+        <LineIcon name="slides" size={14} /> {solutions.length === 0 ? L.noNotes : solutions.length === 1 ? L.notes : `${solutions.length} ${L.notesMany}`}
+        {solutions.length > 1 && <span className="rchip-caret" aria-hidden="true"><LineIcon name="chevron" size={12} /></span>}
+      </button>
     </div>
-  ) : null;
+  );
 
   // The one line of timing that matters for this state.
   let when = null;

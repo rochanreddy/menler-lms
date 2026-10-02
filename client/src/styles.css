@@ -1131,6 +1131,12 @@ a:focus-visible,
 .wchip:hover { border-color: var(--line-strong); color: var(--ink); }
 .wchip:hover svg { color: var(--ink-2); }
 .wchip:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(175,169,236,.35); }
+/* Nothing attached yet. Dashed and unpressable, like the reader's chips —
+   "No project brief yet" is a fact a student can act on (come back later)
+   and an admin can act on (upload it); a row that simply isn't there is not. */
+.wchip:disabled { background: transparent; border-style: dashed; border-color: var(--line); color: var(--muted); cursor: not-allowed; font-weight: 600; }
+.wchip:disabled svg { color: var(--line-strong); }
+.wchip:disabled:hover { border-color: var(--line); color: var(--muted); }
 
 /* Quiz card: ring, title, one action. */
 .quiz-card.qc { padding: 16px 20px 16px 18px; border-left: 3px solid var(--line); }
