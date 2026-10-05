@@ -282,6 +282,19 @@ export const removeDoubtAttachment = (sessionId, attachmentId) =>
 
 // Curriculum PDF from the admin editor → stored in Mongo, up to 15 MB.
 export const uploadCurriculumPdf = (file) => postFile('/uploads', file, { kind: 'curriculum-pdf' });
+// A teacher note in any format the server takes (see storeCurriculumFile):
+// the editor's "More teacher notes" list. The ebook and notes slots stay PDF.
+export const uploadCurriculumFile = (file) => postFile('/uploads', file, { kind: 'curriculum-file' });
+
+// What a teacher-notes picker offers, and the client's first check on a drop.
+// The server reads the bytes and has the last word; this only saves a
+// mentor uploading a .zip to be told so.
+export const TEACHER_NOTES_ACCEPT =
+  '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.md,.txt,.csv,.json,.ipynb,.py,.js,.ts,.sql,.log,.png,.jpg,.jpeg,.gif,.webp';
+const TEACHER_NOTES_EXT = new Set(TEACHER_NOTES_ACCEPT.split(','));
+export const isTeacherNoteFile = (f) => TEACHER_NOTES_EXT.has((/\.[^.]+$/.exec(f?.name || '')?.[0] || '').toLowerCase());
+export const TEACHER_NOTES_REFUSAL =
+  'Add a PDF, a Word, Excel or PowerPoint file, an image, or a text file (Markdown, CSV, code, notebooks).';
 
 // A resume field holds either a link the user pasted or a file we stored. Only
 // the second kind needs a token to read, so the two render differently.

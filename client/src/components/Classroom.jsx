@@ -3,7 +3,7 @@ import CertificateModal from './CertificateModal.jsx';
 import { useOutletContext, useSearchParams } from 'react-router-dom';
 import { api, getLessonVideos, getLessonVideoOtp } from '../api.js';
 import FileViewer from './FileViewer.jsx';
-import ReadingPicker, { opensInReader } from './ReadingPicker.jsx';
+import ReadingPicker, { openOutside, opensInReader } from './ReadingPicker.jsx';
 import Markdown from './Markdown.jsx';
 import LessonIcon from './LessonIcon.jsx';
 import LineIcon from './LineIcon.jsx';
@@ -404,8 +404,8 @@ export default function Classroom() {
   // is not a PDF goes to a new tab rather than into the reader.
   const openNote = (it, subtitle, label = 'Teacher Notes') => {
     setPicker(null);
-    if (opensInReader(it.url)) setViewer({ label, subtitle: it.name === label ? subtitle : it.name, url: it.url });
-    else window.open(it.url, '_blank', 'noopener');
+    if (opensInReader(it.url, it.name)) setViewer({ label, subtitle: it.name === label ? subtitle : it.name, url: it.url });
+    else openOutside(it);
   };
   // `kind` renames the two PDF chips where the lesson is a piece of work —
   // see materialLabels(). Everything else about the row is the same.

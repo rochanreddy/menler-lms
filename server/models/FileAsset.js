@@ -23,7 +23,7 @@ const fileAssetSchema = new mongoose.Schema(
     mimeType: { type: String, default: 'application/octet-stream' },
     size: { type: Number, required: true },
     ownerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
-    kind: { type: String, enum: ['resume', 'curriculum-pdf', 'mail-attachment', 'doubt-attachment'], default: 'resume', index: true },
+    kind: { type: String, enum: ['resume', 'curriculum-pdf', 'curriculum-file', 'mail-attachment', 'doubt-attachment'], default: 'resume', index: true },
 
     // SHA-256 of `data`, so the same file uploaded twice is stored once.
     // Course material is the case that needs it: one 750 KB ebook attached to

@@ -4,7 +4,9 @@ import multer from 'multer';
 import { requireAuth } from '../middleware/auth.js';
 import { FileAsset } from '../models/FileAsset.js';
 import { sha256 } from '../utils/curriculumPdfAssets.js';
-import { MAX_CURRICULUM_BYTES, isPdfUpload, storeCurriculumPdf } from '../utils/curriculumFiles.js';
+import {
+  CURRICULUM_FILE_REFUSAL, MAX_CURRICULUM_BYTES, curriculumFileType, isPdfUpload, storeCurriculumFile, storeCurriculumPdf,
+} from '../utils/curriculumFiles.js';
 
 // Resume upload + read-back, and curriculum PDFs from the admin editor.
 // Bytes go to Mongo (see models/FileAsset.js), never to disk, and they are
@@ -33,7 +35,10 @@ const safeName = (s) => String(s || 'file').replace(/[^\w.\- ]+/g, '_').slice(0,
 const router = Router();
 
 // POST /api/lms/uploads  (multipart, field "file", optional field "kind")
-// kind=curriculum-pdf → admin/mentor only, PDF only, up to 15 MB.
+// kind=curriculum-pdf → admin/mentor only, PDF only, up to 15 MB (the ebook
+//   and notes slots, which open in the PDF reader).
+// kind=curriculum-file → admin/mentor only, any teacher-notes type, 15 MB
+//   (the editor's "More teacher notes" list).
 // Default → resume, PDF/Word, up to 5 MB.
 // Returns a ROOT-RELATIVE url. Nothing host-shaped is ever persisted, so the
 // stored value survives a domain change and can't be written as http:// by a
@@ -48,13 +53,14 @@ router.post('/', requireAuth, (req, res) => {
     }
     if (!req.file) return res.status(400).json({ error: 'No file uploaded.' });
 
-    const kind = req.body?.kind === 'curriculum-pdf' ? 'curriculum-pdf' : 'resume';
+    const kind = ['curriculum-pdf', 'curriculum-file'].includes(req.body?.kind) ? req.body.kind : 'resume';
 
-    if (kind === 'curriculum-pdf') {
+    if (kind === 'curriculum-pdf' || kind === 'curriculum-file') {
       if (!['admin', 'mentor'].includes(req.user.role)) {
         return res.status(403).json({ error: 'Not allowed.' });
       }
-      if (!isPdfUpload(req.file)) return res.status(415).json({ error: 'Only PDF files are accepted.' });
+      if (kind === 'curriculum-pdf' && !isPdfUpload(req.file)) return res.status(415).json({ error: 'Only PDF files are accepted.' });
+      if (kind === 'curriculum-file' && !curriculumFileType(req.file)) return res.status(415).json({ error: CURRICULUM_FILE_REFUSAL });
     } else {
       const okType = RESUME_TYPES.has(req.file.mimetype) || RESUME_EXT.test(req.file.originalname || '');
       if (!okType) return res.status(415).json({ error: 'Only PDF and Word documents are accepted.' });
@@ -69,8 +75,9 @@ router.post('/', requireAuth, (req, res) => {
       // reuses the stored bytes when the hash matches. Resumes are personal
       // and stay per-owner: two people submitting an identical file must not
       // end up sharing a document either of them can later replace.
-      if (kind === 'curriculum-pdf') {
-        const stored = await storeCurriculumPdf(req.file, req.user._id);
+      if (kind === 'curriculum-pdf' || kind === 'curriculum-file') {
+        const store = kind === 'curriculum-pdf' ? storeCurriculumPdf : storeCurriculumFile;
+        const stored = await store(req.file, req.user._id);
         return res.status(stored.reused ? 200 : 201).json(stored);
       }
 
@@ -91,8 +98,8 @@ router.post('/', requireAuth, (req, res) => {
 });
 
 // GET /api/lms/uploads/:id
-// Resumes: owner or admin. Curriculum PDFs: any signed-in user (course
-// material). Doubt attachments: owner or admin. Mail attachments: admin.
+// Resumes: owner or admin. Curriculum PDFs and files: any signed-in user
+// (course material). Doubt attachments: owner or admin. Mail attachments: admin.
 router.get('/:id', requireAuth, async (req, res) => {
   if (!mongoose.isValidObjectId(req.params.id)) return res.status(404).json({ error: 'Not found.' });
 

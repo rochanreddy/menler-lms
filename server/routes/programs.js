@@ -6,15 +6,15 @@ import { Program } from '../models/Program.js';
 import { User } from '../models/User.js';
 import { Batch } from '../models/Batch.js';
 import { parseDocToModules } from '../utils/docparse.js';
-import { MAX_CURRICULUM_BYTES, isPdfUpload, storeCurriculumPdf } from '../utils/curriculumFiles.js';
+import { CURRICULUM_FILE_REFUSAL, MAX_CURRICULUM_BYTES, curriculumFileType, storeCurriculumFile } from '../utils/curriculumFiles.js';
 
 const router = Router();
 
 // In-memory upload for doc import (we parse the buffer, we don't store the file).
 const importUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 15 * 1024 * 1024 } });
-// Reading materials pushed onto a week, session or lesson: several PDFs in
-// one go, each stored through the same hash-deduped store as the editor's
-// single drop.
+// Teacher notes pushed onto a week, session or lesson: several files in one
+// go — PDF, Office, Markdown, images (see storeCurriculumFile) — each stored
+// through the same hash-deduped store as the editor's single drop.
 const MAX_MATERIALS_PER_PUSH = 20;
 const materialUpload = multer({
   storage: multer.memoryStorage(),
@@ -165,7 +165,8 @@ function findNode(program, { moduleId, chapterId, topicId } = {}) {
 // /uploads/… paths are ours and fine; anything else must be http(s).
 const isOpenableLink = (u) => /^https?:\/\/\S+$/i.test(u) || /^\/uploads\/[a-f0-9]{24}$/i.test(u);
 
-// POST /api/lms/programs/:id/materials — multipart: files[] (PDFs, up to 20),
+// POST /api/lms/programs/:id/materials — multipart: files[] (up to 20; PDF,
+// Word, Excel, PowerPoint, images, text — whatever storeCurriculumFile takes),
 // moduleId, chapterId?, topicId?, kind ('notes' default | 'resource'), and
 // optionally url + name for a link instead of (or as well as) files.
 // Returns the node's full list.
@@ -185,15 +186,18 @@ router.post('/:id/materials', requireAuth, requireRole('admin', 'mentor'), (req,
     const files = req.files || [];
     const link = String(req.body?.url || '').trim();
     const kind = req.body?.kind === 'resource' ? 'resource' : 'notes';
-    if (!files.length && !link) return res.status(400).json({ error: 'Nothing to add: choose at least one PDF or paste a link.' });
-    const notPdf = files.find((f) => !isPdfUpload(f));
-    if (notPdf) return res.status(415).json({ error: `${notPdf.originalname || 'That file'} is not a PDF. Only PDF files are accepted.` });
+    if (!files.length && !link) return res.status(400).json({ error: 'Nothing to add: choose at least one file or paste a link.' });
+    // Every file is read before any is stored, so one bad file in a drop of
+    // five refuses the drop rather than leaving four of them half-added.
+    const types = files.map(curriculumFileType);
+    const refused = files.find((_, i) => !types[i]);
+    if (refused) return res.status(415).json({ error: `${refused.originalname || 'That file'} can't be added. ${CURRICULUM_FILE_REFUSAL}` });
     if (link && !isOpenableLink(link)) return res.status(400).json({ error: 'That link must start with https://.' });
 
     try {
       let added = 0;
-      for (const f of files) {
-        const { url, name } = await storeCurriculumPdf(f, req.user._id);
+      for (const [i, f] of files.entries()) {
+        const { url, name } = await storeCurriculumFile(f, req.user._id, types[i]);
         // The same file pushed twice onto the same node is one entry.
         if (node.materials.some((x) => x.url === url)) continue;
         node.materials.push({ url, name, kind, addedBy: req.user._id });

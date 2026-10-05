@@ -5,7 +5,7 @@ import Markdown from './Markdown.jsx';
 import LineIcon from './LineIcon.jsx';
 import LessonIcon from './LessonIcon.jsx';
 import FileViewer from './FileViewer.jsx';
-import ReadingPicker, { opensInReader } from './ReadingPicker.jsx';
+import ReadingPicker, { openOutside, opensInReader } from './ReadingPicker.jsx';
 import { materialLabels } from '../features.js';
 import { CheckBadge, SubmissionCheckPanel } from './SubmissionCheck.jsx';
 import { loadStudentGrades } from '../nav.jsx';
@@ -138,8 +138,8 @@ export default function AssignmentCard({ a, onChange, onSubmissionChange, defaul
   }
   const openSolution = (it) => {
     setPicker(null);
-    if (opensInReader(it.url)) setViewer({ label: L.notes, subtitle: it.name === L.notes ? a.title : it.name, url: it.url });
-    else window.open(it.url, '_blank', 'noopener');
+    if (opensInReader(it.url, it.name)) setViewer({ label: L.notes, subtitle: it.name === L.notes ? a.title : it.name, url: it.url });
+    else openOutside(it);
   };
   // Both chips always, greyed when there is nothing on the node — the same
   // honesty the reader's chips keep. Hiding the row when a piece of work had

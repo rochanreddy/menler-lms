@@ -122,8 +122,16 @@ on a row, each drop saved at once
 through `POST /programs/:id/materials` (multipart `files[]` + `moduleId` /
 `chapterId` / `topicId`, or `url`+`name` for a link) and taken down with
 `DELETE /programs/:id/materials/:mid`. Both need `canEditProgram`, both go
-through the same hash-deduped store as the editor's single drop, and every
-upload is checked for the `%PDF-` header, not just its declared type. The
+through the same hash-deduped store as the editor's single drop. **Materials
+are not PDF-only**: a deck, a spreadsheet, a Markdown handout go up as they
+are (`storeCurriculumFile` in
+[utils/curriculumFiles.js](server/utils/curriculumFiles.js)), on the doubt
+attachments' rule — the bytes decide the type, Office files with macros are
+refused, text must be real UTF-8 — and a non-PDF is its own `FileAsset` kind
+(`curriculum-file`), saved under the extension its bytes deserve. That name
+is what `opensInReader(url, name)` reads on the client: a PDF goes to the
+reader, text and images open in a tab, Office files download. The ebook and
+the single notes slot stay PDF, because they open straight into the reader. The
 full curriculum editor is still there for the admin, with the same list on
 each node as **More teacher notes**, saved with the tree. `seed:content`
 carries `materials` across a re-author the way it carries the ebook.

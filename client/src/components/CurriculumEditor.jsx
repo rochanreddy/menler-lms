@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { api, postFile, uploadCurriculumPdf, isStoredFile, getLessonVideos, setLessonVideo, clearLessonVideo } from '../api.js';
+import {
+  api, postFile, uploadCurriculumPdf, uploadCurriculumFile, isStoredFile, isTeacherNoteFile, getLessonVideos, setLessonVideo, clearLessonVideo,
+  TEACHER_NOTES_ACCEPT, TEACHER_NOTES_REFUSAL,
+} from '../api.js';
 import { opensInReader } from './ReadingPicker.jsx';
 import Empty from './Empty.jsx';
 import LessonIcon from './LessonIcon.jsx';
@@ -427,14 +430,14 @@ function MaterialsField({ items, onChange }) {
   async function take(fileList) {
     const files = Array.from(fileList || []);
     if (!files.length) return;
-    const notPdf = files.find((f) => !/\.pdf$/i.test(f.name) && f.type !== 'application/pdf');
-    if (notPdf) { setErr(`${notPdf.name} is not a PDF. Only PDF files are accepted.`); return; }
+    const refused = files.find((f) => !isTeacherNoteFile(f));
+    if (refused) { setErr(`${refused.name} can't be added. ${TEACHER_NOTES_REFUSAL}`); return; }
     setErr('');
     setBusy(true);
     try {
       const added = [];
       for (const f of files) {
-        const { url, name } = await uploadCurriculumPdf(f);
+        const { url, name } = await uploadCurriculumFile(f);
         if (!items.some((x) => x.url === url) && !added.some((x) => x.url === url)) added.push({ url, name: name || f.name, kind: 'notes' });
       }
       if (added.length) onChange([...items, ...added]);
@@ -459,18 +462,18 @@ function MaterialsField({ items, onChange }) {
         onDragLeave={() => setDrag(false)}
         onDrop={(e) => { e.preventDefault(); setDrag(false); take(e.dataTransfer.files); }}
       >
-        <input ref={inputRef} type="file" accept=".pdf,application/pdf" multiple hidden onChange={(e) => { take(e.target.files); e.target.value = ''; }} />
+        <input ref={inputRef} type="file" accept={TEACHER_NOTES_ACCEPT} multiple hidden onChange={(e) => { take(e.target.files); e.target.value = ''; }} />
         <LineIcon name="upload" size={20} />
         <div>
-          <strong>{busy ? 'Uploading…' : 'Drop PDFs here'}</strong>
-          <p className="muted">or <button type="button" className="pdf-browse" onClick={() => inputRef.current?.click()} disabled={busy}>browse</button> · several at once · up to 15 MB each · each lands as notes, tap its tag to make it a resource</p>
+          <strong>{busy ? 'Uploading…' : 'Drop files here'}</strong>
+          <p className="muted">or <button type="button" className="pdf-browse" onClick={() => inputRef.current?.click()} disabled={busy}>browse</button> · PDF, Word, Excel, PowerPoint, Markdown, images · several at once · up to 15 MB each · each lands as notes, tap its tag to make it a resource</p>
         </div>
       </div>
       {items.length > 0 && (
         <div className="mm-files">
           {items.map((x, i) => (
             <span className={`mm-file ${x.kind === 'resource' ? 'is-resource' : ''}`} key={x._id || `${x.url}-${i}`}>
-              <LessonIcon type={opensInReader(x.url) ? 'pdf' : 'text'} size={13} />
+              <LessonIcon type={opensInReader(x.url, x.name) ? 'pdf' : 'text'} size={13} />
               <span className="mm-file-name" title={x.name || x.url}>{x.name || x.url}</span>
               {/* Tap to flip between notes and resource — the student list is split on it. */}
               <button

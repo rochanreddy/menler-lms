@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { api, addMaterials, removeMaterial, isStoredFile } from '../api.js';
+import { api, addMaterials, removeMaterial, isTeacherNoteFile, TEACHER_NOTES_ACCEPT, TEACHER_NOTES_REFUSAL } from '../api.js';
 import Empty, { Loading } from './Empty.jsx';
 import LessonIcon from './LessonIcon.jsx';
 import LineIcon from './LineIcon.jsx';
 import { tierNames } from '../features.js';
+import { opensInReader } from './ReadingPicker.jsx';
 
 // Teacher notes, the mentor's way in.
 //
@@ -11,7 +12,8 @@ import { tierNames } from '../features.js';
 // node and a Markdown body — the right tool for the admin who builds the
 // course, and the wrong one for a mentor whose whole job on this screen is
 // "put Tuesday's handouts up". So this page is just the course, week by week,
-// and every week, session and lesson is a row you drop PDFs on. Several at
+// and every week, session and lesson is a row you drop files on — a PDF, a
+// deck, a spreadsheet, a Markdown handout. Several at
 // once. Each drop saves straight away (POST /programs/:id/materials), so
 // there is nothing to remember to press afterwards.
 //
@@ -96,7 +98,7 @@ export default function MaterialsManager({ programId, onClose }) {
         <LineIcon name="upload" size={18} />
         <div>
           <strong>Drop a class’s notes on the class.</strong>
-          <p className="muted">Several PDFs at a time, as <b>Notes</b> (the deck, what was taught) or <b>Resources</b> (a notice, a template, further reading). Each one saves the moment it lands, and every lesson in that session or week lists it under <b>Teacher notes</b>, in those two groups — except the assignments, which keep their own. The ebook under <b>Reading material</b> stays as the admin set it.</p>
+          <p className="muted">Several files at a time — PDF, Word, Excel, PowerPoint, Markdown, images — as <b>Notes</b> (the deck, what was taught) or <b>Resources</b> (a notice, a template, further reading). Each one saves the moment it lands, and every lesson in that session or week lists it under <b>Teacher notes</b>, in those two groups — except the assignments, which keep their own. The ebook under <b>Reading material</b> stays as the admin set it.</p>
         </div>
       </div>
 
@@ -147,7 +149,7 @@ export default function MaterialsManager({ programId, onClose }) {
 }
 
 // One drop target. The same component for a week, a session and a lesson,
-// so the gesture is the same everywhere: drop, or press Add PDFs, and the
+// so the gesture is the same everywhere: drop, or press Add notes, and the
 // files appear as chips with a ✕. The week's or session's own notes slot
 // (set by the admin in the editor) is shown as the first chip so the mentor
 // can see students already have it, but it is not theirs to remove from here.
@@ -170,8 +172,8 @@ function MaterialRow({ kind, label, title, hint, ebook, materials, onAdd, onRemo
   async function take(fileList, kind) {
     const files = Array.from(fileList || []);
     if (!files.length) return;
-    const notPdf = files.find((f) => !/\.pdf$/i.test(f.name) && f.type !== 'application/pdf');
-    if (notPdf) { setErr(`${notPdf.name} is not a PDF. Only PDF files are accepted.`); return; }
+    const refused = files.find((f) => !isTeacherNoteFile(f));
+    if (refused) { setErr(`${refused.name} can't be added. ${TEACHER_NOTES_REFUSAL}`); return; }
     setErr('');
     setBusy(true);
     try { await onAdd(files, null, kind); } catch (e) { setErr(e.message); } finally { setBusy(false); }
@@ -211,7 +213,7 @@ function MaterialRow({ kind, label, title, hint, ebook, materials, onAdd, onRemo
         <input
           ref={inputRef}
           type="file"
-          accept=".pdf,application/pdf"
+          accept={TEACHER_NOTES_ACCEPT}
           multiple
           hidden
           onChange={(e) => { take(e.target.files, pickKind.current); e.target.value = ''; }}
@@ -240,7 +242,7 @@ function MaterialRow({ kind, label, title, hint, ebook, materials, onAdd, onRemo
 
       {linking && (
         <form className="mm-linkform" onSubmit={addLink}>
-          <input className="ce-field" placeholder="https://… (a PDF link, a Drive file set to Anyone with the link)" value={link} onChange={(e) => setLink(e.target.value)} autoFocus />
+          <input className="ce-field" placeholder="https://… (a PDF link, a Drive file or folder set to Anyone with the link)" value={link} onChange={(e) => setLink(e.target.value)} autoFocus />
           <input className="ce-field" placeholder="What to call it (optional)" value={linkName} onChange={(e) => setLinkName(e.target.value)} />
           <select className="ce-field mm-kind-select" value={linkKind} onChange={(e) => setLinkKind(e.target.value)} aria-label="Notes or resource">
             <option value="notes">Notes</option>
@@ -259,7 +261,7 @@ function MaterialRow({ kind, label, title, hint, ebook, materials, onAdd, onRemo
           )}
           {materials.map((x) => (
             <span className={`mm-file ${x.kind === 'resource' ? 'is-resource' : ''}`} key={x._id || x.url}>
-              <LessonIcon type={isStoredFile(x.url) || /\.pdf(\?|#|$)/i.test(x.url) ? 'pdf' : 'text'} size={13} />
+              <LessonIcon type={opensInReader(x.url, x.name) ? 'pdf' : 'text'} size={13} />
               <span className="mm-file-name" title={x.name || x.url}>{x.name || x.url}</span>
               <span className="mm-file-kind">{x.kind === 'resource' ? 'resource' : 'notes'}</span>
               <button type="button" className="mm-file-x" onClick={() => drop(x)} aria-label={`Remove ${x.name || 'file'}`} disabled={busy}><LineIcon name="close" size={12} /></button>
