@@ -76,3 +76,9 @@ const LABELS = {
   lesson: { reading: 'Reading material', notes: 'Teacher notes', notesMany: 'teacher notes', noReading: 'No reading yet', noNotes: 'No notes yet' },
 };
 export const materialLabels = (kind) => LABELS[kind] || LABELS.lesson;
+
+// The chip that stands for several files: "2 Teacher notes". The noun is
+// capitalised there because it sits beside "Reading material" and "Watch
+// class video", and a lower-case chip in that row reads as a different kind
+// of thing. `notesMany` itself stays lower-case for mid-sentence use.
+export const countLabel = (n, many) => `${n} ${many.charAt(0).toUpperCase()}${many.slice(1)}`;

@@ -6,7 +6,7 @@ import LineIcon from './LineIcon.jsx';
 import LessonIcon from './LessonIcon.jsx';
 import FileViewer from './FileViewer.jsx';
 import ReadingPicker, { openOutside, opensInReader } from './ReadingPicker.jsx';
-import { materialLabels } from '../features.js';
+import { materialLabels, countLabel } from '../features.js';
 import { CheckBadge, SubmissionCheckPanel } from './SubmissionCheck.jsx';
 import { loadStudentGrades } from '../nav.jsx';
 
@@ -165,7 +165,7 @@ export default function AssignmentCard({ a, onChange, onSubmissionChange, defaul
         title={solutions.length ? undefined : `Your mentor hasn’t attached the ${L.notes.toLowerCase()} for this yet`}
         onClick={() => (solutions.length === 1 ? openSolution(solutions[0]) : setPicker(true))}
       >
-        <LineIcon name="slides" size={14} /> {solutions.length === 0 ? L.noNotes : solutions.length === 1 ? L.notes : `${solutions.length} ${L.notesMany}`}
+        <LineIcon name="slides" size={14} /> {solutions.length === 0 ? L.noNotes : solutions.length === 1 ? L.notes : countLabel(solutions.length, L.notesMany)}
         {solutions.length > 1 && <span className="rchip-caret" aria-hidden="true"><LineIcon name="chevron" size={12} /></span>}
       </button>
     </div>

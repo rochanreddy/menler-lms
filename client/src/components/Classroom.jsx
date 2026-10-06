@@ -9,7 +9,7 @@ import LessonIcon from './LessonIcon.jsx';
 import LineIcon from './LineIcon.jsx';
 import Empty, { Loading } from './Empty.jsx';
 import VdoCipherPlayer from './VdoCipherPlayer.jsx';
-import { VDOCIPHER_ENABLED, isDirectVideoFile, tierNames, isAssignmentChapter, isProjectChapter, workKind, materialLabels } from '../features.js';
+import { VDOCIPHER_ENABLED, isDirectVideoFile, tierNames, isAssignmentChapter, isProjectChapter, workKind, materialLabels, countLabel } from '../features.js';
 import Ring from './Ring.jsx';
 import useMediaQuery, { MOBILE } from '../useMediaQuery.js';
 
@@ -422,7 +422,7 @@ export default function Classroom() {
         title={notes.length ? undefined : `Your mentor hasn’t attached the ${L.notes.toLowerCase()} for this yet`}
         onClick={() => (notes.length === 1 ? openNote(notes[0], subtitle, L.notes) : setPicker({ title: subtitle, items: notes, subtitle, label: L.notes }))}
       >
-        <LineIcon name="slides" size={14} /> {notes.length === 0 ? L.noNotes : notes.length === 1 ? L.notes : `${notes.length} ${L.notesMany}`}
+        <LineIcon name="slides" size={14} /> {notes.length === 0 ? L.noNotes : notes.length === 1 ? L.notes : countLabel(notes.length, L.notesMany)}
         {notes.length > 1 && <span className="rchip-caret" aria-hidden="true"><LineIcon name="chevron" size={12} /></span>}
       </button>
       {/* The class recording / live link. Kept as a chip even when there is

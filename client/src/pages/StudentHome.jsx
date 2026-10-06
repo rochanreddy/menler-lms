@@ -264,9 +264,18 @@ export default function StudentHome() {
     window.open(target.url, '_blank', 'noopener');
   };
 
+  // Everything not handed in yet that has opened. A due date is optional — the
+  // curriculum's own set is synced with none — and filtering on it left this
+  // card saying "all caught up" to a student who had submitted nothing. Dated
+  // work leads, soonest first; the rest follows in course order.
+  const courseOrder = (x, y) => new Date(x.createdAt) - new Date(y.createdAt) || String(x._id).localeCompare(String(y._id));
   const openDue = assignments
-    .filter((a) => !a.mySubmission && a.dueDate)
-    .sort((x, y) => new Date(x.dueDate) - new Date(y.dueDate));
+    .filter((a) => !a.mySubmission && !(a.startDate && new Date(a.startDate) > new Date()))
+    .sort((x, y) => {
+      if (x.dueDate && y.dueDate) return new Date(x.dueDate) - new Date(y.dueDate) || courseOrder(x, y);
+      if (x.dueDate || y.dueDate) return x.dueDate ? -1 : 1;
+      return courseOrder(x, y);
+    });
   const firstName = (user.full_name || user.email).split(' ')[0];
 
   return (
@@ -413,7 +422,7 @@ export default function StudentHome() {
           ) : (
             <div className="qlist">
               {openDue.slice(0, 4).map((a) => {
-                const late = new Date(a.dueDate) < new Date();
+                const late = !!a.dueDate && new Date(a.dueDate) < new Date();
                 return (
                   <div className="qrow" key={a._id}>
                     <span className={`dot ${late ? 'late' : 'ahead'}`} />
@@ -421,7 +430,7 @@ export default function StudentHome() {
                       <div className="qrow-title">{a.title}</div>
                       <div className="qrow-sub">
                         {late ? 'Overdue · ' : ''}
-                        {new Date(a.dueDate).toLocaleDateString([], { day: 'numeric', month: 'short' })}
+                        {a.dueDate ? new Date(a.dueDate).toLocaleDateString([], { day: 'numeric', month: 'short' }) : 'No due date'}
                       </div>
                     </div>
                     <span className={`status ${late ? 'status-late' : 'status-todo'}`}>{late ? 'Overdue' : 'To do'}</span>
