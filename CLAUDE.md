@@ -347,6 +347,32 @@ scores, and a student who thinks their mentor can see their name writes the
 review they think is safe. A batch id typed into the query string is
 intersected with the mentor's own batches, so it widens nothing.
 
+### The admin Home
+
+One filter over the whole page: all batches, or one
+([pages/admin/Home.jsx](client/src/pages/admin/Home.jsx)). `GET
+/stats/admin-dashboard` sends **a block per batch** — who was marked in each
+finished class, who handed in each piece of work, each class's rating — and
+the page adds up whichever blocks are in scope. Nothing is pre-totalled on the
+server, so the headline figures (students, attendance, hand-ins, class rating)
+and the grid under them are the same rows counted twice and cannot disagree. A
+student in two batches is one person in the "All batches" count.
+
+Under the figures: **Today** (next class, hand-ins awaiting review, unanswered
+forum doubts, open tickets, scheduled mail, each a link to where it is dealt
+with), **attendance by class**, the **engagement grid** (students down the
+side, classes and handed-in work across the top) and **hand-ins by
+assignment**. A class appears once it is over, and a piece of work becomes a
+grid column once anyone has handed it in: the curriculum's set carries no due
+dates, so a column per assignment would read as "missing" about work nobody
+has been asked for. Last on the page is **last seen on the LMS**: active
+this week, gone quiet for seven days or more, and never opened it, the last
+two by name (`lastActiveAt`, stamped on any request a student makes).
+
+The at-risk panel is off this page on purpose (the mentor Home keeps it). It
+scores on due dates and quizzes this course does not use; the grid shows who
+has gone quiet as plain facts instead.
+
 ### One account, one device
 
 A seat is one person's, and that is enforced in two independent places.

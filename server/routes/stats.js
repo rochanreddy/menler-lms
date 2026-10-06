@@ -10,7 +10,13 @@ import { Assignment } from '../models/Assignment.js';
 import { Submission } from '../models/Submission.js';
 import { Attendance } from '../models/Attendance.js';
 import { Progress } from '../models/Progress.js';
+import { Session } from '../models/Session.js';
+import { ClassReview } from '../models/ClassReview.js';
+import { Doubt } from '../models/Doubt.js';
+import { SupportTicket } from '../models/SupportTicket.js';
+import { MailCampaign } from '../models/MailCampaign.js';
 import { isMentorOfBatch, myBatchIds } from '../utils/access.js';
+import { sessionEnd } from '../utils/sessionTime.js';
 
 const router = Router();
 
@@ -29,64 +35,125 @@ router.get('/overview', requireAuth, requireRole('admin'), async (_req, res) => 
   res.json({ stats: { students, mentors, batches, programs, quizzes }, perBatch });
 });
 
-// GET /api/lms/stats/admin-dashboard — everything the admin dashboard charts
-// need in one round trip: role/batch/submission/attendance distributions,
-// enrolment per batch, and student signups over the last 8 weeks.
+const DAY = 24 * 60 * 60 * 1000;
+const key = (studentId, scopeId) => `${studentId}:${scopeId}`;
+
+// GET /api/lms/stats/admin-dashboard — the admin Home in one round trip.
+//
+// One block per batch, and the page adds them up. The dashboard's filter is
+// "which cohort", and a set of platform-wide totals cannot answer it: 51%
+// attendance across two courses says nothing about either. So every number is
+// kept at the level it can be filtered at — who was in each class, who handed
+// in each piece of work — and "All batches" is the client summing the blocks.
+// That is also what the engagement grid is drawn from, so the headline figures
+// and the grid under them cannot disagree.
 router.get('/admin-dashboard', requireAuth, requireRole('admin'), async (_req, res) => {
-  const [students, mentors, batches, programs, quizzes, blockedUsers] = await Promise.all([
-    User.countDocuments({ role: 'student' }),
-    User.countDocuments({ role: 'mentor' }),
-    Batch.countDocuments(),
-    Program.countDocuments(),
-    Quiz.countDocuments(),
-    User.countDocuments({ 'blocked.lms': true }),
-  ]);
-
-  const [batchDocs, assignmentDocs, submissionAgg, attendanceAgg, recentStudents] = await Promise.all([
-    Batch.find().select('name status studentIds').sort({ createdAt: -1 }),
-    Assignment.find().select('type'),
-    Submission.aggregate([{ $group: { _id: '$status', n: { $sum: 1 } } }]),
-    Attendance.aggregate([{ $group: { _id: '$status', n: { $sum: 1 } } }]),
-    User.find({ role: 'student', createdAt: { $gte: new Date(Date.now() - 8 * 7 * 24 * 3600 * 1000) } }).select('createdAt'),
-  ]);
-
-  const count = (agg, key) => agg.find((a) => a._id === key)?.n || 0;
-
-  // Weekly signup buckets, oldest → newest.
-  const WEEK = 7 * 24 * 3600 * 1000;
   const now = Date.now();
-  const signups = Array.from({ length: 8 }, (_, i) => {
-    const start = now - (8 - i) * WEEK;
-    const end = start + WEEK;
-    const label = new Date(start).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
-    return { label, count: recentStudents.filter((u) => { const t = u.createdAt.getTime(); return t >= start && t < end; }).length };
+  const [students, blockedUsers, batchDocs, openTickets, scheduledMails] = await Promise.all([
+    User.countDocuments({ role: 'student' }),
+    User.countDocuments({ 'blocked.lms': true }),
+    Batch.find().select('name studentIds programId').populate('programId', 'title modules').sort({ createdAt: 1 }),
+    SupportTicket.countDocuments({ status: 'open' }),
+    MailCampaign.countDocuments({ status: 'scheduled' }),
+  ]);
+
+  const batchIds = batchDocs.map((b) => b._id);
+  const studentIds = [...new Set(batchDocs.flatMap((b) => b.studentIds.map(String)))];
+  const programIds = batchDocs.map((b) => b.programId?._id).filter(Boolean);
+
+  const [users, sessions, assignments, doubts, progress] = await Promise.all([
+    User.find({ _id: { $in: studentIds } }).select('fullName email lastActiveAt'),
+    Session.find({ batchId: { $in: batchIds } }).select('batchId title startsAt endsAt joinUrl').sort({ startsAt: 1 }),
+    Assignment.find({ batchId: { $in: batchIds } }).select('batchId title type createdAt').sort({ createdAt: 1, _id: 1 }),
+    Doubt.find({ batchId: { $in: batchIds }, kind: 'doubt', comments: { $size: 0 } }).select('batchId'),
+    Progress.find({ studentId: { $in: studentIds }, programId: { $in: programIds } }).select('studentId programId completedTopics'),
+  ]);
+  const [attendance, reviews, submissions] = await Promise.all([
+    Attendance.find({ sessionId: { $in: sessions.map((s) => s._id) } }).select('sessionId studentId status'),
+    ClassReview.find({ sessionId: { $in: sessions.map((s) => s._id) } }).select('sessionId overall'),
+    Submission.find({ assignmentId: { $in: assignments.map((a) => a._id) }, isDeleted: false }).select('assignmentId studentId status'),
+  ]);
+
+  const nameOf = new Map(users.map((u) => [String(u._id), u.fullName || u.email]));
+  // Stamped on any request the student makes (middleware/auth.js), so it is
+  // "last opened the LMS", not "last typed a password".
+  const lastActiveOf = new Map(users.map((u) => [String(u._id), u.lastActiveAt || null]));
+  const group = (rows, keyOf) => {
+    const map = new Map();
+    for (const r of rows) { const k = String(keyOf(r)); map.set(k, [...(map.get(k) || []), r]); }
+    return map;
+  };
+  const attBySession = group(attendance, (a) => a.sessionId);
+  const reviewsBySession = group(reviews, (r) => r.sessionId);
+  const subsByAssignment = group(submissions, (s) => s.assignmentId);
+  const doneLessons = new Map(progress.map((p) => [key(p.studentId, p.programId), (p.completedTopics || []).length]));
+
+  const batches = batchDocs.map((b) => {
+    const bid = String(b._id);
+    const enrolled = new Set(b.studentIds.map(String));
+    const mine = sessions.filter((s) => String(s.batchId) === bid);
+
+    // A class is on the board once it is over. One still running has half a
+    // register, and would drag the average down for the length of the class.
+    const classes = mine.filter((s) => sessionEnd(s) <= now).map((s) => {
+      // Only the students enrolled today: someone removed from the batch has
+      // no row in the grid, so they must not sit in its column totals either.
+      const marks = {};
+      for (const a of attBySession.get(String(s._id)) || []) {
+        if (enrolled.has(String(a.studentId))) marks[String(a.studentId)] = a.status === 'present' ? 'p' : 'a';
+      }
+      const scores = (reviewsBySession.get(String(s._id)) || []).map((r) => r.overall).filter(Boolean);
+      return {
+        id: String(s._id),
+        title: s.title,
+        startsAt: s.startsAt,
+        marks,
+        reviews: scores.length,
+        rating: scores.length ? Math.round((scores.reduce((n, v) => n + v, 0) / scores.length) * 10) / 10 : null,
+      };
+    });
+
+    const next = mine.find((s) => sessionEnd(s) > now);
+
+    const work = assignments.filter((a) => String(a.batchId) === bid).map((a) => {
+      const by = {};
+      for (const s of subsByAssignment.get(String(a._id)) || []) {
+        if (enrolled.has(String(s.studentId))) by[String(s.studentId)] = s.status === 'graded' ? 'g' : 's';
+      }
+      return { id: String(a._id), title: a.title, type: a.type, by };
+    });
+
+    const lessonTotal = (b.programId?.modules || []).reduce((n, m) => n + (m.chapters || []).reduce((k, c) => k + (c.topics || []).length, 0), 0);
+    const lessonsDone = [...enrolled].reduce((n, sid) => n + Math.min(doneLessons.get(key(sid, b.programId?._id)) || 0, lessonTotal), 0);
+
+    return {
+      id: bid,
+      name: b.name.replace(/^Demo[^A-Za-z0-9]+/, ''),
+      program: b.programId?.title || '',
+      students: [...enrolled]
+        .filter((sid) => nameOf.has(sid))
+        .map((sid) => ({ id: sid, name: nameOf.get(sid), lastActiveAt: lastActiveOf.get(sid) }))
+        .sort((x, y) => x.name.localeCompare(y.name)),
+      classes,
+      nextClass: next ? { title: next.title, startsAt: next.startsAt, hasLink: !!next.joinUrl } : null,
+      work,
+      lessons: { done: lessonsDone, total: lessonTotal * enrolled.size },
+      unansweredDoubts: doubts.filter((d) => String(d.batchId) === bid).length,
+    };
   });
 
   res.json({
-    stats: { students, mentors, batches, programs, quizzes, blockedUsers },
-    batchStatus: ['ongoing', 'upcoming', 'past'].map((s) => ({ label: s, count: batchDocs.filter((b) => b.status === s).length })),
-    assignmentTypes: ['assignment', 'project'].map((t) => ({ label: t, count: assignmentDocs.filter((a) => a.type === t).length })),
-    submissionStatus: [
-      { label: 'graded', count: count(submissionAgg, 'graded') },
-      { label: 'awaiting review', count: count(submissionAgg, 'submitted') },
-    ],
-    attendance: [
-      { label: 'present', count: count(attendanceAgg, 'present') },
-      { label: 'absent', count: count(attendanceAgg, 'absent') },
-    ],
-    // The id travels with the label because the label is NOT unique: stripping
-    // the "Demo — " prefix collapses "Demo — Kickstarter · Jul 2026" and
-    // "Kickstarter · Jul 2026" onto the same string, and the chart that keyed on
-    // it was quietly rendering one bar instead of two.
-    perBatch: batchDocs.map((b) => ({ id: String(b._id), name: b.name.replace(/^Demo[^A-Za-z0-9]+/, ''), count: b.studentIds.length })),
-    signups,
+    // `students` is every student account; the page counts the ENROLLED ones
+    // itself, per batch, and says so when the two differ.
+    stats: { students, blockedUsers },
+    // Not tied to a batch: a ticket is a person's and a mail can go to both.
+    desk: { openTickets, scheduledMails },
+    batches,
   });
 });
 
 // ── At-risk detection ──
 
-const DAY = 24 * 60 * 60 * 1000;
-const key = (studentId, scopeId) => `${studentId}:${scopeId}`;
 
 /**
  * Turn one student's engagement metrics into a risk score plus the reasons
