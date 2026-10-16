@@ -226,7 +226,7 @@ router.get('/at-risk', requireAuth, requireRole('mentor', 'admin'), async (req, 
   ]);
 
   const [submissions, attempts] = await Promise.all([
-    Submission.find({ assignmentId: { $in: assignments.map((a) => a._id) }, studentId: { $in: studentIds } }).select('assignmentId studentId'),
+    Submission.find({ assignmentId: { $in: assignments.map((a) => a._id) }, studentId: { $in: studentIds }, isDeleted: false }).select('assignmentId studentId'),
     QuizAttempt.find({ quizId: { $in: quizzes.map((q) => q._id) }, studentId: { $in: studentIds } }).select('quizId studentId score total'),
   ]);
 

@@ -41,7 +41,7 @@ router.get('/platform', requireAuth, requireRole('admin'), async (_req, res) => 
     Assignment.find({ batchId: { $in: batchIds } }).select('batchId'),
     Attendance.find({ batchId: { $in: batchIds } }).select('batchId status'),
   ]);
-  const submissions = await Submission.find({ assignmentId: { $in: assignments.map((a) => a._id) } }).select('assignmentId status');
+  const submissions = await Submission.find({ assignmentId: { $in: assignments.map((a) => a._id) }, isDeleted: false }).select('assignmentId status');
   const batchOfAssignment = new Map(assignments.map((a) => [String(a._id), String(a.batchId)]));
 
   // Group each collection by batch ONCE, the loop below was re-scanning
@@ -103,7 +103,7 @@ router.get('/batch/:id', requireAuth, requireRole('admin', 'mentor'), async (req
     Attendance.find({ batchId: batch._id }).select('studentId status'),
   ]);
   const [submissions, attempts] = await Promise.all([
-    Submission.find({ assignmentId: { $in: assignments.map((a) => a._id) } }).select('studentId status score'),
+    Submission.find({ assignmentId: { $in: assignments.map((a) => a._id) }, isDeleted: false }).select('studentId status score'),
     QuizAttempt.find({ quizId: { $in: quizzes.map((q) => q._id) } }).select('studentId score total'),
   ]);
 
@@ -153,7 +153,7 @@ router.get('/student/:id', requireAuth, requireRole('admin', 'mentor'), async (r
     Attendance.find({ studentId: student._id }).select('batchId status'),
   ]);
   const [submissions, quizzes] = await Promise.all([
-    Submission.find({ studentId: student._id }).select('assignmentId status score feedback updatedAt'),
+    Submission.find({ studentId: student._id, isDeleted: false }).select('assignmentId status score feedback updatedAt'),
     Quiz.find({ batchId: { $in: batchIds } }).select('title batchId'),
   ]);
   const attempts = await QuizAttempt.find({ studentId: student._id, quizId: { $in: quizzes.map((q) => q._id) } });

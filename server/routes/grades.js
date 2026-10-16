@@ -19,7 +19,7 @@ router.get('/me', requireAuth, async (req, res) => {
     Batch.find({ _id: { $in: batchIds } }).select('name startDate'),
   ]);
   const [subs, attempts] = await Promise.all([
-    Submission.find({ studentId: req.user._id, assignmentId: { $in: assignments.map((a) => a._id) } }),
+    Submission.find({ studentId: req.user._id, assignmentId: { $in: assignments.map((a) => a._id) }, isDeleted: false }),
     QuizAttempt.find({ studentId: req.user._id, quizId: { $in: quizzes.map((q) => q._id) } }),
   ]);
   const subBy = new Map(subs.map((s) => [s.assignmentId.toString(), s]));
@@ -96,7 +96,7 @@ router.get('/batch/:batchId', requireAuth, async (req, res) => {
     Quiz.find({ batchId }).sort({ createdAt: 1 }),
   ]);
   const [subs, attempts] = await Promise.all([
-    Submission.find({ assignmentId: { $in: assignments.map((a) => a._id) } }),
+    Submission.find({ assignmentId: { $in: assignments.map((a) => a._id) }, isDeleted: false }),
     QuizAttempt.find({ quizId: { $in: quizzes.map((q) => q._id) } }),
   ]);
 
