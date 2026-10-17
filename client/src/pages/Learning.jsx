@@ -5,6 +5,8 @@ import Content from '../components/Classroom.jsx';
 import QuizCard from '../components/QuizCard.jsx';
 import AssignmentCard, { assignmentState, relative } from '../components/AssignmentCard.jsx';
 import useFetch from '../useFetch.js';
+import Lab, { LAYOUTS } from '../learning/Lab.jsx';
+import { LEARNING_TIMELINE } from '../features.js';
 
 // Learning. For students: Content + Assignments (submit) + Quizzes (take).
 // For mentors/admins: just the course content to teach from — they create &
@@ -14,12 +16,30 @@ import useFetch from '../useFetch.js';
 // three screens it switches between are their own components under
 // ../components — they had no reason to share a file beyond having grown up
 // in one.
+//
+// With VITE_LEARNING_TIMELINE on, a switcher in the header offers the four
+// structures in ../learning (the lab) beside the classic page, so they can
+// be compared on the same data. The choice stays in the browser.
+const LAYOUT_KEY = 'lms:learning:layout';
+const readLayout = () => { try { return localStorage.getItem(LAYOUT_KEY) || 'classic'; } catch { return 'classic'; } };
+
+function Switcher({ value, onChange }) {
+  return (
+    <div className="lab-switch" role="tablist" aria-label="Layout">
+      {LAYOUTS.map((l) => <button key={l.key} role="tab" aria-selected={value === l.key} className={value === l.key ? 'on' : ''} onClick={() => onChange(l.key)} title={l.hint}><b>{l.key}</b> {l.name}</button>)}
+      <button role="tab" aria-selected={value === 'classic'} className={value === 'classic' ? 'on' : ''} onClick={() => onChange('classic')}>Classic</button>
+    </div>
+  );
+}
+
 export default function Learning() {
   const { user } = useOutletContext();
   const isStudent = user.role === 'student';
   // ?tab= lets search results (and shared links) open straight onto the right
   // tab — "assignments" hits from ⌘K would otherwise land on Content.
   const [params] = useSearchParams();
+  const [layout, setLayoutState] = useState(readLayout);
+  const setLayout = (v) => { try { localStorage.setItem(LAYOUT_KEY, v); } catch {} setLayoutState(v); };
   const [tab, setTab] = useState(() => {
     const t = params.get('tab');
     return ['content', 'assignments', 'quizzes'].includes(t) ? t : 'content';
@@ -32,6 +52,8 @@ export default function Learning() {
     if (wantTab && ['content', 'assignments', 'quizzes'].includes(wantTab)) setTab(wantTab);
     else if (wantTopic) setTab('content');
   }, [wantTab, wantTopic]);
+
+  const lab = LEARNING_TIMELINE && isStudent;
 
   // One compact row for the title and the switcher: the Content tab sizes its
   // workspace to whatever is left of the viewport, so every pixel of chrome
@@ -48,10 +70,23 @@ export default function Learning() {
     );
   }
 
+  if (lab && layout !== 'classic') {
+    return (
+      <div>
+        <div className="learn-page-head lab-head">
+          <h1>Learning</h1>
+          <Switcher value={layout} onChange={setLayout} />
+        </div>
+        <Lab layout={layout} />
+      </div>
+    );
+  }
+
   return (
     <div>
       <div className="learn-page-head">
         <h1>Learning</h1>
+        {lab && <Switcher value={layout} onChange={setLayout} />}
         <div className="tabs learn-tabs" role="tablist">
           <button role="tab" aria-selected={tab === 'content'} className={`tab ${tab === 'content' ? 'active' : ''}`} onClick={() => setTab('content')}>Content</button>
           <button role="tab" aria-selected={tab === 'assignments'} className={`tab ${tab === 'assignments' ? 'active' : ''}`} onClick={() => setTab('assignments')}>Assignments & Projects</button>
