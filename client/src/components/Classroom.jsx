@@ -696,7 +696,7 @@ export default function Classroom() {
 // page), our own full-screen that keeps that guard in place, and an "Open in
 // Drive" escape for the day Drive shows a request-access screen or "still
 // processing" instead of the video.
-function DrivePlayer({ link, title, on, onPlay }) {
+export function DrivePlayer({ link, title, on, onPlay }) {
   const box = useRef(null);
   const [loaded, setLoaded] = useState(false);
   const [full, setFull] = useState(false);
