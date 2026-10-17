@@ -14,6 +14,21 @@
  */
 export const VDOCIPHER_ENABLED = import.meta.env.VITE_VDOCIPHER_ENABLED === 'true';
 
+/**
+ * The Learning timeline: the course as a line you walk along, one Continue
+ * card, this week's lessons, work and class in one list. The classic
+ * syllabus-and-reader (Classroom.jsx) stays behind it. Set
+ * VITE_LEARNING_TIMELINE=true to show the timeline to students; a student
+ * can still flip back with the "Classic view" link while both exist.
+ */
+export const LEARNING_TIMELINE = import.meta.env.VITE_LEARNING_TIMELINE === 'true';
+
+/** "1.1 · The AI Landscape · 35 min" → 35. Titles carry their own estimate. */
+export const lessonMinutes = (title) => {
+  const m = String(title || '').match(/(\d+)\s*(?:min|mins|minutes)\b/i);
+  return m ? Number(m[1]) : 0;
+};
+
 /** Links we can only ever hand off to, never play in a <video> element. */
 const HOSTED_ELSEWHERE = /(^https?:\/\/)?([^/]*\.)?(drive\.google\.com|docs\.google\.com|youtube\.com|youtu\.be|vimeo\.com|loom\.com|dropbox\.com|onedrive\.live\.com|sharepoint\.com)/i;
 
