@@ -26,6 +26,21 @@ const HOSTED_ELSEWHERE = /(^https?:\/\/)?([^/]*\.)?(drive\.google\.com|docs\.goo
  */
 export const isDirectVideoFile = (url) => !!url && !HOSTED_ELSEWHERE.test(url) && /\.(mp4|webm|ogg|ogv|m4v|mov)(\?|#|$)/i.test(url);
 
+/**
+ * The embeddable player URL for a Google Drive FILE link, else ''.
+ *
+ * Drive serves a player at /file/d/<id>/preview that may be framed; the share
+ * page itself may not. Folders have no player, so they stay a hand-off. The
+ * file still has to be shared "Anyone with the link -> Viewer" or the frame
+ * shows a request-access screen to everyone but the uploader.
+ */
+export const driveEmbedUrl = (url) => {
+  const s = String(url || '').trim();
+  if (!/^https?:\/\/(drive|docs)\.google\.com\//i.test(s) || /\/folders\//.test(s)) return '';
+  const m = s.match(/\/file\/d\/([\w-]{10,})/) || s.match(/[?&]id=([\w-]{10,})/);
+  return m ? `https://drive.google.com/file/d/${m[1]}/preview` : '';
+};
+
 // What the two levels of a curriculum are called, judged from the module
 // title. Generalist is weeks of sessions ("Week 1 · …" holding "S1 · …");
 // Kickstarter is sessions of parts ("S01 · …" holding "1.1 · …") — there a

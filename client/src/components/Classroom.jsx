@@ -9,7 +9,7 @@ import LessonIcon from './LessonIcon.jsx';
 import LineIcon from './LineIcon.jsx';
 import Empty, { Loading } from './Empty.jsx';
 import VdoCipherPlayer from './VdoCipherPlayer.jsx';
-import { VDOCIPHER_ENABLED, isDirectVideoFile, tierNames, isAssignmentChapter, isProjectChapter, workKind, materialLabels, countLabel } from '../features.js';
+import { VDOCIPHER_ENABLED, isDirectVideoFile, driveEmbedUrl, tierNames, isAssignmentChapter, isProjectChapter, workKind, materialLabels, countLabel } from '../features.js';
 import Ring from './Ring.jsx';
 import useMediaQuery, { MOBILE } from '../useMediaQuery.js';
 
@@ -50,6 +50,9 @@ export default function Classroom() {
   const [total, setTotal] = useState(0);
   const [cert, setCert] = useState(null);
   const [viewer, setViewer] = useState(null); // { label, subtitle, url }
+  // The lesson whose Drive recording has been started. Keyed on the lesson so
+  // moving to the next one puts its poster back rather than auto-playing it.
+  const [playing, setPlaying] = useState(null);
   // The list behind the Teacher notes chip when there is more than one
   // thing to open: { title, items: [{ url, name, from }] }.
   const [picker, setPicker] = useState(null);
@@ -384,6 +387,16 @@ export default function Classroom() {
   const readingUrl = inherit('readingUrl');
   const notesUrl = inherit('notesUrl');
   const lessonNotes = topic ? notesListFor({ own: notesUrl, lesson: topic, chap: current?.chapNode, mod: current?.modNode }) : [];
+  // A Drive FILE plays on the page; the chip's link (class link, else the
+  // lesson's own video) is the one that does. Folders, YouTube and the rest
+  // keep opening in a tab, and VdoCipher, when on, wins over both.
+  const driveSrc = topic && (!VDOCIPHER_ENABLED || !myVideo(topic._id))
+    ? (topic.classLink || (topic.contentType === 'video' ? topic.contentUrl : '') || '') : '';
+  const driveLink = driveEmbedUrl(driveSrc) ? driveSrc : '';
+  const watchHere = () => {
+    setPlaying(topic._id);
+    bodyRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+  };
   const showProgress = isStudent && total > 0;
   const min = railMin && !isMobile;
   // The waiting state: no lesson open and no week page on show.
@@ -409,7 +422,9 @@ export default function Classroom() {
   };
   // `kind` renames the two PDF chips where the lesson is a piece of work —
   // see materialLabels(). Everything else about the row is the same.
-  const toolsRow = ({ reading, notes, classLink, video, subtitle, done, kind }) => {
+  // `onWatch` is set where the recording plays on this page (a Drive file on a
+  // lesson): the chip then starts it in place instead of opening a tab.
+  const toolsRow = ({ reading, notes, classLink, video, subtitle, done, kind, onWatch }) => {
     const L = materialLabels(kind);
     return (
     <div className="reader-tools">
@@ -428,7 +443,9 @@ export default function Classroom() {
       {/* The class recording / live link. Kept as a chip even when there is
           nothing to open: a student who cannot see a video button assumes the
           video is missing; "not yet" tells them to come back. */}
-      {videoRow({ classLink, video }) ? (
+      {videoRow({ classLink, video }) && onWatch ? (
+        <button className="rchip" onClick={onWatch}><LineIcon name="video" size={14} /> Watch class video</button>
+      ) : videoRow({ classLink, video }) ? (
         <a className="rchip" href={videoRow({ classLink, video })} target="_blank" rel="noreferrer"><LineIcon name="video" size={14} /> Watch class video</a>
       ) : (
         <button className="rchip" disabled title="Your mentor hasn’t posted this class’s video yet"><LineIcon name="video" size={14} /> Video not available yet</button>
@@ -507,7 +524,7 @@ export default function Classroom() {
             </button>
           </div>
           <h1 className="reader-title">{topic.title}</h1>
-          {toolsRow({ reading: readingUrl, notes: lessonNotes, classLink: topic.classLink, video: topic.contentType === 'video' ? topic.contentUrl : '', subtitle: topic.title, done: isDone, kind: lessonKind })}
+          {toolsRow({ reading: readingUrl, notes: lessonNotes, classLink: topic.classLink, video: topic.contentType === 'video' ? topic.contentUrl : '', subtitle: topic.title, done: isDone, kind: lessonKind, onWatch: driveLink ? watchHere : null })}
           {/* How far through the reading you are — fills as the body scrolls. */}
           <div className="reader-read" aria-hidden="true"><span style={{ transform: `scaleX(${read})` }} /></div>
         </div>
@@ -532,6 +549,9 @@ export default function Classroom() {
             {topic.contentType === 'video' && (!VDOCIPHER_ENABLED || !myVideo(topic._id))
               && topic.contentUrl && isDirectVideoFile(topic.contentUrl) && (
               <LessonVideo key={topic._id} url={topic.contentUrl} />
+            )}
+            {driveLink && (
+              <DrivePlayer key={topic._id} link={driveLink} title={topic.title} on={playing === topic._id} onPlay={() => setPlaying(topic._id)} />
             )}
             {topic.contentType === 'pdf' && topic.contentUrl && (
               <button type="button" className="btn" onClick={() => setViewer({ label: 'Lesson PDF', subtitle: topic.title, url: topic.contentUrl })}>📄 Open PDF</button>
@@ -665,6 +685,66 @@ export default function Classroom() {
         </div>
       </aside>
     </div>,
+  );
+}
+
+// A Drive recording, framed in the LMS's own chrome. Drive's player is a
+// cross-origin frame we cannot restyle, so everything we control sits around
+// it: our poster until pressed (the lesson that auto-opens on every visit
+// should not pull a Google frame for a student who never presses play), a
+// loading veil, a guard over Drive's pop-out icon (which opens the raw Drive
+// page), our own full-screen that keeps that guard in place, and an "Open in
+// Drive" escape for the day Drive shows a request-access screen or "still
+// processing" instead of the video.
+function DrivePlayer({ link, title, on, onPlay }) {
+  const box = useRef(null);
+  const [loaded, setLoaded] = useState(false);
+  const [full, setFull] = useState(false);
+  useEffect(() => {
+    const sync = () => setFull(document.fullscreenElement === box.current);
+    document.addEventListener('fullscreenchange', sync);
+    return () => document.removeEventListener('fullscreenchange', sync);
+  }, []);
+  const toggleFull = () => {
+    if (document.fullscreenElement) document.exitFullscreen?.();
+    else box.current?.requestFullscreen?.().catch(() => {});
+  };
+  return (
+    <div className={`dplay ${on ? 'is-on' : ''}`} ref={box}>
+      <div className="dplay-screen">
+        {on ? (
+          <>
+            <iframe
+              src={driveEmbedUrl(link)}
+              title={`Class video: ${title}`}
+              allow="autoplay; fullscreen; encrypted-media"
+              allowFullScreen
+              referrerPolicy="no-referrer"
+              onLoad={() => setLoaded(true)}
+            />
+            <span className="dplay-guard" aria-hidden="true" />
+            {!loaded && <div className="dplay-veil" role="status"><span className="dplay-spin" /> Loading video…</div>}
+          </>
+        ) : (
+          <button type="button" className="dplay-poster" onClick={onPlay} aria-label={`Play class video: ${title}`}>
+            <span className="dplay-eyebrow"><LineIcon name="video" size={14} /> Class recording</span>
+            <span className="dplay-big"><LineIcon name="play" size={30} /></span>
+            <span className="dplay-name">{title}</span>
+          </button>
+        )}
+      </div>
+      <div className="dplay-bar">
+        <span className="dplay-src">Streaming from Google Drive</span>
+        {on && (
+          <button type="button" className="dplay-btn" onClick={toggleFull} aria-label={full ? 'Exit full screen' : 'Full screen'}>
+            <LineIcon name={full ? 'shrink' : 'expand'} size={14} /> {full ? 'Exit full screen' : 'Full screen'}
+          </button>
+        )}
+        <a className="dplay-btn" href={link} target="_blank" rel="noreferrer" title="If the video won’t play here">
+          <LineIcon name="external" size={14} /> Open in Drive
+        </a>
+      </div>
+    </div>
   );
 }
 
