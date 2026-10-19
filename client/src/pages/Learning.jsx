@@ -190,7 +190,7 @@ function Assignments() {
       </div>
 
       {filter === 'showcase' ? (
-        <ShowcaseBoard data={showcase} setData={setShowcase} projects={items} />
+        <ShowcaseBoard data={showcase} setData={setShowcase} />
       ) : items.length === 0 ? (
         <Empty icon="grades" title="No assignments yet." hint="They appear here once your mentor sets them. Meanwhile, the Showcase is open for anything you have built." />
       ) : visible.length === 0 ? (

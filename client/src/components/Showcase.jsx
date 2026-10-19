@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { api, openStoredFile, saveShowcase } from '../api.js';
 import useFetch from '../useFetch.js';
 import Empty from './Empty.jsx';
@@ -29,9 +29,7 @@ const day = (d) => new Date(d).toLocaleDateString([], { day: 'numeric', month: '
 const host = (url) => { try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return url; } };
 
 // ── The student's board ─────────────────────────────────────────────────────
-/** `projects` is the Assignments & Projects list already on screen, offered as
- *  the optional "built for" pick so it costs no second request. */
-export function ShowcaseBoard({ data, setData, projects = [] }) {
+export function ShowcaseBoard({ data, setData }) {
   const [editing, setEditing] = useState(null); // null · 'new' · an entry
   const [view, setView] = useState('all');
   const entries = data.showcases || [];
@@ -61,7 +59,7 @@ export function ShowcaseBoard({ data, setData, projects = [] }) {
       </div>
 
       {editing === 'new' && (
-        <ShowcaseForm batches={data.batches || []} projects={projects} onSaved={saved} onCancel={() => setEditing(null)} />
+        <ShowcaseForm batches={data.batches || []} onSaved={saved} onCancel={() => setEditing(null)} />
       )}
 
       {entries.length > 0 && (
@@ -80,7 +78,7 @@ export function ShowcaseBoard({ data, setData, projects = [] }) {
       ) : (
         <div className="sc-list">
           {shown.map((s) => (editing && editing._id === s._id ? (
-            <ShowcaseForm key={s._id} entry={s} batches={data.batches || []} projects={projects} onSaved={saved} onCancel={() => setEditing(null)} />
+            <ShowcaseForm key={s._id} entry={s} batches={data.batches || []} onSaved={saved} onCancel={() => setEditing(null)} />
           ) : (
             <ShowcaseCard key={s._id} entry={s} onEdit={() => setEditing(s)} onRemoved={removed} />
           )))}
@@ -91,13 +89,12 @@ export function ShowcaseBoard({ data, setData, projects = [] }) {
 }
 
 // ── The form ────────────────────────────────────────────────────────────────
-function ShowcaseForm({ entry, batches, projects, onSaved, onCancel }) {
+function ShowcaseForm({ entry, batches, onSaved, onCancel }) {
   const pickRef = useRef(null);
   const [batchId, setBatchId] = useState(entry?.batchId || batches[0]?._id || '');
   const [title, setTitle] = useState(entry?.title || '');
   const [description, setDescription] = useState(entry?.description || '');
   const [motive, setMotive] = useState(entry?.motive || '');
-  const [assignmentId, setAssignmentId] = useState(entry?.assignmentId || '');
   const [links, setLinks] = useState(entry?.links?.length ? entry.links : [{ url: '', label: '' }]);
   const [driveLink, setDriveLink] = useState(entry?.driveLink || '');
   const [kept, setKept] = useState(entry?.files || []);
@@ -105,12 +102,6 @@ function ShowcaseForm({ entry, batches, projects, onSaved, onCancel }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
 
-  // Only the batch this entry is for: a student in two Kickstarter batches
-  // must not be able to pin an entry to the other batch's project.
-  const options = useMemo(
-    () => projects.filter((p) => String(p.batchId?._id || p.batchId) === String(batchId)),
-    [projects, batchId],
-  );
   const room = MAX_FILES - kept.length - pending.length;
 
   function pick(list) {
@@ -140,7 +131,8 @@ function ShowcaseForm({ entry, batches, projects, onSaved, onCancel }) {
         title: title.trim(),
         description: description.trim(),
         motive: motive.trim(),
-        assignmentId,
+        // No longer asked for, but an entry made while it was keeps its link.
+        assignmentId: entry?.assignmentId || undefined,
         driveLink: driveLink.trim(),
         links: links.filter((l) => l.url.trim()),
         removeFiles: removeFiles?.length ? removeFiles : undefined,
@@ -159,7 +151,7 @@ function ShowcaseForm({ entry, batches, projects, onSaved, onCancel }) {
 
       {!entry && batches.length > 1 && (
         <label>Batch
-          <select value={batchId} onChange={(e) => { setBatchId(e.target.value); setAssignmentId(''); }}>
+          <select value={batchId} onChange={(e) => setBatchId(e.target.value)}>
             {batches.map((b) => <option key={b._id} value={b._id}>{b.name}</option>)}
           </select>
         </label>
@@ -176,14 +168,6 @@ function ShowcaseForm({ entry, batches, projects, onSaved, onCancel }) {
         <label>Why you built it
           <textarea value={motive} onChange={(e) => setMotive(e.target.value)} rows={3} maxLength={2000} required placeholder="The problem it solves for you, or what you wanted to learn." />
         </label>
-        {options.length > 0 && (
-          <label>Built for <span className="muted">(optional)</span>
-            <select value={assignmentId} onChange={(e) => setAssignmentId(e.target.value)}>
-              <option value="">Nothing in particular, my own project</option>
-              {options.map((p) => <option key={p._id} value={p._id}>{p.type === 'project' ? 'Project' : 'Assignment'} · {p.title}</option>)}
-            </select>
-          </label>
-        )}
       </fieldset>
 
       <fieldset className="sc-group">

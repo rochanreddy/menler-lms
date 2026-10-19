@@ -751,8 +751,9 @@ Learning → Assignments & Projects → the **Showcase** pill
 ([components/Showcase.jsx](client/src/components/Showcase.jsx)). An entry
 must say three things: a **title**, **what they built** and **why they built
 it**. Live links (up to 5), a Google Drive link and files (up to 5, 10 MB each)
-are optional, because what a piece of work needs depends on the work. An entry
-can name the assignment or project it grew out of, but doesn't have to.
+are optional, because what a piece of work needs depends on the work. The form
+does not ask which assignment or project an entry grew out of; the API still
+takes an optional `assignmentId`, and an edit keeps one already set.
 
 **It is not a Submission** ([models/Showcase.js](server/models/Showcase.js),
 `lms_showcases`). Nothing here is graded, Drive-checked or AI-reviewed, and
