@@ -3,6 +3,8 @@ import mongoose from 'mongoose';
 import multer from 'multer';
 import { requireAuth } from '../middleware/auth.js';
 import { FileAsset } from '../models/FileAsset.js';
+import { Showcase } from '../models/Showcase.js';
+import { canAccessBatch } from '../utils/access.js';
 import { sha256 } from '../utils/curriculumPdfAssets.js';
 import {
   CURRICULUM_FILE_REFUSAL, MAX_CURRICULUM_BYTES, curriculumFileType, isPdfUpload, storeCurriculumFile, storeCurriculumPdf,
@@ -100,6 +102,7 @@ router.post('/', requireAuth, (req, res) => {
 // GET /api/lms/uploads/:id
 // Resumes: owner or admin. Curriculum PDFs and files: any signed-in user
 // (course material). Doubt attachments: owner or admin. Mail attachments: admin.
+// Showcase files: anyone who can see the batch the entry was posted to.
 router.get('/:id', requireAuth, async (req, res) => {
   if (!mongoose.isValidObjectId(req.params.id)) return res.status(404).json({ error: 'Not found.' });
 
@@ -119,6 +122,16 @@ router.get('/:id', requireAuth, async (req, res) => {
   if (asset.kind === 'doubt-attachment') {
     const isOwner = String(asset.ownerId) === String(req.user._id);
     if (!isOwner && req.user.role !== 'admin') return res.status(403).json({ error: 'Not allowed.' });
+  }
+
+  // A showcase file is meant to be seen, but by the cohort it was shown to,
+  // not by every account that can guess an id. The entry names the batch.
+  if (asset.kind === 'showcase-file') {
+    const isOwner = String(asset.ownerId) === String(req.user._id);
+    if (!isOwner && req.user.role !== 'admin') {
+      const entry = await Showcase.findOne({ 'files.url': `/uploads/${asset._id}` }).select('batchId');
+      if (!entry || !(await canAccessBatch(req.user, entry.batchId))) return res.status(403).json({ error: 'Not allowed.' });
+    }
   }
 
   res.setHeader('Content-Type', asset.mimeType);

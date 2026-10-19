@@ -6,6 +6,7 @@ import Markdown from './Markdown.jsx';
 import Empty from './Empty.jsx';
 import { AnnouncementForm, SessionForm, BulkSessionForm, SessionEditForm, QuizBuilder, AssignmentForm, DRIVE_TYPES } from './BatchForms.jsx';
 import { QuizResults, Attendance, Submissions } from './BatchGrading.jsx';
+import { ShowcasePanel } from './Showcase.jsx';
 
 // Re-exported from its new home in BatchForms.jsx so this module's public
 // shape is unchanged for anything that imported it from here.
@@ -397,6 +398,9 @@ export default function BatchWorkspace({ batchId, mode }) {
         })}
         {assignments.length === 0 && <Empty inline icon="grades" title="No assignments yet." hint="Set one above. Students submit a Drive folder, which is checked automatically." />}
       </section>
+
+      {/* Kickstarter only: renders nothing for any other programme. */}
+      <ShowcasePanel batchId={batchId} canModerate={canManage} />
 
       {/* Quizzes & exams (mentor authors + tracks results) */}
       <section className="panel">

@@ -744,6 +744,35 @@ A scheduled mail can be edited, sent early or cancelled; a sent, failed or
 cancelled one is history and can only be reused (which refills the form) or
 removed. The per-address failures are kept on the row and listed on the card.
 
+### Showcase (Kickstarter)
+
+A Kickstarter student can put something they built in front of their cohort:
+Learning → Assignments & Projects → the **Showcase** pill
+([components/Showcase.jsx](client/src/components/Showcase.jsx)). An entry
+must say three things: a **title**, **what they built** and **why they built
+it**. Live links (up to 5), a Google Drive link and files (up to 5, 10 MB each)
+are optional, because what a piece of work needs depends on the work. An entry
+can name the assignment or project it grew out of, but doesn't have to.
+
+**It is not a Submission** ([models/Showcase.js](server/models/Showcase.js),
+`lms_showcases`). Nothing here is graded, Drive-checked or AI-reviewed, and
+most of what a student wants to show was never set as homework.
+
+**Kickstarter only, decided on the server.** `GET /showcases` answers
+`eligible: false` for anyone outside a Kickstarter batch (by programme title),
+and the client hides the pill on that answer. A Generalist batch's page
+shows no panel either.
+
+**The cohort sees every entry, and only the author edits it.** That is the
+point of a showcase. The batch's mentors and the admin see the same list
+read-only on the batch page (`ShowcasePanel` in BatchWorkspace) and can
+**Remove** an entry. Files are their own `FileAsset` rows (`kind:
+'showcase-file'`, the bytes sniffed with the doubt attachments' rules, `hash`
+left empty), so deleting an entry, or dropping a file from it on edit,
+deletes the bytes. `GET /uploads/:id` serves one to anyone who can see the
+batch the entry was posted to, and to nobody else. Links are http(s) only,
+since every one is rendered as an href in a classmate's browser.
+
 ### Jobs
 
 A **Jobs** tab for students and admins ([pages/Jobs.jsx](client/src/pages/Jobs.jsx));

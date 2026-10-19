@@ -4,6 +4,7 @@ import Empty, { Loading } from '../components/Empty.jsx';
 import Content from '../components/Classroom.jsx';
 import QuizCard from '../components/QuizCard.jsx';
 import AssignmentCard, { assignmentState, relative } from '../components/AssignmentCard.jsx';
+import { ShowcaseBoard } from '../components/Showcase.jsx';
 import useFetch from '../useFetch.js';
 
 // Learning. For students: Content + Assignments (submit) + Quizzes (take).
@@ -142,6 +143,11 @@ function Assignments() {
     initial: [],
   });
   const [filter, setFilter] = useState('all');
+  // The Kickstarter showcase rides on this tab as one more pill. It is not a
+  // state filter, it swaps the list for the board, and a student in no
+  // Kickstarter batch never sees the pill at all (`eligible: false`).
+  const { data: showcase, setData: setShowcase } = useFetch('/showcases', { initial: null });
+  const showcaseOn = !!showcase?.eligible;
 
   // Splice one assignment's submission in place — a submit/edit response
   // already describes exactly what changed, so there's no need to refetch
@@ -156,10 +162,10 @@ function Assignments() {
   }, [items]);
 
   if (loading) return <Loading rows={3} />;
-  if (items.length === 0) return <Empty icon="grades" title="No assignments yet." hint="They appear here once your mentor sets them, with the deadline and what your Drive folder needs to contain." />;
+  if (items.length === 0 && !showcaseOn) return <Empty icon="grades" title="No assignments yet." hint="They appear here once your mentor sets them, with the deadline and what your Drive folder needs to contain." />;
 
   const count = (f) => rows.filter((r) => f.match(r.state)).length;
-  const visible = rows.filter((r) => FILTERS.find((f) => f.key === filter).match(r.state));
+  const visible = filter === 'showcase' ? [] : rows.filter((r) => FILTERS.find((f) => f.key === filter).match(r.state));
   const nextDue = rows.find((r) => (r.state === 'todo' || r.state === 'fixes') && r.a.dueDate);
   const overdueN = rows.filter((r) => r.state === 'overdue').length;
 
@@ -172,13 +178,22 @@ function Assignments() {
               {f.label} <b>{count(f)}</b>
             </button>
           ))}
+          {showcaseOn && (
+            <button role="tab" aria-selected={filter === 'showcase'} className={`work-filter ${filter === 'showcase' ? 'on' : ''}`} onClick={() => setFilter('showcase')}>
+              Showcase <b>{showcase.showcases.length}</b>
+            </button>
+          )}
         </div>
-        {overdueN > 0
+        {filter === 'showcase' ? null : overdueN > 0
           ? <div className="work-next is-overdue">{overdueN} overdue, the deadline has passed with nothing handed in.</div>
           : nextDue && <div className="work-next">Next up: <b>{nextDue.a.title}</b> · due {relative(nextDue.a.dueDate)}</div>}
       </div>
 
-      {visible.length === 0 ? (
+      {filter === 'showcase' ? (
+        <ShowcaseBoard data={showcase} setData={setShowcase} projects={items} />
+      ) : items.length === 0 ? (
+        <Empty icon="grades" title="No assignments yet." hint="They appear here once your mentor sets them. Meanwhile, the Showcase is open for anything you have built." />
+      ) : visible.length === 0 ? (
         <Empty icon="grades" title="Nothing here." hint="Try another filter." />
       ) : (
         weekGroups(visible).map((g) => (

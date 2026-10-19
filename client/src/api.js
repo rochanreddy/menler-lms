@@ -237,15 +237,25 @@ export async function postFile(path, file, fields = {}) {
 }
 
 // POST several Files at once (multipart, field "files") plus plain fields.
-export async function postFiles(path, files, fields = {}) {
+export async function postFiles(path, files, fields = {}, method = 'POST') {
   const fd = new FormData();
   for (const f of files) fd.append('files', f);
   for (const [k, v] of Object.entries(fields)) if (v !== undefined && v !== null && v !== '') fd.append(k, v);
-  const res = await authedFetch(path, { method: 'POST', body: fd });
+  const res = await authedFetch(path, { method, body: fd });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data.error || 'Upload failed');
   return data;
 }
+
+// A Kickstarter showcase entry: text fields, links and files in one multipart
+// request. `fields.links` is sent as JSON; on an edit, `removeFiles` names the
+// stored files to drop and `files` are added to what is kept.
+export const saveShowcase = (id, fields, files = []) =>
+  postFiles(id ? `/showcases/${id}` : '/showcases', files, {
+    ...fields,
+    links: JSON.stringify(fields.links || []),
+    removeFiles: fields.removeFiles ? JSON.stringify(fields.removeFiles) : undefined,
+  }, id ? 'PATCH' : 'POST');
 
 // Upload a File → returns { url, name }. Used for resume/submissions.
 export const uploadFile = (file) => postFile('/uploads', file);

@@ -1137,6 +1137,49 @@ a:focus-visible,
 .wchip:disabled { background: transparent; border-style: dashed; border-color: var(--line); color: var(--muted); cursor: not-allowed; font-weight: 600; }
 .wchip:disabled svg { color: var(--line-strong); }
 .wchip:disabled:hover { border-color: var(--line); color: var(--muted); }
+a.wchip { text-decoration: none; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+
+/* ── Showcase (Kickstarter) ──────────────────────────────────────────────────
+   What a student built, put in front of the cohort. Same panel, chips and
+   form furniture as the assignment cards, so it reads as part of the tab
+   rather than a second app bolted onto it. */
+.sc { margin-top: 14px; display: flex; flex-direction: column; gap: 14px; }
+.sc-intro { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; padding: 18px 20px; }
+.sc-intro-icon { flex: none; width: 42px; height: 42px; display: grid; place-items: center; border-radius: 12px; background: var(--violet-soft); color: var(--violet); }
+.sc-intro-copy { flex: 1; min-width: 220px; }
+.sc-intro-copy h2 { margin: 0 0 4px; font-size: 18px; }
+.sc-intro-copy p { margin: 0; font-size: 13.5px; color: var(--ink-2); line-height: 1.5; }
+.sc-bar { margin: 0; }
+.sc-list { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
+.sc .sc-list { margin-top: 0; }
+
+.sc-form h3 { margin: 0 0 4px; }
+.sc-group { border: 1px solid var(--line-soft); border-radius: var(--radius-sm); padding: 6px 16px 16px; margin: 14px 0 0; min-width: 0; }
+.sc-group legend { padding: 0 6px; font-family: var(--display); font-weight: 700; font-size: 14px; color: var(--ink); }
+.sc-req, .sc-opt { margin-left: 6px; font-family: var(--font); font-size: 11px; font-weight: 600; letter-spacing: .02em; padding: 2px 8px; border-radius: var(--pill); }
+.sc-req { background: var(--violet-soft); color: var(--violet); }
+.sc-opt { background: var(--line-soft); color: var(--muted); }
+.sc-label { display: block; margin: 14px 0 0; font-size: 13px; font-weight: 600; color: var(--ink-2); }
+.sc-hint { margin: 4px 0 0; font-size: 12.5px; color: var(--muted); line-height: 1.45; }
+.sc-link-row { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr) auto; gap: 8px; align-items: center; }
+.sc-link-row input { margin-top: 6px; }
+.sc-link-row .btn { margin-top: 6px; }
+.sc-add { margin-top: 10px; }
+@media (max-width: 640px) {
+  .sc-link-row { grid-template-columns: 1fr; gap: 0; }
+  .sc-link-row .btn { justify-self: start; }
+}
+
+.sc-card { padding: 18px 20px; border-left: 3px solid var(--violet); }
+.sc-card-head { display: flex; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+.sc-card-copy { flex: 1; min-width: 0; }
+.sc-title { margin: 0; font-size: 16.5px; letter-spacing: -0.015em; line-height: 1.25; overflow-wrap: anywhere; }
+.sc-meta { display: flex; align-items: center; gap: 6px 8px; flex-wrap: wrap; margin-top: 5px; font-size: 12.5px; color: var(--muted); }
+.sc-card-actions { flex: none; display: flex; gap: 6px; }
+.sc-text { margin: 10px 0 0; font-size: 14px; line-height: 1.55; color: var(--ink-2); white-space: pre-wrap; overflow-wrap: anywhere; }
+.sc-why { margin-top: 12px; padding: 10px 14px; background: var(--sunken); border-radius: var(--radius-sm); }
+.sc-why .sc-label { margin: 0; font-size: 11.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.sc-why .sc-text { margin-top: 4px; }
 
 /* Quiz card: ring, title, one action. */
 .quiz-card.qc { padding: 16px 20px 16px 18px; border-left: 3px solid var(--line); }
@@ -2128,8 +2171,11 @@ h1.md-h { font-size: 22px; } h2.md-h { font-size: 19px; } h3.md-h { font-size: 1
   .ac-status { order: 4; margin-left: 49px; }
   .ac-caret { order: 3; }
   .ac-body { padding: 4px 14px 16px; }
-  .work-filters { width: 100%; }
-  .work-filter { flex: 1; justify-content: center; padding: 7px 4px; font-size: 12.5px; gap: 5px; white-space: nowrap; }
+  /* Scrolls inside itself rather than pushing the page sideways: a
+     Kickstarter student has a fifth pill (Showcase) that does not fit. */
+  .work-filters { width: 100%; overflow-x: auto; scrollbar-width: none; }
+  .work-filters::-webkit-scrollbar { display: none; }
+  .work-filter { flex: 1 0 auto; justify-content: center; padding: 7px 8px; font-size: 12.5px; gap: 5px; white-space: nowrap; }
   .qc-head { flex-wrap: wrap; }
   .qc-actions { width: 100%; }
   .qc-actions .btn { width: 100%; justify-content: center; }
