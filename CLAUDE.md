@@ -42,6 +42,12 @@ cd server && node scripts/fillMissingNames.js              # dry run; --apply to
                                # on the Students page. Never overwrites a name. New
                                # accounts get the same rule (utils/names.js) when
                                # created without one (needs CONFIRM_DB to apply).
+cd server && node scripts/backfillBatchJoins.js           # dry run; --apply to write
+                               # a join date onto every student membership that has
+                               # none, from their first attendance row in that batch
+                               # (else today), so the class review gate stops asking
+                               # about classes held before they were enrolled.
+                               # Idempotent (needs CONFIRM_DB to apply).
 cd server && node scripts/gradeBacklog.js                  # dry run lists every ungraded
                                # submission; --apply puts the ones that passed the
                                # Drive check through the AI grader (submissions
@@ -332,8 +338,17 @@ the point is a complete picture, and the row records `attended` at the moment
 of writing so an opinion from someone who watched the recording reads as one.
 
 `GET /reviews/pending` picks the oldest class whose join window has closed and
-which started *after* the account was created, so a student enrolled mid-course
-is not met by a wall of forms for classes they never saw.
+which started *after* the student joined that batch, so a student enrolled
+mid-course is not met by a wall of forms for classes they never saw. That is
+the **enrolment** date, not the account's: an account made on the Students page
+and put into a batch a week later, or a student added to a second cohort, owed
+every class in between while the gate counted from account creation. Adding a
+student to a batch stamps `User.batchJoins` once ([utils/enrollment.js](server/utils/enrollment.js));
+removing them clears it, so a re-enrolment starts again. A membership with no
+stamp predates the field and falls back to account creation —
+`node scripts/backfillBatchJoins.js` stamps those from the first class the
+attendance sweep wrote them a row for, since the sweep only rows students
+enrolled when a class closes. Rules in `tests/enrollment.test.js`.
 
 **A mentor sees their own classes' reviews, never a name.** The admin's
 **Feedback** tab and the mentor's are the same page

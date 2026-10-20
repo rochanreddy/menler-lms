@@ -7,6 +7,7 @@ import { User } from '../models/User.js';
 import { Attendance } from '../models/Attendance.js';
 import { myBatchIds } from '../utils/access.js';
 import { sessionEnd } from '../utils/sessionTime.js';
+import { joinedBatchAt, wasEnrolledFor } from '../utils/enrollment.js';
 
 const router = Router();
 
@@ -26,18 +27,23 @@ const SCORE_LABEL = {
  * ENDS — a 7–9 class is reviewable at 9, not an hour later: the attendance
  * window's hour of grace exists for stragglers still joining, which is the
  * opposite of when an opinion is ready. And only classes that started after
- * the account was created: someone enrolled into week four cannot review weeks
- * one to three, and should not have to dismiss three forms to reach the LMS.
+ * the student JOINED THAT BATCH: someone enrolled into week four cannot review
+ * weeks one to three, and should not have to dismiss three forms to reach the
+ * LMS. That is the enrolment date, not the account's — an account made on the
+ * Students page and enrolled later, or a student added to a second cohort,
+ * would otherwise owe every class held before they arrived.
  */
 async function owed(user) {
   const batchIds = await myBatchIds(user);
   if (!batchIds.length) return [];
+  // The earliest join bounds the query; each class is then held to its own batch's date.
+  const since = new Date(Math.min(...batchIds.map((id) => joinedBatchAt(user, id).getTime())));
   const sessions = await Session.find({
     batchId: { $in: batchIds },
-    startsAt: { $lt: new Date(), $gte: user.createdAt || new Date(0) },
+    startsAt: { $lt: new Date(), $gte: since },
   }).populate('batchId', 'name').sort({ startsAt: 1 });
 
-  const over = sessions.filter((s) => sessionEnd(s) <= Date.now());
+  const over = sessions.filter((s) => sessionEnd(s) <= Date.now() && wasEnrolledFor(user, s));
   if (!over.length) return [];
   const done = new Set(
     (await ClassReview.find({ studentId: user._id, sessionId: { $in: over.map((s) => s._id) } }).select('sessionId'))

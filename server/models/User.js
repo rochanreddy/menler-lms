@@ -31,6 +31,21 @@ const userSchema = new mongoose.Schema(
 
     batchIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Batch' }],
 
+    // When this student was added to each batch. Account creation is not
+    // enrolment: an account made on the Students page, or one that already
+    // had a batch, can be put into a cohort weeks later, and everything keyed
+    // on "since they arrived" (the class review gate) must start from here.
+    // Stamped once per batch by utils/enrollment.js, dropped on removal so a
+    // re-enrolment starts again. A membership with no row predates this field
+    // and falls back to createdAt.
+    batchJoins: [
+      {
+        _id: false,
+        batchId: { type: mongoose.Schema.Types.ObjectId, ref: 'Batch', required: true },
+        at: { type: Date, required: true },
+      },
+    ],
+
     // Last authenticated request, stamped (throttled) by requireAuth. Drives the
     // inactivity signal in at-risk detection. Null = never seen since this was
     // added, which the scorer treats as "unknown" rather than "inactive".

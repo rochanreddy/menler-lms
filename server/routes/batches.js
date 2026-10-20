@@ -7,6 +7,7 @@ import { hashPassword, DEFAULT_TEMP_PASSWORD } from '../utils/password.js';
 import { trySendMail } from '../utils/email.js';
 import { accountCreatedEmail, loginUrl } from '../utils/emailTemplates.js';
 import { nameForNewAccount } from '../utils/names.js';
+import { stampBatchJoin, clearBatchJoin } from '../utils/enrollment.js';
 
 const router = Router();
 
@@ -70,6 +71,7 @@ async function addMember(res, batchId, email, field) {
   if (!user) return res.status(404).json({ error: 'No user with that email.' });
   await Batch.findByIdAndUpdate(batchId, { $addToSet: { [field]: user._id } });
   await User.findByIdAndUpdate(user._id, { $addToSet: { batchIds: batchId } });
+  if (field === 'studentIds') await stampBatchJoin(user._id, batchId);
   invalidateUser(user._id);
   return res.json({ ok: true, user: user.toPublic() });
 }
@@ -102,6 +104,8 @@ router.post('/:id/students', requireAuth, requireRole('admin'), async (req, res)
   }
   const batch = await Batch.findByIdAndUpdate(req.params.id, { $addToSet: { studentIds: user._id } }, { new: true }).populate('programId', 'title');
   await User.findByIdAndUpdate(user._id, { $addToSet: { batchIds: req.params.id } });
+  // The account may be weeks old; the class review gate counts from today.
+  await stampBatchJoin(user._id, req.params.id);
   invalidateUser(user._id);
   // A brand-new account gets its credentials by email, named for the
   // programme it was just enrolled in. An existing account gets nothing —
@@ -117,6 +121,7 @@ router.delete('/:id/members/:userId', requireAuth, requireRole('admin'), async (
   const { id, userId } = req.params;
   await Batch.findByIdAndUpdate(id, { $pull: { mentorIds: userId, studentIds: userId } });
   await User.findByIdAndUpdate(userId, { $pull: { batchIds: id } });
+  await clearBatchJoin(userId, id);
   invalidateUser(userId);
   res.json({ ok: true });
 });
