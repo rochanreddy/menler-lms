@@ -43,6 +43,9 @@ const AdminCertificates = lazy(() => import('./pages/admin/Certificates.jsx'));
 // Shared by students and admins: the same 300-job shortlist for both, and the
 // admin alone can post and remove an opening. Mentors have no tab.
 const Jobs = lazy(() => import('./pages/Jobs.jsx'));
+// Batch chat, carried by Ably (see server/routes/chat.js). Students post;
+// mentors read their own batches, admins every batch.
+const Chat = lazy(() => import('./pages/Chat.jsx'));
 
 // A placeholder page factory — renders the spec's sections for screens whose
 // backend is Phase 2.
@@ -93,6 +96,9 @@ export function navFor(role) {
         { label: 'Library', path: 'library', Component: Library },
         { label: 'Webinar', path: 'webinar', Component: Webinar },
         { label: 'Forum', path: 'forum', Component: Forum },
+        // Chat is the one tab a student opens daily rather than weekly, so it
+        // earns a place in the dock; Forum stays for questions worth keeping.
+        { label: 'Chat', path: 'chat', Component: Chat },
         // A seventh tab, against the rule that keeps the dock to what students
         // use every week. Jobs earns it the way Doubts and Support do not:
         // those are episodic, while a student nearing the end of a cohort
@@ -107,6 +113,7 @@ export function navFor(role) {
         { label: 'Students', path: 'students', Component: MentorStudents },
         { label: 'Feedback', path: 'feedback', Component: Feedback },
         { label: 'Forum', path: 'forum', Component: Forum },
+        { label: 'Chat', path: 'chat', Component: Chat },
         { label: 'Webinar', path: 'webinar', Component: Webinar },
       ];
     case 'admin':
@@ -122,6 +129,7 @@ export function navFor(role) {
         { label: 'Certificates', path: 'certificates', Component: AdminCertificates },
         { label: 'Mail', path: 'mail', Component: AdminMail },
         { label: 'Jobs', path: 'jobs', Component: Jobs },
+        { label: 'Chat', path: 'chat', Component: Chat },
         { label: 'Library', path: 'library', Component: Library },
         { label: 'Webinar', path: 'webinar', Component: Webinar },
         { label: 'Forum', path: 'forum', Component: ph('Forum', [

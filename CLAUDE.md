@@ -647,6 +647,37 @@ admitting they have any. The client resolves the slot instants, because
 clock. Cancelling a session pulls it from every student's view but keeps the
 bookings as a record of what had been asked.
 
+### Chat
+
+One room per batch ([pages/Chat.jsx](client/src/pages/Chat.jsx)), a dock tab
+for all three roles. **Students post; mentors read their own batches and admins
+every batch**, and finished batches stay open. Text and links only, no files
+(attachments are version 2, planned on Cloudflare R2, never on M0).
+
+**Ably Chat carries all of it** (`@ably/chat` on the client): messages, history,
+typing, who is online, emoji reactions and deleting your own message travel
+between the browser and Ably and never touch this server or its database. The
+database is an Atlas M0 (100 ops/sec, shared with the marketing site) and chat
+is the one feature that would otherwise poll it all day.
+[routes/chat.js](server/routes/chat.js) does two things: `GET /chat` lists the
+viewer's rooms with the names behind each member id (Ably only sees ids), and
+`POST /chat/token` signs a 30-minute Ably token for exactly those rooms, offline,
+with `ABLY_API_KEY`. Unset, the tab says chat is not switched on. A block, a
+second-device sign-in or a removal from a batch takes the room away when the
+token next renews, because `requireAuth` runs on every renewal.
+
+Mentors and admins hold the same token rights as students: attaching a room
+asks for publish and typing is a publish, so a read-only token cannot open the
+room at all. Read-only is the page's, which gives staff no box. The rate limit
+(one message a second, five per ten seconds, 1000 characters) is in the page for
+the same reason: with publish on the token, the server cannot sit in the path.
+
+**Retention.** Ably Chat keeps a room 30 days and has no early purge, and a
+deleted message is hidden, not wiped. The page asks for the last 21 days only,
+so students see three weeks. One Ably connection exists while the page is open
+and none otherwise, which keeps ~100 students inside the free package's 200
+concurrent connections and 6M messages a month.
+
 ### Support
 
 A student reports something broken — a dead link, a login that won't hold, a

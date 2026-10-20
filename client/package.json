@@ -10,6 +10,8 @@
     "lint:ds": "node scripts/lint-design-system.mjs"
   },
   "dependencies": {
+    "@ably/chat": "^1.4.0",
+    "ably": "^2.29.0",
     "pdfjs-dist": "^6.1.200",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

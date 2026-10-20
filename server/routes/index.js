@@ -31,6 +31,7 @@ import mailRoutes from './mail.js';
 import certificateRoutes from './certificates.js';
 import jobRoutes from './jobs.js';
 import showcaseRoutes from './showcases.js';
+import chatRoutes from './chat.js';
 
 const router = Router();
 
@@ -72,5 +73,6 @@ router.use('/support', supportRoutes); // student help desk, answered by the adm
 router.use('/mail', mailRoutes); // admin mail templates + batch-wise scheduled sends
 router.use('/jobs', jobRoutes); // the curated job board: 300 postings, students + admin
 router.use('/showcases', showcaseRoutes); // Kickstarter students show the cohort what they built
+router.use('/chat', chatRoutes); // batch chat: Ably carries it, this signs the token
 
 export default router;

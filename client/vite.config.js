@@ -6,6 +6,12 @@ import react from '@vitejs/plugin-react';
 export default defineConfig({
   plugins: [react()],
   server: { port: 5174 },
+  // Pre-bundle the chat SDK when the dev server starts. Chat.jsx is lazy, so
+  // without this Vite only discovers Ably on the first visit to the tab,
+  // re-bundles mid-session, and answers the stale copies with a 504
+  // "Outdated Optimize Dep" — the lazy import fails and the page lands on the
+  // error boundary. Dev only; `vite build` never had the problem.
+  optimizeDeps: { include: ['ably', '@ably/chat'] },
   resolve: {
     alias: {
       // '@/components/Empty.jsx' instead of '../../components/Empty.jsx'.

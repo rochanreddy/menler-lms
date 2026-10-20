@@ -39,6 +39,9 @@ const PATHS = {
   // two different things.
   // A briefcase: the case stays, the handle and the clasp line draw.
   jobs: <><rect x="3" y="7" width="18" height="13" rx="2" /><path className="ico-draw" pathLength="1" d="M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2" /><path className="ico-draw" pathLength="1" d="M3 13h18" /></>,
+  // Two bubbles, one answering the other: chat is a conversation, where the
+  // forum's single bubble is a question left for later. The reply draws.
+  chat: <><path d="M14 9.5V5.5A2.5 2.5 0 0 0 11.5 3h-6A2.5 2.5 0 0 0 3 5.5v4A2.5 2.5 0 0 0 5.5 12H6v3l3.5-3h2" /><path className="ico-draw" pathLength="1" d="M10 13.5A2.5 2.5 0 0 1 12.5 11h6a2.5 2.5 0 0 1 2.5 2.5v4a2.5 2.5 0 0 1-2.5 2.5H18v3l-3.5-3h-2a2.5 2.5 0 0 1-2.5-2.5z" /></>,
   certificates: <><circle cx="12" cy="9" r="5.5" /><path className="ico-draw" pathLength="1" d="m8.4 13.6-1.6 7.4 5.2-3 5.2 3-1.6-7.4" /></>,
 };
 
@@ -47,7 +50,7 @@ const ALIAS = {
   'Profile': 'profile', 'Programs': 'programs', 'Batches': 'batches',
   'Mentors': 'mentors', 'Students': 'students', 'Webinar': 'webinar', 'Account': 'account', 'Grades': 'grades',
   'Feedback': 'feedback', 'Doubts': 'doubts', 'Support': 'support', 'Mail': 'mail',
-  'Certificates': 'certificates', 'Jobs': 'jobs',
+  'Certificates': 'certificates', 'Jobs': 'jobs', 'Chat': 'chat',
 };
 
 export default function Icon({ name }) {
