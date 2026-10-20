@@ -62,10 +62,24 @@ export const CURRICULUM_PDF_RULES = {
     // is a decision for whoever owns it, not a side effect of attaching a file.
   ],
   Generalist: [
-    // The week ebook on the week, a session ebook on each session, and the
-    // week's one assignment on its "Weekly Assignment" submission lesson —
-    // brief as reading, solution book as notes. Week 2's brief says it IS
-    // Milestone Project 1, so that project's submission carries it too.
+    // One shape for every week, set by Weeks 1 and 2:
+    //   · the week          -> its reading material (the week ebook, or from
+    //                          Week 4 on the week's study notes). The week's
+    //                          TEACHER NOTES are the admin's to push, never ours.
+    //   · Weekly Assignment -> the one-page assignment as the brief, the
+    //                          solution book as the solution
+    //   · Milestone Project -> that project's own Instructions as the brief and
+    //                          its Solution as the solution, from the Projects
+    //                          set (W2 -> 1, W3 -> 2, W4 -> 3, W6 -> 4). Never
+    //                          the weekly assignment's pair: the Assignments &
+    //                          Projects tab would show both cards the same files.
+    // The rules name the Submission lesson; liftSharedMedia then hoists the pair
+    // onto the chapter, which is where Weeks 1 and 2 hold theirs on live.
+    //
+    // Not attached, on purpose: the 10-page "Assignment Book" for Weeks 4-6
+    // (Weeks 1 and 2 have no such book, and the solution book already walks
+    // the build), and the W1 / W5 project PDFs (no milestone chapter, and their
+    // weekly assignment has its pair). None of them belong in teacher notes.
     { module: 'WEEK 1', file: 'Menler-Fellowship-Week1-Ebook_3.pdf' },
     { module: 'WEEK 1', session: 'S1', file: 'Menler-Fellowship-Week1-Session1-Ebook.pdf' },
     { module: 'WEEK 1', session: 'S2', file: 'Menler-Fellowship-Week1-Session2-Ebook.pdf' },
@@ -74,12 +88,18 @@ export const CURRICULUM_PDF_RULES = {
     { module: 'WEEK 2', session: 'S1', file: 'Menler-Fellowship-Week2-Session1-Ebook.pdf' },
     { module: 'WEEK 2', session: 'S2', file: 'Menler-Fellowship-Week2-Session2-Ebook.pdf' },
     { module: 'WEEK 2', session: 'Weekly Assignment', lesson: 'Submission', file: 'Menler-Fellowship-Week2-Assignment.pdf', notes: 'Menler-Fellowship-Week2-Assignment-Solution-Book.pdf' },
-    { module: 'WEEK 2', session: 'Milestone Project 1', lesson: 'Submission', file: 'Menler-Fellowship-Week2-Assignment.pdf', notes: 'Menler-Fellowship-Week2-Assignment-Solution-Book.pdf' },
-    // Week 3's book, like Week 2's, names itself the week's milestone —
-    // Milestone Project 2 — so both submissions carry the same pair.
+    { module: 'WEEK 2', session: 'Milestone Project 1', lesson: 'Submission', file: 'Menler-Fellowship-W2-Claude-OS-First-Build-Instructions.pdf', notes: 'Menler-Fellowship-W2-Claude-OS-First-Build-Solution.pdf' },
     { module: 'WEEK 3', file: 'Menler-Fellowship-Week3-Ebook.pdf' },
     { module: 'WEEK 3', session: 'Weekly Assignment', lesson: 'Submission', file: 'Menler-Fellowship-Week3-Assignment.pdf', notes: 'Menler-Fellowship-Week3-Assignment-Solution-Book.pdf' },
-    { module: 'WEEK 3', session: 'Milestone Project 2', lesson: 'Submission', file: 'Menler-Fellowship-Week3-Assignment.pdf', notes: 'Menler-Fellowship-Week3-Assignment-Solution-Book.pdf' },
+    { module: 'WEEK 3', session: 'Milestone Project 2', lesson: 'Submission', file: 'Menler-Fellowship-W3-AI-Media-Kit-Instructions.pdf', notes: 'Menler-Fellowship-W3-AI-Media-Kit-Solution.pdf' },
+    { module: 'WEEK 4', file: 'Menler-Fellowship-Week4-Notes.pdf' },
+    { module: 'WEEK 4', session: 'Weekly Assignment', lesson: 'Submission', file: 'Menler-Fellowship-Week4-Assignment.pdf', notes: 'Menler-Fellowship-Week4-Assignment-Solution-Book.pdf' },
+    { module: 'WEEK 4', session: 'Milestone Project 3', lesson: 'Submission', file: 'Menler-Fellowship-W4-My-Automated-AI-System-Instructions.pdf', notes: 'Menler-Fellowship-W4-My-Automated-AI-System-Solution.pdf' },
+    { module: 'WEEK 5', file: 'Menler-Fellowship-Week5-Notes.pdf' },
+    { module: 'WEEK 5', session: 'Weekly Assignment', lesson: 'Submission', file: 'Menler-Fellowship-Week5-Assignment.pdf', notes: 'Menler-Fellowship-Week5-Assignment-Solution-Book.pdf' },
+    { module: 'WEEK 6', file: 'Menler-Fellowship-Week6-Notes.pdf' },
+    { module: 'WEEK 6', session: 'Weekly Assignment', lesson: 'Submission', file: 'Menler-Fellowship-Week6-Assignment.pdf', notes: 'Menler-Fellowship-Week6-Assignment-Solution-Book.pdf' },
+    { module: 'WEEK 6', session: 'Milestone Project 4', lesson: 'Submission', file: 'Menler-Fellowship-W6-Ship-It-Capstone-Instructions.pdf', notes: 'Menler-Fellowship-W6-Ship-It-Capstone-Solution.pdf' },
   ],
 };
 
@@ -200,7 +220,7 @@ export function applyCurriculumEbooks(modules, programTitle, urlByFile) {
   for (const m of modules) {
     for (const r of rules) {
       if (!startsWith(m.title, r.module)) continue;
-      if (!r.session && !r.lesson) { want(m, 'readingUrl', url(r.file)); continue; }
+      if (!r.session && !r.lesson) { want(m, 'readingUrl', url(r.file)); want(m, 'notesUrl', url(r.notes)); continue; }
       for (const ch of m.chapters || []) {
         if (r.session && !startsWith(ch.title, r.session)) continue;
         if (!r.lesson) { want(ch, 'readingUrl', url(r.file)); continue; }
