@@ -246,8 +246,14 @@ async function run() {
   ok('mentor adds a link to the whole week', weekLink.status === 201 && weekLink.json?.materials?.some((x) => x.name === `${FLOW} week link`), `got ${weekLink.status}`);
   ok('…filed as a resource, while the PDFs are notes', weekLink.json?.materials?.find((x) => x.name === `${FLOW} week link`)?.kind === 'resource'
     && (pushed.json?.materials || []).filter((x) => x.name.startsWith(FLOW)).every((x) => x.kind === 'notes'));
-  const notPdf = await pushMaterials(mentorAll.token, kick._id, { moduleId: kMod._id }, [[`${FLOW} notes.txt`, Buffer.from('hello')]]);
-  ok('a non-PDF is refused', notPdf.status === 415, `got ${notPdf.status}`);
+  // Materials are not PDF-only (storeCurriculumFile): a text handout goes up
+  // as it is. What is refused is a file whose bytes are no type we take, here
+  // a Windows program, whatever it is called.
+  const textNote = await pushMaterials(mentorAll.token, kick._id, { moduleId: kMod._id }, [[`${FLOW} notes.txt`, Buffer.from('hello')]]);
+  ok('a text handout is accepted', textNote.status === 201 && textNote.json?.added === 1, `got ${textNote.status}, added=${textNote.json?.added}`);
+  const program = Buffer.concat([Buffer.from('MZ'), Buffer.alloc(62), Buffer.from('This program cannot be run in DOS mode.')]);
+  const notTaken = await pushMaterials(mentorAll.token, kick._id, { moduleId: kMod._id }, [[`${FLOW} setup.exe`, program]]);
+  ok('a file that is no type we take is refused', notTaken.status === 415, `got ${notTaken.status}`);
   const crossPush = await pushMaterials(mentorGen.token, kick._id, { moduleId: kMod._id }, [[`${FLOW} sneak.pdf`, pdfA]]);
   ok('Generalist-only mentor is refused Kickstarter materials', crossPush.status === 403, `got ${crossPush.status}`);
   const emptyPush = await pushMaterials(mentorAll.token, kick._id, { moduleId: kMod._id });
@@ -568,7 +574,8 @@ async function run() {
     const r = await call(`/programs/${kick._id}/materials/${x._id}`, { token: mentorAll.token, method: 'DELETE' });
     if (r.status === 200) removed++;
   }
-  ok('mentor removes the pushed materials again', flowMaterials.length === 3 && removed === 3, `found ${flowMaterials.length}, removed ${removed}`);
+  // Two lesson PDFs, the week link and the text handout.
+  ok('mentor removes the pushed materials again', flowMaterials.length === 4 && removed === 4, `found ${flowMaterials.length}, removed ${removed}`);
   const kAfter = await call(`/programs/${kick._id}`, { token: mentorAll.token });
   ok('…and none are left on the tree', !(kAfter.json.program?.modules || []).some((m) => [m, ...m.chapters.flatMap((c) => [c, ...c.topics])].some((n) => (n.materials || []).some((x) => (x.name || '').startsWith(FLOW)))));
 
