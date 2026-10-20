@@ -7,16 +7,28 @@ import { Alert, Button, Input, Stack, Text } from '../components/ui/index.js';
 
 // The demo accounts, as data — the box below fills the form from these instead
 // of asking whoever's driving to retype a password from the screen.
+//
+// These are the `seed:full` fixture on the `menler_test` database (see
+// docs/TEST-ACCOUNTS.md), NOT live accounts: run the local server against
+// menler_test to use them. That is also what keeps local testing out of the
+// real cohort — chat rooms are named after the batch id, so a test message
+// sent with the live database behind it lands in a room real students read.
+// Students are picked to cover chat: three in Kickstarter, one in Generalist,
+// one in both, so two browsers can talk in the same room.
 const DEMOS = [
-  { role: 'Admin', email: 'admin@menler.in', password: 'ChangeMe123!' },
-  { role: 'Mentor', email: 'mentor@menler.in', password: 'mentor123' },
-  { role: 'Student', email: 'aarav@demo.menler.in', password: 'student123' },
+  { role: 'Admin', name: 'Menler Admin', email: 'admin@menler.in', password: 'ChangeMe123!' },
+  { role: 'Mentor', name: 'Imran Qureshi', email: 'imran.qureshi@menler.in', password: 'Test@1234' },
+  { role: 'Student', name: 'Aarav Sharma', note: 'Kickstarter', email: 'aarav.sharma@student.menler.in', password: 'Test@1234' },
+  { role: 'Student', name: 'Ananya Iyer', note: 'Kickstarter', email: 'ananya.iyer@student.menler.in', password: 'Test@1234' },
+  { role: 'Student', name: 'Arjun Mehta', note: 'Kickstarter', email: 'arjun.mehta@student.menler.in', password: 'Test@1234' },
+  { role: 'Student', name: 'Kabir Singh', note: 'Generalist', email: 'kabir.singh@student.menler.in', password: 'Test@1234' },
+  { role: 'Student', name: 'Kavya Menon', note: 'Both batches', email: 'kavya.menon@student.menler.in', password: 'Test@1234' },
 ];
 
-// Working admin/mentor credentials must never render on a public production
-// login. Shown in `vite dev`, and on a deliberate demo deployment that opts in
-// with VITE_SHOW_DEMOS=true; stripped from an ordinary production build.
-const SHOW_DEMOS = import.meta.env.DEV || import.meta.env.VITE_SHOW_DEMOS === 'true';
+// Local dev only. `import.meta.env.DEV` is false in every `vite build`, so the
+// list and these passwords are compiled out of anything that gets deployed.
+// There is deliberately no flag to turn it on in a build.
+const SHOW_DEMOS = import.meta.env.DEV;
 
 /** "2 minutes ago" — how recently the other device was actually used. */
 function timeAgo(iso) {
@@ -182,7 +194,7 @@ export default function Login({ onLogin }) {
 
             {SHOW_DEMOS && (
               <div className="demo-box">
-                <div className="eyebrow">Demo accounts, select one to fill the form</div>
+                <div className="eyebrow">Test accounts (local only), select one to fill the form</div>
                 {DEMOS.map((d) => (
                   <button
                     type="button"
@@ -190,7 +202,7 @@ export default function Login({ onLogin }) {
                     className="demo-row demo-row-btn"
                     onClick={() => { setEmail(d.email); setPassword(d.password); setErr(''); }}
                   >
-                    <span>{d.role}</span>
+                    <span className="demo-who"><b>{d.name}</b><small>{d.role}{d.note ? ` · ${d.note}` : ''}</small></span>
                     <code>{d.email}</code>
                   </button>
                 ))}
