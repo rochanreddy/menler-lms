@@ -74,6 +74,11 @@ services:
         sync: false
       - key: VDOCIPHER_API_SECRET
         sync: false
+      # Batch chat (routes/chat.js). The root key of the Ably app, which never
+      # leaves the server: it signs a short-lived token per student. Unset, the
+      # Chat tab says chat is not switched on and nothing else is affected.
+      - key: ABLY_API_KEY
+        sync: false
 
       # The "Secret Token" from the Zoom app (Marketplace → menler-admin →
       # Feature → Event Subscriptions). Zoom signs every event with it and
