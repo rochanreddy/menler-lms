@@ -49,10 +49,29 @@ const ROOM_OPS = [
 
 export const roomName = (batchId) => `batch:${batchId}`;
 
+// The key as pasted into a dashboard. Render, Vercel and friends keep a value
+// exactly as typed, so a copy can arrive with a trailing space, wrapped in
+// quotes, or with its own "ABLY_API_KEY=" in front. Any of those signs tokens
+// Ably rejects, and the chat page then waits on a connection that never
+// comes. Cleaned here, and anything still not shaped like
+// "<appId>.<keyId>:<secret>" is treated as no key, said once in the log and
+// to the admin on the Chat tab, rather than signing tokens that cannot work.
+const KEY_SHAPE = /^[\w-]+\.[\w-]+:[\w\-+/=]+$/;
+function ablyKey() {
+  const raw = String(process.env.ABLY_API_KEY || '');
+  const key = raw.trim().replace(/^ABLY_API_KEY\s*=\s*/, '').replace(/^["']+|["']+$/g, '').trim();
+  return { key: KEY_SHAPE.test(key) ? key : '', set: !!raw.trim() };
+}
+let warned = false;
 let rest = null;
+let restKey = '';
 const ably = () => {
-  if (!process.env.ABLY_API_KEY) return null;
-  if (!rest) rest = new Ably.Rest({ key: process.env.ABLY_API_KEY });
+  const { key, set } = ablyKey();
+  if (!key) {
+    if (set && !warned) { warned = true; console.error('[chat] ABLY_API_KEY is set but is not an Ably key ("appId.keyId:secret"); chat stays off.'); }
+    return null;
+  }
+  if (!rest || restKey !== key) { rest = new Ably.Rest({ key }); restKey = key; }
   return rest;
 };
 
@@ -96,9 +115,11 @@ async function roomsFor(user) {
 
 // GET /api/lms/chat
 router.get('/', requireAuth, async (req, res) => {
-  const enabled = !!process.env.ABLY_API_KEY;
+  const { key, set } = ablyKey();
   const rooms = await roomsFor(req.user);
-  res.json({ enabled, me: String(req.user._id), rooms });
+  // `keyProblem` is for the admin's eyes on the Chat tab: a key that is set but
+  // malformed reads differently from no key at all.
+  res.json({ enabled: !!key, keyProblem: set && !key ? 'malformed' : '', me: String(req.user._id), rooms });
 });
 
 // POST /api/lms/chat/token — called by the Ably client's authCallback, on

@@ -132,15 +132,18 @@ const ROLE_TAG = { mentor: 'Mentor', admin: 'Menler team' };
 
 export default function Chat() {
   const { user } = useOutletContext();
-  const [data, setData] = useState({ loading: true, error: '', enabled: false, me: '', rooms: [] });
+  const [data, setData] = useState({ loading: true, error: '', enabled: false, keyProblem: '', me: '', rooms: [] });
   const [pick, setPick] = useState(readPick);
   const [client, setClient] = useState(null);
   const [conn, setConn] = useState('initialized');
+  // Why the connection is down, if Ably said. Without it a refused token
+  // looked exactly like a slow network: loading bars, forever.
+  const [connError, setConnError] = useState(null);
 
   useEffect(() => {
     let live = true;
     api('/chat')
-      .then((d) => live && setData({ loading: false, error: '', enabled: !!d.enabled, me: d.me, rooms: d.rooms || [] }))
+      .then((d) => live && setData({ loading: false, error: '', enabled: !!d.enabled, keyProblem: d.keyProblem || '', me: d.me, rooms: d.rooms || [] }))
       .catch((e) => live && setData((s) => ({ ...s, loading: false, error: e.message })));
     return () => { live = false; };
   }, []);
@@ -157,7 +160,14 @@ export default function Chat() {
       },
     });
     const chat = new ChatClient(realtime);
-    const sub = chat.connection.onStatusChange((c) => setConn(c.current));
+    const sub = chat.connection.onStatusChange((c) => {
+      setConn(c.current);
+      if (c.current === 'connected') setConnError(null);
+      else if (c.error) {
+        setConnError({ code: c.error.code, message: c.error.message });
+        console.error('[chat] Ably connection', c.current, c.error.code, c.error.message);
+      }
+    });
     setClient(chat);
     return () => {
       sub.off();
@@ -179,7 +189,11 @@ export default function Chat() {
         <Empty
           icon="chat"
           title="Chat isn't switched on yet."
-          hint={user?.role === 'admin' ? 'Add ABLY_API_KEY to the server environment and redeploy to turn it on.' : 'Your batch chat will appear here as soon as it goes live.'}
+          hint={user?.role === 'admin'
+            ? (data.keyProblem === 'malformed'
+              ? 'ABLY_API_KEY is set on the server but is not a valid Ably key. It should look like appId.keyId:secret, with no quotes or spaces.'
+              : 'Add ABLY_API_KEY to the server environment and redeploy to turn it on.')
+            : 'Your batch chat will appear here as soon as it goes live.'}
         />
       </div>
     );
@@ -189,13 +203,13 @@ export default function Chat() {
   return (
     <div className="chat-page">
       {client
-        ? <ChatRoom key={room.room} client={client} info={room} me={data.me} rooms={data.rooms} onPick={choose} conn={conn} viewerRole={user?.role} />
+        ? <ChatRoom key={room.room} client={client} info={room} me={data.me} rooms={data.rooms} onPick={choose} conn={conn} connError={connError} viewerRole={user?.role} />
         : <div className="chat-shell is-loading"><div className="skeleton-stack"><div className="skeleton-row tall" /><div className="skeleton-row" /></div></div>}
     </div>
   );
 }
 
-function ChatRoom({ client, info, me, rooms, onPick, conn, viewerRole }) {
+function ChatRoom({ client, info, me, rooms, onPick, conn, connError, viewerRole }) {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [roomError, setRoomError] = useState('');
@@ -537,6 +551,17 @@ function ChatRoom({ client, info, me, rooms, onPick, conn, viewerRole }) {
         : `${typers.length} people are typing`;
 
   const reconnecting = ['disconnected', 'suspended', 'connecting'].includes(conn) && !loading;
+  // Still loading but the connection is down with a reason: say so instead of
+  // showing loading bars that will never resolve. 401xx/403xx are a token Ably
+  // refused, which is the server's key, never anything the student did.
+  const stuck = loading && connError && ['disconnected', 'suspended', 'failed'].includes(conn);
+  const stuckWhy = stuck
+    // 80019 is Ably wrapping a token it refused (the key's signature did not
+    // match), which is how a bad key on the server actually shows up.
+    ? (/^40[13]/.test(String(connError.code)) || connError.code === 80019
+      ? 'Chat could not sign in to Ably. The chat key on the server needs checking.'
+      : 'Chat could not reach Ably. Check your connection; it keeps trying.')
+    : '';
   const failed = conn === 'failed';
   const onlineCount = online.size;
   const left = MAX_LEN - draft.length;
@@ -584,7 +609,9 @@ function ChatRoom({ client, info, me, rooms, onPick, conn, viewerRole }) {
             <p className="chat-start">This is the start of the last three weeks. Older messages are cleared automatically.</p>
           )}
 
-          {loading && (
+          {stuck && <Empty inline icon="chat" title={stuckWhy} hint={`Ably said: ${connError.message}${connError.code ? ` (${connError.code})` : ''}`} />}
+
+          {loading && !stuck && (
             <div className="chat-loading" aria-label="Loading messages">
               {[68, 44, 82, 36].map((w, i) => <div key={i} className={`chat-ghost ${i % 2 ? 'is-mine' : ''}`} style={{ width: `${w}%` }} />)}
             </div>
