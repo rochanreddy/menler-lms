@@ -51,7 +51,7 @@ export const roomName = (batchId) => `batch:${batchId}`;
 
 // The key as pasted into a dashboard. Render, Vercel and friends keep a value
 // exactly as typed, so a copy can arrive with a trailing space, wrapped in
-// quotes, or with its own "ABLY_API_KEY=" in front. Any of those signs tokens
+// quotes, with a line break in the middle, or with its own "ABLY_API_KEY=" in front. Any of those signs tokens
 // Ably rejects, and the chat page then waits on a connection that never
 // comes. Cleaned here, and anything still not shaped like
 // "<appId>.<keyId>:<secret>" is treated as no key, said once in the log and
@@ -59,7 +59,9 @@ export const roomName = (batchId) => `batch:${batchId}`;
 const KEY_SHAPE = /^[\w-]+\.[\w-]+:[\w\-+/=]+$/;
 function ablyKey() {
   const raw = String(process.env.ABLY_API_KEY || '');
-  const key = raw.trim().replace(/^ABLY_API_KEY\s*=\s*/, '').replace(/^["']+|["']+$/g, '').trim();
+  // A key never contains whitespace, so ALL of it goes, not only the ends:
+  // a dashboard's wrapped text box can save a line break in the middle.
+  const key = raw.replace(/\s+/g, '').replace(/^ABLY_API_KEY=/, '').replace(/^["']+|["']+$/g, '');
   return { key: KEY_SHAPE.test(key) ? key : '', set: !!raw.trim() };
 }
 let warned = false;
