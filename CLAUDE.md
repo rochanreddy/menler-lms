@@ -650,33 +650,49 @@ bookings as a record of what had been asked.
 ### Chat
 
 One room per batch ([pages/Chat.jsx](client/src/pages/Chat.jsx)), a dock tab
-for all three roles. **Students post; mentors read their own batches and admins
-every batch**, and finished batches stay open. Text and links only, no files
-(attachments are version 2, planned on Cloudflare R2, never on M0).
+for all three roles. **Everyone in a room posts**: students in their batches
+(finished ones too), mentors in the batches they teach, admins in all of them,
+with a "Mentor" / "Menler team" tag. Text and links only (attachments are
+version 2, planned on Cloudflare R2, never on M0). Reply (the quote travels in
+the message's `metadata.replyTo`; the name shown is looked up by id, never
+taken from it), edit your own message for 15 minutes, delete your own, copy,
+emoji in the composer and as reactions. A reaction chip names one or two
+people and counts past that.
 
 **Ably Chat carries all of it** (`@ably/chat` on the client): messages, history,
-typing, who is online, emoji reactions and deleting your own message travel
-between the browser and Ably and never touch this server or its database. The
-database is an Atlas M0 (100 ops/sec, shared with the marketing site) and chat
-is the one feature that would otherwise poll it all day.
-[routes/chat.js](server/routes/chat.js) does two things: `GET /chat` lists the
-viewer's rooms with the names behind each member id (Ably only sees ids), and
-`POST /chat/token` signs a 30-minute Ably token for exactly those rooms, offline,
-with `ABLY_API_KEY`. Unset, the tab says chat is not switched on. A block, a
-second-device sign-in or a removal from a batch takes the room away when the
-token next renews, because `requireAuth` runs on every renewal.
+typing, who is online, reactions, edits and deletes travel between the browser
+and Ably and never touch this server or its database. The database is an Atlas
+M0 (100 ops/sec, shared with the marketing site) and chat is the one feature
+that would otherwise poll it all day.
+[routes/chat.js](server/routes/chat.js): `GET /chat` lists the viewer's rooms
+with the names behind each member id (Ably only sees ids); `POST /chat/token`
+signs a 30-minute Ably token for exactly those rooms, offline, with
+`ABLY_API_KEY`, carrying only the `-own` update/delete rights; `GET /chat/stats`
+(admin) is the **Chat usage** panel on the admin Home, Ably's own figures
+against the free package, cached five minutes. A block, a second-device sign-in
+or a removal from a batch takes the room away when the token next renews. The
+key needs Publish, Subscribe, Presence, History, Channel metadata, Annotation
+publish/subscribe, Update own, Delete own and Statistics: Ably cuts every token
+down to the key's rights, and a missing one shows as a room that will not open.
 
-Mentors and admins hold the same token rights as students: attaching a room
-asks for publish and typing is a publish, so a read-only token cannot open the
-room at all. Read-only is the page's, which gives staff no box. The rate limit
-(one message a second, five per ten seconds, 1000 characters) is in the page for
-the same reason: with publish on the token, the server cannot sit in the path.
+**The unread dot** on the Chat tab ([chatUnread.js](client/src/chatUnread.js))
+holds no connection: while the tab is visible it asks Ably's REST API for the
+newest message of each room every two minutes, and the Chat page stamps what it
+has shown as seen (localStorage, per room). A live connection on every page
+would spend the free package's 200 connections on people reading a lesson.
+
+The rate limit (one message a second, five per ten seconds, 1000 characters) is
+in the page: typing is a publish, so the token has to carry publish and the
+server cannot sit in the path.
 
 **Retention.** Ably Chat keeps a room 30 days and has no early purge, and a
 deleted message is hidden, not wiped. The page asks for the last 21 days only,
-so students see three weeks. One Ably connection exists while the page is open
-and none otherwise, which keeps ~100 students inside the free package's 200
-concurrent connections and 6M messages a month.
+so students see three weeks. One Ably connection exists while the Chat page is
+open and none otherwise.
+
+**Testing it locally.** `npm run dev:test` runs the dev server on `menler_test`
+(`server/.env` is the live database, and a test message on live lands in a room
+real students read).
 
 ### Support
 

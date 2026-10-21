@@ -216,6 +216,95 @@ function LastSeen({ batch }) {
   );
 }
 
+// ── Chat usage ──────────────────────────────────────────────────────────────
+// The Ably free package, against what the account has used this month. Ably's
+// own figures (GET /chat/stats, cached five minutes on the server), so they are
+// the numbers Ably will hold the account to. Whole-account, so the batch filter
+// above does not apply: Ably does not split usage by room.
+const fmtNum = (n) => (n >= 1_000_000 ? `${(n / 1_000_000).toFixed(n >= 10_000_000 ? 0 : 1)}M` : n >= 10_000 ? `${Math.round(n / 1000)}k` : n.toLocaleString());
+
+function Meter({ label, value, limit, sub }) {
+  const pct = limit ? Math.min(100, (value / limit) * 100) : 0;
+  const level = pct >= 90 ? 'is-bad' : pct >= 70 ? 'is-warn' : '';
+  return (
+    <div className="cu-meter">
+      <div className="cu-meter-top">
+        <span className="cu-meter-label">{label}</span>
+        <span className="cu-meter-pct">{limit ? `${pct < 1 && value > 0 ? '<1' : Math.round(pct)}%` : ''}</span>
+      </div>
+      <div className="cu-meter-value">{fmtNum(value)}{limit ? <small> of {fmtNum(limit)}</small> : null}</div>
+      {limit ? <div className={`cu-bar ${level}`}><i style={{ width: `${Math.max(pct, value > 0 ? 1.5 : 0)}%` }} /></div> : null}
+      {sub && <div className="cu-meter-sub">{sub}</div>}
+    </div>
+  );
+}
+
+function ChatUsage() {
+  const [u, setU] = useState(null);
+  useEffect(() => { api('/chat/stats').then(setU).catch(() => setU({ enabled: true, available: false, reason: 'Usage could not be loaded.' })); }, []);
+  if (!u) return null;
+
+  const head = (
+    <div className="cu-head">
+      <div>
+        <div className="eyebrow">Chat usage · Ably free plan</div>
+        <h2>{u.available ? `This month, ${new Date(`${u.month}-01T00:00:00`).toLocaleDateString(undefined, { month: 'long' })}` : 'Chat'}</h2>
+      </div>
+      <Link to="/app/chat" className="btn sm ghost">Open chat</Link>
+    </div>
+  );
+
+  if (!u.enabled) return <div className="panel dash-section chat-usage">{head}<p className="muted">Chat is not switched on: set ABLY_API_KEY on the server.</p></div>;
+  if (!u.available) return <div className="panel dash-section chat-usage">{head}<p className="muted">{u.reason}</p></div>;
+
+  const max = Math.max(1, ...u.days.map((d) => d.messages));
+  const projected = (() => {
+    const now = new Date();
+    const dayOfMonth = now.getUTCDate();
+    const daysInMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0)).getUTCDate();
+    return Math.round((u.messages / Math.max(dayOfMonth, 1)) * daysInMonth);
+  })();
+
+  return (
+    <div className="panel dash-section chat-usage">
+      {head}
+      <div className="cu-meters">
+        <Meter
+          label="Messages"
+          value={u.messages}
+          limit={u.limits.messagesPerMonth}
+          sub={u.messages ? `on pace for about ${fmtNum(projected)} this month` : 'None yet this month'}
+        />
+        <Meter label="Peak connections" value={u.peakConnections} limit={u.limits.peakConnections} sub="Most people in chat at once" />
+        <Meter label="Peak rooms open" value={u.peakRooms} limit={u.limits.peakChannels} sub="Batches with chat open at once" />
+        <Meter label="People" value={u.activeUsers} sub="Used chat this month" />
+      </div>
+
+      <div className="cu-chart" aria-label="Messages per day, last 14 days">
+        <div className="cu-chart-label">Messages per day, last 14 days</div>
+        <div className="cu-bars">
+          {u.days.map((d) => {
+            const date = new Date(`${d.date}T00:00:00Z`);
+            return (
+              <div key={d.date} className="cu-day" title={`${date.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}: ${d.messages.toLocaleString()} messages`}>
+                <i style={{ height: `${d.messages ? Math.max(4, (d.messages / max) * 100) : 0}%` }} className={d.messages ? '' : 'is-zero'} />
+                <span>{date.getUTCDate()}</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {u.refused > 0 && (
+        <p className="cu-refused">
+          Ably refused {u.refused.toLocaleString()} request{u.refused === 1 ? '' : 's'} this month. Usually a permission missing on the key or a plan limit reached; check the key's capabilities in the Ably dashboard.
+        </p>
+      )}
+      <p className="cu-note">Ably counts each message once when it is sent and once for every person it reaches, so a busy room's figure is many times what was typed. Figures refresh every few minutes.</p>
+    </div>
+  );
+}
+
 export default function AdminHome() {
   const [data, setData] = useState(null);
   const [err, setErr] = useState('');
@@ -337,6 +426,8 @@ export default function AdminHome() {
               <TodayItem to="/app/mail" figure={desk.scheduledMails ?? 0} label="Mail scheduled" detail="Queued to go out" quiet={!desk.scheduledMails} />
             </div>
           </div>
+
+          <ChatUsage />
 
           {scope.map((b) => (
             <div className="panel dash-section" key={`att-${b.id}`}>

@@ -13,11 +13,11 @@
 // and the server signs one token per open chat page per half hour.
 //
 // ── Who can do what ─────────────────────────────────────────────────────────
-// A student chats in every batch they are enrolled in, finished batches too.
-// Mentors (their own batches) and admins (every batch) can READ. Their
-// read-only-ness is the page's, not the token's: Ably attaches a room asking
-// for publish, and typing indicators are publishes, so a token without publish
-// cannot open the room at all. Staff are trusted; the page gives them no box.
+// Everyone in a room can post: students in every batch they are enrolled in
+// (finished batches too), mentors in the batches they teach, admins in every
+// batch. Staff messages carry a "Mentor" / "Menler team" tag on the page.
+// Anyone can reply to a message and edit or delete their own; nobody can
+// touch anyone else's.
 //
 // ── Retention ───────────────────────────────────────────────────────────────
 // Ably Chat keeps a room's messages for 30 days and offers no way to purge
@@ -31,7 +31,7 @@
 // renewal, so the block and the single-session rules apply here unchanged.
 import { Router } from 'express';
 import Ably from 'ably';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, requireRole } from '../middleware/auth.js';
 import { Batch } from '../models/Batch.js';
 import { User } from '../models/User.js';
 import { myBatchIds } from '../utils/access.js';
@@ -44,7 +44,7 @@ const TOKEN_TTL_MS = 30 * 60 * 1000;
 // `annotation-*` the emoji reactions, `channel-metadata` the occupancy count.
 const ROOM_OPS = [
   'publish', 'subscribe', 'presence', 'history', 'channel-metadata',
-  'annotation-publish', 'annotation-subscribe', 'message-delete-own',
+  'annotation-publish', 'annotation-subscribe', 'message-update-own', 'message-delete-own',
 ];
 
 export const roomName = (batchId) => `batch:${batchId}`;
@@ -88,7 +88,7 @@ async function roomsFor(user) {
       program: b.programId?.title || '',
       status: b.status,
       studentCount: (b.studentIds || []).length,
-      canPost: user.role === 'student',
+      canPost: true,
       members,
     };
   });
@@ -126,6 +126,79 @@ router.post('/token', requireAuth, async (req, res) => {
     ttl: TOKEN_TTL_MS,
   });
   res.json({ tokenRequest });
+});
+
+// ── Usage, for the admin Home ───────────────────────────────────────────────
+// What the Ably free package allows, against what this account has used. The
+// figures are Ably's own (the key needs the Statistics capability), so they
+// are the numbers Ably will hold the account to. Ably counts a message once
+// on the way in and once per person it is delivered to, which is why a busy
+// room's figure is many times the number of messages typed.
+export const FREE_PLAN = { messagesPerMonth: 6_000_000, peakConnections: 200, peakChannels: 200 };
+
+const STATS_TTL_MS = 5 * 60 * 1000;
+let statsCache = { at: 0, body: null };
+
+const num = (entries, key) => Number(entries?.[key] || 0);
+// Every "refused" counter Ably keeps, messages and API requests alike. A
+// refusal is a permission the key lacks or a limit hit, never routine.
+const refusedIn = (entries) => Object.entries(entries || {})
+  .filter(([k]) => /^(messages\.all\.all|apiRequests\.all)\.refused$/.test(k))
+  .reduce((n, [, v]) => n + Number(v || 0), 0);
+
+/** "2026-10-21:00" → "2026-10-21". */
+const dayOf = (intervalId) => String(intervalId || '').slice(0, 10);
+
+async function readUsage(client) {
+  const [month, days] = await Promise.all([
+    client.stats({ unit: 'month', limit: 1, direction: 'backwards' }),
+    client.stats({ unit: 'day', limit: 14, direction: 'backwards' }),
+  ]);
+  const m = month.items[0]?.entries || {};
+  const byDay = new Map(days.items.map((d) => [dayOf(d.intervalId), num(d.entries, 'messages.all.all.count')]));
+
+  // Ably leaves a quiet day out entirely; the chart wants it as a zero.
+  const series = [];
+  const today = new Date();
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() - i));
+    const key = d.toISOString().slice(0, 10);
+    series.push({ date: key, messages: byDay.get(key) || 0 });
+  }
+
+  return {
+    month: month.items[0]?.intervalId ? dayOf(month.items[0].intervalId).slice(0, 7) : new Date().toISOString().slice(0, 7),
+    messages: num(m, 'messages.all.all.count'),
+    peakConnections: num(m, 'connections.all.peak'),
+    peakRooms: num(m, 'channels.peak'),
+    activeUsers: num(m, 'mau.count'),
+    refused: refusedIn(m),
+    days: series,
+  };
+}
+
+// GET /api/lms/chat/stats — admin only. Cached five minutes: Ably's figures
+// move by the minute at most, and an admin Home opened ten times an hour
+// should not be ten calls to Ably.
+router.get('/stats', requireAuth, requireRole('admin'), async (_req, res) => {
+  const client = ably();
+  if (!client) return res.json({ enabled: false, limits: FREE_PLAN });
+  const now = Date.now();
+  if (statsCache.body && now - statsCache.at < STATS_TTL_MS) return res.json(statsCache.body);
+  try {
+    const body = { enabled: true, available: true, limits: FREE_PLAN, ...(await readUsage(client)), updatedAt: new Date(now).toISOString() };
+    statsCache = { at: now, body };
+    res.json(body);
+  } catch (e) {
+    // 40160: the key has no Statistics capability. Anything else is Ably
+    // being unreachable. Either way the card says so rather than failing Home.
+    res.json({
+      enabled: true,
+      available: false,
+      limits: FREE_PLAN,
+      reason: e?.code === 40160 ? 'The Ably key does not have the Statistics capability.' : 'Ably could not be reached for usage figures.',
+    });
+  }
 });
 
 export default router;

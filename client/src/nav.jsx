@@ -43,8 +43,8 @@ const AdminCertificates = lazy(() => import('./pages/admin/Certificates.jsx'));
 // Shared by students and admins: the same 300-job shortlist for both, and the
 // admin alone can post and remove an opening. Mentors have no tab.
 const Jobs = lazy(() => import('./pages/Jobs.jsx'));
-// Batch chat, carried by Ably (see server/routes/chat.js). Students post;
-// mentors read their own batches, admins every batch.
+// Batch chat, carried by Ably (see server/routes/chat.js). Everyone in a
+// batch posts: its students, its mentors, and admins in every batch.
 const Chat = lazy(() => import('./pages/Chat.jsx'));
 
 // A placeholder page factory — renders the spec's sections for screens whose

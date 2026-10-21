@@ -9,6 +9,7 @@ import UserMenu from './UserMenu.jsx';
 import ErrorBoundary from './ErrorBoundary.jsx';
 import ClassReviewGate from './ClassReviewGate.jsx';
 import { api } from '../api.js';
+import { useChatUnread } from '../chatUnread.js';
 
 // Dock items whose chunk is worth fetching on hover/focus rather than on click.
 // Only the two a student lands on constantly — prefetching every tab would just
@@ -27,6 +28,8 @@ export default function AppShell({ user, setUser, logout }) {
   const [cmdOpen, setCmdOpen] = useState(false);
   const [stuck, setStuck] = useState(false);
   const location = useLocation();
+  // Rooms with a message you have not seen; drives the dot on the Chat tab.
+  const chatUnread = useChatUnread(user);
 
   // Landing on a new section should start at the top of it.
   useEffect(() => { setCmdOpen(false); window.scrollTo({ top: 0 }); }, [location.pathname]);
@@ -140,6 +143,7 @@ export default function AppShell({ user, setUser, logout }) {
           >
             <Icon name={t.label} />
             <span className="dock-label">{t.label}</span>
+            {t.path === 'chat' && chatUnread.size > 0 && <span className="dock-dot" aria-label="New messages" />}
           </NavLink>
         ))}
       </nav>
