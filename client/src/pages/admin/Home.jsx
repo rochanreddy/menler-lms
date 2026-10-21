@@ -220,7 +220,8 @@ function LastSeen({ batch }) {
 // The Ably free package, against what the account has used this month. Ably's
 // own figures (GET /chat/stats, cached five minutes on the server), so they are
 // the numbers Ably will hold the account to. Whole-account, so the batch filter
-// above does not apply: Ably does not split usage by room.
+// above does not apply: Ably does not split usage by room. Counted from launch
+// in the month chat went live, so the day of testing it is not in the numbers.
 const fmtNum = (n) => (n >= 1_000_000 ? `${(n / 1_000_000).toFixed(n >= 10_000_000 ? 0 : 1)}M` : n >= 10_000 ? `${Math.round(n / 1000)}k` : n.toLocaleString());
 
 function Meter({ label, value, limit, sub }) {
@@ -248,7 +249,11 @@ function ChatUsage() {
     <div className="cu-head">
       <div>
         <div className="eyebrow">Chat usage · Ably free plan</div>
-        <h2>{u.available ? `This month, ${new Date(`${u.month}-01T00:00:00`).toLocaleDateString(undefined, { month: 'long' })}` : 'Chat'}</h2>
+        <h2>{u.available
+          ? (u.sinceLaunch
+            ? `Since launch, ${new Date(u.since).toLocaleDateString(undefined, { day: 'numeric', month: 'long' })}`
+            : `This month, ${new Date(u.since).toLocaleDateString(undefined, { month: 'long' })}`)
+          : 'Chat'}</h2>
       </div>
       <Link to="/app/chat" className="btn sm ghost">Open chat</Link>
     </div>
@@ -258,12 +263,6 @@ function ChatUsage() {
   if (!u.available) return <div className="panel dash-section chat-usage">{head}<p className="muted">{u.reason}</p></div>;
 
   const max = Math.max(1, ...u.days.map((d) => d.messages));
-  const projected = (() => {
-    const now = new Date();
-    const dayOfMonth = now.getUTCDate();
-    const daysInMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0)).getUTCDate();
-    return Math.round((u.messages / Math.max(dayOfMonth, 1)) * daysInMonth);
-  })();
 
   return (
     <div className="panel dash-section chat-usage">
@@ -273,11 +272,11 @@ function ChatUsage() {
           label="Messages"
           value={u.messages}
           limit={u.limits.messagesPerMonth}
-          sub={u.messages ? `on pace for about ${fmtNum(projected)} this month` : 'None yet this month'}
+          sub={!u.messages ? 'None yet' : u.projected != null ? `on pace for about ${fmtNum(u.projected)} this month` : 'Pace shows after a full day'}
         />
         <Meter label="Peak connections" value={u.peakConnections} limit={u.limits.peakConnections} sub="Most people in chat at once" />
         <Meter label="Peak rooms open" value={u.peakRooms} limit={u.limits.peakChannels} sub="Batches with chat open at once" />
-        <Meter label="People" value={u.activeUsers} sub="Used chat this month" />
+        <Meter label="Messages today" value={u.messagesToday} sub={u.dailyCap ? `Students are capped at ${u.dailyCap.messages} messages and ${u.dailyCap.reactions} reactions a day` : 'Since midnight'} />
       </div>
 
       <div className="cu-chart" aria-label="Messages per day, last 14 days">
@@ -297,7 +296,7 @@ function ChatUsage() {
 
       {u.refused > 0 && (
         <p className="cu-refused">
-          Ably refused {u.refused.toLocaleString()} request{u.refused === 1 ? '' : 's'} this month. Usually a permission missing on the key or a plan limit reached; check the key's capabilities in the Ably dashboard.
+          Ably refused {u.refused.toLocaleString()} request{u.refused === 1 ? '' : 's'} {u.sinceLaunch ? 'since launch' : 'this month'}. Usually a permission missing on the key or a plan limit reached; check the key's capabilities in the Ably dashboard.
         </p>
       )}
       <p className="cu-note">Ably counts each message once when it is sent and once for every person it reaches, so a busy room's figure is many times what was typed. Figures refresh every few minutes.</p>

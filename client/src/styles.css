@@ -3605,6 +3605,7 @@ button.ds-slot-email:hover { color: var(--ink); }
 .chat-emoji-grid button:hover { background: var(--violet-soft); transform: scale(1.12); }
 .chat-readonly { margin: 4px 0 2px; padding: 12px 16px; border-radius: var(--radius-sm); background: var(--sunken); color: var(--muted); font-size: 13.5px; text-align: center; }
 .chat-fine { margin: 7px 0 0; text-align: center; font-size: 11px; color: var(--faint); }
+.chat-left { margin: 7px 0 0; text-align: center; font-size: 12px; font-weight: 600; color: var(--warn-ink); }
 
 /* Tones: the six course accents, a soft fill with ink that clears AA. */
 .tone-1 { background: var(--a1-soft); color: var(--a1-ink); }

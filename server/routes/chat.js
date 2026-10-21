@@ -169,34 +169,68 @@ const refusedIn = (entries) => Object.entries(entries || {})
   .filter(([k]) => /^(messages\.all\.all|apiRequests\.all)\.refused$/.test(k))
   .reduce((n, [, v]) => n + Number(v || 0), 0);
 
-/** "2026-10-21:00" → "2026-10-21". */
-const dayOf = (intervalId) => String(intervalId || '').slice(0, 10);
+// When chat went live. Ably's figures cannot be deleted, so everything before
+// this (the day of building and testing it) is left out by counting from here
+// instead of from the 1st. Set CHAT_STATS_SINCE (an ISO time) to move it.
+export const CHAT_LAUNCHED_AT = new Date(process.env.CHAT_STATS_SINCE || '2026-10-21T10:00:00Z');
 
-async function readUsage(client) {
-  const [month, days] = await Promise.all([
-    client.stats({ unit: 'month', limit: 1, direction: 'backwards' }),
-    client.stats({ unit: 'day', limit: 14, direction: 'backwards' }),
-  ]);
-  const m = month.items[0]?.entries || {};
-  const byDay = new Map(days.items.map((d) => [dayOf(d.intervalId), num(d.entries, 'messages.all.all.count')]));
+// The daily cap the chat page holds each student to, reported on the panel so
+// the admin reads the two together. Mentors and admins are not capped.
+export const DAILY_CAP = { messages: 100, reactions: 100 };
 
-  // Ably leaves a quiet day out entirely; the chart wants it as a zero.
-  const series = [];
-  const today = new Date();
-  for (let i = 13; i >= 0; i--) {
-    const d = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() - i));
-    const key = d.toISOString().slice(0, 10);
-    series.push({ date: key, messages: byDay.get(key) || 0 });
+// India is where everyone reading this is; a "day" on the chart is an IST day.
+const IST_MS = 5.5 * 60 * 60 * 1000;
+const istDay = (ms) => new Date(ms + IST_MS).toISOString().slice(0, 10);
+/** "2026-10-21:09" → the hour's start in ms (UTC). */
+const hourStart = (intervalId) => Date.parse(`${String(intervalId).slice(0, 10)}T${String(intervalId).slice(11, 13)}:00:00Z`);
+
+export async function readUsage(client) {
+  const now = new Date();
+  const monthStart = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1);
+  // Counted from launch or the 1st, whichever is later: the free package is
+  // monthly, and launch only matters in the month it happened.
+  const since = Math.max(monthStart, CHAT_LAUNCHED_AT.getTime());
+  // Hourly, because a month is at most 744 hours and Ably serves 1000 a page;
+  // a day of hours either side of `since` is fetched and trimmed below.
+  const page = await client.stats({ unit: 'hour', start: since - 14 * 24 * 3600 * 1000, direction: 'forwards', limit: 1000 });
+  const hours = page.items
+    .map((h) => ({ at: hourStart(h.intervalId), e: h.entries || {} }))
+    .filter((h) => h.at >= Math.min(since, CHAT_LAUNCHED_AT.getTime()) && h.at >= CHAT_LAUNCHED_AT.getTime());
+  const inPeriod = hours.filter((h) => h.at >= since);
+
+  const messages = inPeriod.reduce((n, h) => n + num(h.e, 'messages.all.all.count'), 0);
+  const peak = (key) => inPeriod.reduce((m, h) => Math.max(m, num(h.e, key)), 0);
+  const today = istDay(now.getTime());
+  const byDay = new Map();
+  for (const h of hours) {
+    const d = istDay(h.at);
+    byDay.set(d, (byDay.get(d) || 0) + num(h.e, 'messages.all.all.count'));
   }
 
+  // Ably leaves a quiet hour out entirely; the chart wants every day, zeros too.
+  const series = [];
+  for (let i = 13; i >= 0; i--) {
+    const d = istDay(now.getTime() - i * 24 * 3600 * 1000);
+    series.push({ date: d, messages: byDay.get(d) || 0 });
+  }
+
+  // On pace for the month: the daily rate since `since`, over the whole month.
+  // Not shown until a day has passed, when a few hours would project nonsense.
+  const elapsedDays = (now.getTime() - since) / (24 * 3600 * 1000);
+  const daysInMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0)).getUTCDate();
+  const projected = elapsedDays >= 1 ? Math.round((messages / elapsedDays) * daysInMonth) : null;
+
   return {
-    month: month.items[0]?.intervalId ? dayOf(month.items[0].intervalId).slice(0, 7) : new Date().toISOString().slice(0, 7),
-    messages: num(m, 'messages.all.all.count'),
-    peakConnections: num(m, 'connections.all.peak'),
-    peakRooms: num(m, 'channels.peak'),
-    activeUsers: num(m, 'mau.count'),
-    refused: refusedIn(m),
+    since: new Date(since).toISOString(),
+    sinceLaunch: since > monthStart,
+    messages,
+    messagesToday: byDay.get(today) || 0,
+    projected,
+    peakConnections: peak('connections.all.peak'),
+    peakRooms: peak('channels.peak'),
+    refused: inPeriod.reduce((n, h) => n + refusedIn(h.e), 0),
     days: series,
+    dailyCap: DAILY_CAP,
   };
 }
 

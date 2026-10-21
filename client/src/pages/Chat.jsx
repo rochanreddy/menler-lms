@@ -57,6 +57,26 @@ const Svg = ({ children, size = 16 }) => (
 );
 const SmileIcon = ({ size }) => <Svg size={size}><circle cx="12" cy="12" r="9" /><path d="M8.5 14.5a4.5 4.5 0 0 0 7 0" /><path d="M9 9.5h.01" /><path d="M15 9.5h.01" /></Svg>;
 const PICK_KEY = 'lms_chat_room';
+
+// A student's day: 100 messages and 100 reactions, reset at their midnight.
+// Generous for a real conversation (a lively day is twenty or thirty) and the
+// line that keeps one runaway day from eating the Ably free package: every
+// message is counted once per person it reaches. Mentors and admins are not
+// capped. Counted in this browser, like the per-second limit, because the
+// token has to carry publish (typing is a publish) so the server cannot sit in
+// the path; it holds everyone who is not deliberately working around it.
+// Edits, deletes and taking a reaction back do not count.
+const DAILY_CAP = { messages: 100, reactions: 100 };
+const quotaKey = (me) => `lms_chat_quota:${me}:${new Date().toLocaleDateString('en-CA')}`;
+function readQuota(me) {
+  try { return { m: 0, r: 0, ...JSON.parse(localStorage.getItem(quotaKey(me)) || '{}') }; } catch { return { m: 0, r: 0 }; }
+}
+function bumpQuota(me, field) {
+  const q = readQuota(me);
+  q[field] += 1;
+  try { localStorage.setItem(quotaKey(me), JSON.stringify(q)); } catch { /* private mode: the cap just resets on reload */ }
+  return q;
+}
 // How long after sending a message its author can still edit it. Long enough
 // to fix a typo or a wrong link; short enough that a reply never ends up
 // answering words that are no longer there.
@@ -228,6 +248,15 @@ function ChatRoom({ client, info, me, rooms, onPick, conn, connError, viewerRole
   const [replyTo, setReplyTo] = useState(null); // { serial, clientId, text }
   const [editing, setEditing] = useState(null); // { serial, metadata }
   const [flashSerial, setFlashSerial] = useState(''); // the original a reply's quote just jumped to
+  const capped = viewerRole === 'student';
+  const [quota, setQuota] = useState(() => readQuota(me));
+  // A page left open past midnight starts the new day's count when it is next looked at.
+  useEffect(() => {
+    const fresh = () => { if (document.visibilityState === 'visible') setQuota(readQuota(me)); };
+    document.addEventListener('visibilitychange', fresh);
+    return () => document.removeEventListener('visibilitychange', fresh);
+  }, [me]);
+  const messagesLeft = capped ? Math.max(0, DAILY_CAP.messages - quota.m) : Infinity;
 
   const roomRef = useRef(null);
   const pageRef = useRef(null);
@@ -391,6 +420,10 @@ function ChatRoom({ client, info, me, rooms, onPick, conn, connError, viewerRole
     const text = draft.trim();
     if (!room || !text) return;
     if (text.length > MAX_LEN) { flash(`Keep it under ${MAX_LEN} characters.`); return; }
+    if (!editing && capped && readQuota(me).m >= DAILY_CAP.messages) {
+      flash(`That's today's ${DAILY_CAP.messages} messages. You can send more after midnight.`);
+      return;
+    }
     const now = Date.now();
     const recent = sentRef.current.filter((t) => now - t < BURST.ms);
     if ((recent.length && now - recent[recent.length - 1] < MIN_GAP_MS) || recent.length >= BURST.n) {
@@ -429,6 +462,7 @@ function ChatRoom({ client, info, me, rooms, onPick, conn, connError, viewerRole
       const metadata = quote ? { replyTo: { serial: quote.serial, clientId: quote.clientId, text: snippet(quote.text) } } : undefined;
       const sent = await room.messages.send(metadata ? { text, metadata } : { text });
       setMessages((list) => merge(list, [sent]));
+      if (capped) setQuota(bumpQuota(me, 'm'));
     } catch (e) {
       setDraft(text);
       setReplyTo(quote);
@@ -506,9 +540,16 @@ function ChatRoom({ client, info, me, rooms, onPick, conn, connError, viewerRole
     setSelected('');
     if (!room || isDeleted(m)) return;
     const mine = m.reactions?.distinct?.[emoji]?.clientIds?.includes(me);
+    if (!mine && capped && readQuota(me).r >= DAILY_CAP.reactions) {
+      flash(`That's today's ${DAILY_CAP.reactions} reactions. You can react again after midnight.`);
+      return;
+    }
     try {
       if (mine) await room.messages.reactions.delete(m.serial, { name: emoji });
-      else await room.messages.reactions.send(m.serial, { name: emoji });
+      else {
+        await room.messages.reactions.send(m.serial, { name: emoji });
+        if (capped) setQuota(bumpQuota(me, 'r'));
+      }
     } catch { flash('That reaction did not go through.'); }
   }
 
@@ -823,10 +864,10 @@ function ChatRoom({ client, info, me, rooms, onPick, conn, connError, viewerRole
               onChange={onType}
               onKeyDown={onKey}
               onBlur={() => roomRef.current?.typing.stop().catch(() => {})}
-              placeholder="Write a message…"
+              placeholder={messagesLeft <= 0 && !editing ? `You've sent today's ${DAILY_CAP.messages} messages. More after midnight.` : 'Write a message…'}
               aria-label="Message"
               maxLength={MAX_LEN + 200}
-              disabled={loading || !!roomError || failed}
+              disabled={loading || !!roomError || failed || (messagesLeft <= 0 && !editing)}
             />
             {left < 200 && <span className={`chat-count ${left < 0 ? 'is-over' : ''}`}>{left}</span>}
             <button type="submit" className="chat-send" aria-label={editing ? 'Save edit' : 'Send'} title={editing ? 'Save' : 'Send'} disabled={!draft.trim() || left < 0 || loading || !!roomError}>
@@ -837,6 +878,9 @@ function ChatRoom({ client, info, me, rooms, onPick, conn, connError, viewerRole
           <p className="chat-readonly">
             You can read this batch's chat but not post in it.
           </p>
+        )}
+        {capped && messagesLeft > 0 && messagesLeft <= 10 && (
+          <p className="chat-left">{messagesLeft === 1 ? '1 message left today' : `${messagesLeft} messages left today`}</p>
         )}
         <p className="chat-fine">Links only, no files. Messages are visible for three weeks.</p>
       </footer>
