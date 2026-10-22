@@ -1,7 +1,7 @@
 import { Suspense, useEffect, useMemo, useState } from 'react';
-import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import { navFor, loadLearning, loadStudentGrades } from '../nav.jsx';
-import Icon from './Icon.jsx';
+import Dock from './Dock.jsx';
 import NotificationBell from './NotificationBell.jsx';
 import MenlerWordmark from './MenlerWordmark.jsx';
 import CommandPalette from './CommandPalette.jsx';
@@ -128,25 +128,7 @@ export default function AppShell({ user, setUser, logout }) {
       {/* The dock. Icons always; only the active item expands to show its
           label, which keeps it compact regardless of how many sections a role
           has. Same component and position on mobile — one pattern everywhere. */}
-      <nav className="dock" aria-label="Main">
-        {tabs.map((t) => (
-          <NavLink
-            key={t.path}
-            to={t.path ? `/app/${t.path}` : '/app'}
-            end={t.path === ''}
-            className={({ isActive }) => `dock-item ${isActive ? 'on' : ''}`}
-            title={t.label}
-            aria-label={t.label}
-            // Start fetching the chunk on hover/focus so the click resolves
-            // from cache instead of waiting on the network.
-            {...(PREFETCH[t.path] ? { onMouseEnter: PREFETCH[t.path], onFocus: PREFETCH[t.path] } : {})}
-          >
-            <Icon name={t.label} />
-            <span className="dock-label">{t.label}</span>
-            {t.path === 'chat' && chatUnread.size > 0 && <span className="dock-dot" aria-label="New messages" />}
-          </NavLink>
-        ))}
-      </nav>
+      <Dock tabs={tabs} prefetch={PREFETCH} badge={(t) => t.path === 'chat' && chatUnread.size > 0} />
 
       <CommandPalette open={cmdOpen} onClose={() => setCmdOpen(false)} tabs={tabs} role={user.role} onLogout={logout} />
     </div>

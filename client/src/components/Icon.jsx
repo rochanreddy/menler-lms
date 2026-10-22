@@ -43,6 +43,8 @@ const PATHS = {
   // forum's single bubble is a question left for later. The reply draws.
   chat: <><path d="M14 9.5V5.5A2.5 2.5 0 0 0 11.5 3h-6A2.5 2.5 0 0 0 3 5.5v4A2.5 2.5 0 0 0 5.5 12H6v3l3.5-3h2" /><path className="ico-draw" pathLength="1" d="M10 13.5A2.5 2.5 0 0 1 12.5 11h6a2.5 2.5 0 0 1 2.5 2.5v4a2.5 2.5 0 0 1-2.5 2.5H18v3l-3.5-3h-2a2.5 2.5 0 0 1-2.5-2.5z" /></>,
   certificates: <><circle cx="12" cy="9" r="5.5" /><path className="ico-draw" pathLength="1" d="m8.4 13.6-1.6 7.4 5.2-3 5.2 3-1.6-7.4" /></>,
+  // The dock's More: three dots in a rounded square, the tabs that did not fit.
+  more: <><rect x="3" y="5" width="18" height="14" rx="4" /><circle cx="8" cy="12" r="1.3" fill="currentColor" stroke="none" /><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none" /><circle cx="16" cy="12" r="1.3" fill="currentColor" stroke="none" /></>,
 };
 
 const ALIAS = {
