@@ -9,10 +9,14 @@ const router = Router();
 // the app. The two reads are independent -- running them concurrently halves the
 // endpoint's latency (it still issues two operations, it just stops waiting for
 // the first before starting the second).
+//
+// Quizzes are retired, so the "New quiz: …" rows written while they existed
+// are left out of both: a bell that still announces one points at nothing.
+const RETIRED_TYPES = { $nin: ['quiz'] };
 router.get('/', requireAuth, async (req, res) => {
   const [items, unread] = await Promise.all([
-    Notification.find({ userId: req.user._id }).sort({ createdAt: -1 }).limit(30).lean(),
-    Notification.countDocuments({ userId: req.user._id, read: false }),
+    Notification.find({ userId: req.user._id, type: RETIRED_TYPES }).sort({ createdAt: -1 }).limit(30).lean(),
+    Notification.countDocuments({ userId: req.user._id, read: false, type: RETIRED_TYPES }),
   ]);
   res.json({ items, unread });
 });

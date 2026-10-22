@@ -4,43 +4,11 @@ import Empty, { Loading } from './Empty.jsx';
 import { SubmissionCheckPanel } from './SubmissionCheck.jsx';
 import AiReview from './AiReview.jsx';
 
-// The assessment half of a batch: quiz results, the attendance modal, and the
+// The assessment half of a batch: the attendance modal and the
 // submission list a mentor grades from. Extracted from BatchWorkspace.jsx
 // unchanged. Each fetches its own data on first open rather than loading with
 // the workspace — a mentor opening a batch shouldn't pay for every submission
 // in it before deciding which assignment to look at.
-
-export function QuizResults({ quizId }) {
-  const [data, setData] = useState(null);
-  const [open, setOpen] = useState(false);
-  const load = () => api(`/quizzes/${quizId}/results`).then(setData).catch(() => setData({ attempts: [] }));
-
-  // Fetch on first open only — reopening reuses what we already have.
-  function toggle() {
-    if (open) return setOpen(false);
-    setOpen(true);
-    if (!data) load();
-  }
-
-  const attempts = data?.attempts;
-  return (
-    <div className="subs">
-      <button className="btn sm ghost" onClick={toggle}>
-        {open ? 'Hide results' : 'View results'}
-      </button>
-      {open && (
-        !data ? <Loading rows={2} inline /> :
-          attempts.length === 0 ? <Empty inline icon="learning" title="Nobody has attempted this quiz yet." /> :
-            attempts.map((a) => (
-              <div key={a._id} className="grade-row">
-                <strong>{a.studentId?.fullName || a.studentId?.email}</strong>
-                <span className="badge badge-student">{a.score}/{a.total ?? data.quiz?.total}</span>
-              </div>
-            ))
-      )}
-    </div>
-  );
-}
 
 export function Attendance({ session, students, onDone }) {
   const [open, setOpen] = useState(false);

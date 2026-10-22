@@ -11,10 +11,10 @@ import Empty from '../../components/Empty.jsx';
 // figures and the grid under them are the same rows counted twice and cannot
 // disagree.
 //
-// What is deliberately not here: how many mentors and quizzes exist, batches by
-// status, and the at-risk list. The first three read the same every day of a
-// course; the last scores students on due dates and quizzes this course does
-// not use, so it named seventeen people for reasons nobody acted on. The grid
+// What is deliberately not here: how many mentors exist, batches by status,
+// and the at-risk list. The first two read the same every day of a course;
+// the last scores students on due dates this course does not use, so it
+// named seventeen people for reasons nobody acted on. The grid
 // shows the same thing — who has gone quiet — as plain facts.
 const dayLabel = (d) => new Date(d).toLocaleDateString([], { day: 'numeric', month: 'short' });
 const whenLabel = (d) => new Date(d).toLocaleString([], { weekday: 'long', hour: 'numeric', minute: '2-digit' });

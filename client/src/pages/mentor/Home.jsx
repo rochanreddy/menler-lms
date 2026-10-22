@@ -11,7 +11,6 @@ export default function MentorHome() {
   const [batches, setBatches] = useState([]);
   const [sessions, setSessions] = useState([]);
   const [pastSessions, setPastSessions] = useState([]);
-  const [quizzes, setQuizzes] = useState([]);
   const [overview, setOverview] = useState([]);
   const [liveClass, setLiveClass] = useState(null);
 
@@ -21,7 +20,6 @@ export default function MentorHome() {
     // Past sessions too: the Join Zoom Call button falls back to the most
     // recent one when nothing is scheduled today, same as the student home.
     api('/sessions?scope=past').then((d) => setPastSessions(d.sessions || [])).catch(() => {});
-    api('/quizzes').then((d) => setQuizzes(d.quizzes || [])).catch(() => {});
     api('/attendance/overview').then((d) => setOverview(d.overview || [])).catch(() => {});
     // The SAME endpoint the student home uses, rather than a second copy of
     // the rule here. This page used to decide "is a class on" itself, with its
@@ -39,7 +37,6 @@ export default function MentorHome() {
     { label: 'Batches', value: batches.length },
     { label: 'Students', value: students },
     { label: 'Live Sessions', value: sessions.length + pastSessions.length },
-    { label: 'Quizzes', value: quizzes.length },
   ];
   const chart = overview.filter((o) => o.total > 0);
 
@@ -56,7 +53,7 @@ export default function MentorHome() {
 
       {liveClass && <LiveClassCard liveClass={liveClass} />}
 
-      <div className="stats">
+      <div className="stats stats-3">
         {stats.map((s) => (
           <div className="stat" key={s.label}>
             <div className="stat-label">{s.label}</div>

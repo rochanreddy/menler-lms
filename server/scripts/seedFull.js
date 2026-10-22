@@ -5,13 +5,13 @@
 // weeks ago and finish in six, four mentors with deliberately overlapping
 // access, and sixteen students — some in one batch, some in both — each of whom
 // has actually done things: watched lessons, missed classes, submitted late,
-// been graded, failed a Drive check, sat quizzes, asked doubts.
+// been graded, failed a Drive check, asked doubts.
 //
 // Two rules govern this script:
 //
 //   1. It NEVER deletes a User. Accounts are upserted by email so you can keep
 //      testing the same logins across reruns. Everything else (batches and the
-//      sessions/assignments/submissions/quizzes hanging off them) is torn down
+//      sessions/assignments/submissions hanging off them) is torn down
 //      and rebuilt, so the script is idempotent without being destructive.
 //   2. Randomness is seeded, so two runs produce the same world. A bug you see
 //      is a bug you can reproduce.
@@ -25,8 +25,6 @@ import { Session } from '../models/Session.js';
 import { Attendance } from '../models/Attendance.js';
 import { Assignment } from '../models/Assignment.js';
 import { Submission } from '../models/Submission.js';
-import { Quiz } from '../models/Quiz.js';
-import { QuizAttempt } from '../models/QuizAttempt.js';
 import { Progress } from '../models/Progress.js';
 import { Announcement } from '../models/Announcement.js';
 import { Doubt } from '../models/Doubt.js';
@@ -143,7 +141,7 @@ const moduleLabel = (title) => {
   return (i === -1 ? title : title.slice(i + 1)).trim();
 };
 
-// ── Assignments / quizzes per batch ──────────────────────────────────────────
+// ── Assignments per batch ────────────────────────────────────────────────────
 // Dates are relative to today so the cohort is genuinely mid-flight: two closed,
 // one open and overdue, one project running, one just opened, one not yet started.
 const ASSIGNMENT_SPECS = [
@@ -153,27 +151,6 @@ const ASSIGNMENT_SPECS = [
   { key: 'p1', type: 'project', title: 'Portfolio project, the case study', start: -20, due: 9, required: ['video', 'image', 'doc'] },
   { key: 'a4', type: 'assignment', title: 'Peer review, read two case studies', start: -2, due: 12, required: ['doc'] },
   { key: 'p2', type: 'project', title: 'Capstone, ship it to a real user', start: 14, due: 34, required: ['video', 'doc', 'slides'] },
-];
-
-const QUIZ_SPECS = [
-  { title: 'Checkpoint 1, foundations', type: 'quiz', qs: [
-    ['A context window is…', ['How long the model has existed', 'How much text the model can consider at once', 'The model’s training cutoff', 'A rate limit'], 1, 'It is the working memory for a single request, everything the model can see at that moment.'],
-    ['Hallucinations are best described as…', ['Deliberate lies', 'Confident output unsupported by fact', 'Encoding errors', 'A rate-limit symptom'], 1, 'The model optimises for plausible continuation, not truth, so wrongness arrives fluent.'],
-    ['Which of these does an LLM NOT have by default?', ['A tokeniser', 'Weights', 'Live access to today’s news', 'A context window'], 2, 'Without a tool or retrieval step it only knows what it was trained on.'],
-    ['Chain prompting mainly helps because…', ['It is cheaper', 'It splits a task into checkable steps', 'It avoids rate limits', 'It removes the need for context'], 1, 'Each step can be inspected before the next one compounds the error.'],
-  ] },
-  { title: 'Checkpoint 2, prompting', type: 'quiz', qs: [
-    ['The C in CLEAR stands for…', ['Clarity', 'Context', 'Constraint', 'Correction'], 1, 'Context first, the model cannot infer what you never said.'],
-    ['Role prompting is least useful when…', ['The task needs a voice', 'The task is factual retrieval', 'You want a specific tone', 'You need a persona'], 1, 'A persona does not make a fact true; it makes a wrong fact sound authoritative.'],
-    ['A good constraint is…', ['"Be creative"', '"Under 120 words, three bullets"', '"Do your best"', '"Make it pop"'], 1, 'Countable constraints are the ones the model can satisfy and you can check.'],
-  ] },
-  { title: 'Mid-programme exam', type: 'exam', qs: [
-    ['Before automating a process you should first…', ['Buy the tool', 'Map it manually end to end', 'Write the prompt', 'Schedule it'], 1, 'You cannot automate a process you cannot describe. Mapping surfaces the branches.'],
-    ['A human checkpoint belongs where…', ['Nowhere, if the model is good', 'At every step', 'Where a wrong output is expensive or irreversible', 'Only at the start'], 2, 'Cost of being wrong is the only sensible criterion for spending human attention.'],
-    ['Logging matters because…', ['It is required by law', 'It lets you debug a failure you did not witness', 'It speeds up the model', 'It reduces tokens'], 1, 'The failure happens at 3am on someone else’s input; the log is all you will have.'],
-    ['The best portfolio project is one that…', ['Uses the most tools', 'Solves a problem you actually had', 'Has the longest write-up', 'Uses the newest model'], 1, 'A real problem gives you a real before-and-after, which is the whole case study.'],
-    ['An honest chart axis…', ['Always starts at zero', 'Starts wherever makes the trend clearest', 'Starts at zero unless truncation is labelled', 'Has no gridlines'], 2, 'Truncation is sometimes right, but it must be visible to the reader.'],
-  ] },
 ];
 
 const FEEDBACK = {
@@ -299,12 +276,9 @@ async function run() {
   if (oldIds.length) {
     const oldSessions = await Session.find({ batchId: { $in: oldIds } }).select('_id');
     const oldAssignments = await Assignment.find({ batchId: { $in: oldIds } }).select('_id');
-    const oldQuizzes = await Quiz.find({ batchId: { $in: oldIds } }).select('_id');
     await Attendance.deleteMany({ sessionId: { $in: oldSessions.map((x) => x._id) } });
     await Submission.deleteMany({ assignmentId: { $in: oldAssignments.map((x) => x._id) } });
-    await QuizAttempt.deleteMany({ quizId: { $in: oldQuizzes.map((x) => x._id) } });
     await Assignment.deleteMany({ _id: { $in: oldAssignments.map((x) => x._id) } });
-    await Quiz.deleteMany({ _id: { $in: oldQuizzes.map((x) => x._id) } });
     await Session.deleteMany({ batchId: { $in: oldIds } });
     await Announcement.deleteMany({ batchId: { $in: oldIds } });
     await Doubt.deleteMany({ batchId: { $in: oldIds } });
@@ -344,7 +318,7 @@ async function run() {
     await m.doc.save();
   }
 
-  const counts = { sessions: 0, attendance: 0, assignments: 0, submissions: 0, graded: 0, quizzes: 0, attempts: 0, doubts: 0, shares: 0, notifs: 0 };
+  const counts = { sessions: 0, attendance: 0, assignments: 0, submissions: 0, graded: 0, doubts: 0, shares: 0, notifs: 0 };
 
   for (const B of Object.values(batches)) {
     const { doc: batch, students: cohort, mentors: staff, program } = B;
@@ -469,31 +443,6 @@ async function run() {
         });
         counts.submissions++;
         if (gradeIt && checkStatus === 'READY') counts.graded++;
-      }
-    }
-
-    // ── Quizzes, and an attempt from nearly everybody ──
-    for (const qs of QUIZ_SPECS) {
-      const quiz = await Quiz.create({
-        batchId: batch._id,
-        title: qs.title,
-        type: qs.type,
-        questions: qs.qs.map(([text, options, correctIndex, explanation]) => ({ text, options, correctIndex, explanation })),
-      });
-      counts.quizzes++;
-
-      for (let si = 0; si < cohort.length; si++) {
-        const st = cohort[si];
-        // One student per batch leaves the exam untouched — "not attempted" has
-        // its own UI and needs to be reachable.
-        if (qs.type === 'exam' && si === 0) continue;
-        const calibre = si % 5 === 0 ? 0.45 : si % 3 === 0 ? 0.7 : 0.9;
-        const answers = quiz.questions.map((q) => (chance(calibre)
-          ? q.correctIndex
-          : (q.correctIndex + 1 + Math.floor(rnd() * (q.options.length - 1))) % q.options.length));
-        const score = answers.reduce((n, ans, i) => n + (ans === quiz.questions[i].correctIndex ? 1 : 0), 0);
-        await QuizAttempt.create({ quizId: quiz._id, studentId: st.doc._id, answers, score, total: quiz.questions.length });
-        counts.attempts++;
       }
     }
 
@@ -671,7 +620,6 @@ async function run() {
   console.log(`✓ attendance      ${counts.attendance} rows`);
   console.log(`✓ assignments     ${counts.assignments}  (4 assignments + 2 projects per batch)`);
   console.log(`✓ submissions     ${counts.submissions}  of which ${counts.graded} graded & locked`);
-  console.log(`✓ quizzes         ${counts.quizzes}  · ${counts.attempts} attempts`);
   console.log(`✓ doubts          ${counts.doubts} threads with likes and mentor answers`);
   console.log(`✓ shares          ${counts.shares} shared learnings on the forum's other board`);
   console.log(`✓ notifications   ${counts.notifs}`);

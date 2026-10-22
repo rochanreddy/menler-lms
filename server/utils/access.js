@@ -23,7 +23,7 @@ export async function myProgramIds(user) {
   return progs.map((p) => p._id);
 }
 
-/** Can this user MANAGE the batch (attendance, announcements, quizzes, grading)?
+/** Can this user MANAGE the batch (attendance, announcements, grading)?
  *  Admin, or a mentor the admin has explicitly assigned to THIS batch. A mentor
  *  who merely teaches the program is NOT enough — they must be on the batch. */
 export async function isMentorOfBatch(user, batchId) {

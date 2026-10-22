@@ -6,7 +6,7 @@ import Empty from '../../components/Empty.jsx';
 const fmtDate = (d) => (d ? new Date(d).toLocaleDateString([], { day: 'numeric', month: 'short' }) : '-');
 
 // Mentor: every student across the batches they run — read-only monitoring.
-// Open one to see their full progress, submissions, quizzes, and download the
+// Open one to see their full progress, submissions, and download the
 // report. (No blocking or account controls — those are admin powers.)
 export default function MentorStudents() {
   const navigate = useNavigate();

@@ -9,7 +9,7 @@ import Empty from '../../components/Empty.jsx';
 const fmtDate = (d) => (d ? new Date(d).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' }) : '-');
 
 // Drill-down into one student: profile, every batch with attendance, every
-// assignment/project with submission state, quiz attempts, lesson progress.
+// assignment/project with submission state, lesson progress.
 // Admin additionally gets the block controls (whole LMS / course / module /
 // item) and password reset; a mentor sees the same data read-only for students
 // in their own batches, plus the CSV report.
@@ -93,7 +93,7 @@ export default function StudentDetail() {
   // the alternative that keeps the record.
   async function deleteStudent() {
     const who = data.user.full_name || data.user.email;
-    if (!window.confirm(`Delete ${who}’s account?\n\nThis removes their login and everything recorded against them: submissions, quiz attempts, attendance and lesson progress. It cannot be undone.\n\nTo keep the record but shut them out, use “Block LMS access” instead.`)) return;
+    if (!window.confirm(`Delete ${who}’s account?\n\nThis removes their login and everything recorded against them: submissions, attendance and lesson progress. It cannot be undone.\n\nTo keep the record but shut them out, use “Block LMS access” instead.`)) return;
     setErr('');
     try {
       await api(`/users/${id}`, { method: 'DELETE' });
@@ -111,9 +111,6 @@ export default function StudentDetail() {
   const graded = subs.filter((a) => a.submission.status === 'graded');
   const gradedScores = graded.filter((a) => a.submission.score != null);
   const avgScore = gradedScores.length ? (gradedScores.reduce((n, a) => n + a.submission.score, 0) / gradedScores.length).toFixed(1) : null;
-  const quizAvg = data.quizAttempts.length
-    ? Math.round(data.quizAttempts.reduce((n, q) => n + (q.total ? (q.score / q.total) * 100 : 0), 0) / data.quizAttempts.length)
-    : null;
 
   return (
     <div>
@@ -188,8 +185,7 @@ export default function StudentDetail() {
           <div className="eyebrow">Performance</div>
           <div className="perf-stats">
             <div><div className="stat-label">Avg assignment score</div><div className="perf-num">{avgScore ?? '-'}{avgScore != null && <span className="perf-sub">/10</span>}</div></div>
-            <div><div className="stat-label">Quiz average</div><div className="perf-num">{quizAvg == null ? '-' : `${quizAvg}%`}</div></div>
-            <div><div className="stat-label">Quizzes taken</div><div className="perf-num">{data.quizAttempts.length}</div></div>
+            <div><div className="stat-label">Graded</div><div className="perf-num">{graded.length}<span className="perf-sub">/{data.assignments.length}</span></div></div>
           </div>
         </div>
       </div>
@@ -317,28 +313,6 @@ export default function StudentDetail() {
         )}
       </section>
 
-      {/* Quiz attempts */}
-      <section className="panel" style={{ marginTop: 'var(--space-5)' }}>
-        <h3>Quiz &amp; exam attempts</h3>
-        {data.quizAttempts.length === 0 ? <Empty inline icon="learning" title="No quiz attempts yet." /> : (
-          <div className="table-wrap">
-            <table className="grade-table">
-              <thead><tr><th>Quiz</th><th>Type</th><th>Batch</th><th>Score</th><th>Taken</th></tr></thead>
-              <tbody>
-                {data.quizAttempts.map((q) => (
-                  <tr key={q.id}>
-                    <td>{q.quiz}</td>
-                    <td><span className="badge">{q.type}</span></td>
-                    <td>{q.batchName}</td>
-                    <td><strong>{q.score}/{q.total}</strong></td>
-                    <td>{fmtDate(q.at)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
     </div>
   );
 }

@@ -189,7 +189,7 @@ function credentials(email, password) {
 }
 
 const ROLE_LINE = {
-  student: 'This is where your sessions, recordings, assignments, quizzes and certificate live.',
+  student: 'This is where your sessions, recordings, assignments and certificate live.',
   mentor: 'This is where you run your batches — sessions, attendance, grading and doubts.',
   admin: 'This is the admin console for the whole LMS.',
 };

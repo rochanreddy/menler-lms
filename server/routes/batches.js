@@ -21,7 +21,7 @@ router.get('/', requireAuth, async (req, res) => {
     batches: batches.map((b) => ({
       id: b._id, name: b.name, status: b.status,
       program: b.programId?.title || '', programId: b.programId?._id,
-      startDate: b.startDate, endDate: b.endDate,
+      startDate: b.startDate, endDate: b.endDate, createdAt: b.createdAt,
       mentorIds: b.mentorIds.map(String),
       mentorCount: b.mentorIds.length, studentCount: b.studentIds.length,
     })),

@@ -6,8 +6,6 @@ import { User, ROLES } from '../models/User.js';
 import { Batch } from '../models/Batch.js';
 import { Assignment } from '../models/Assignment.js';
 import { Submission } from '../models/Submission.js';
-import { Quiz } from '../models/Quiz.js';
-import { QuizAttempt } from '../models/QuizAttempt.js';
 import { Attendance } from '../models/Attendance.js';
 import { Progress } from '../models/Progress.js';
 import { Program } from '../models/Program.js';
@@ -149,7 +147,7 @@ router.get('/my-students', requireAuth, requireRole('mentor'), async (req, res) 
 
 // GET /api/lms/users/:id/overview — deep-dive into one user: everything about
 // where they are in their courses. For students: batches, attendance, every
-// assignment (with submission state), quiz attempts, lesson progress, modules.
+// assignment (with submission state), lesson progress, modules.
 // For mentors: batches they run + every student under them.
 // Admin sees anyone; a mentor may only view students in their own batches
 // (read-only — the block/edit endpoints stay admin-only).
@@ -168,13 +166,11 @@ router.get('/:id/overview', requireAuth, requireRole('admin', 'mentor'), async (
     .sort({ createdAt: -1 });
   const batchIds = batches.map((b) => b._id);
 
-  const [attendance, assignments, submissions, quizzes, attempts, progress] = await Promise.all([
+  const [attendance, assignments, submissions, progress] = await Promise.all([
     Attendance.find({ studentId: uid }).select('batchId status'),
     Assignment.find({ batchId: { $in: batchIds } }).sort({ createdAt: -1 }),
     Submission.find({ studentId: uid, isDeleted: false })
       .select('assignmentId status score feedback updatedAt driveLink url checkStatus errorDetail files locked checkedAt aiReview'),
-    Quiz.find({ batchId: { $in: batchIds } }).select('title type batchId'),
-    QuizAttempt.find({ studentId: uid }).select('quizId score total createdAt'),
     Progress.find({ studentId: uid }).select('programId completedTopics'),
   ]);
 
@@ -189,7 +185,6 @@ router.get('/:id/overview', requireAuth, requireRole('admin', 'mentor'), async (
 
   const subByAssignment = new Map(submissions.map((s) => [String(s.assignmentId), s]));
   const batchName = new Map(batches.map((b) => [String(b._id), b.name]));
-  const quizById = new Map(quizzes.map((q) => [String(q._id), q]));
   const blockedAssignments = new Set((user.blocked?.assignmentIds || []).map(String));
   const blockedBatches = new Set((user.blocked?.batchIds || []).map(String));
 
@@ -247,20 +242,6 @@ router.get('/:id/overview', requireAuth, requireRole('admin', 'mentor'), async (
           };
         })
       : [],
-    quizAttempts: attempts
-      .filter((a) => quizById.has(String(a.quizId)))
-      .map((a) => {
-        const q = quizById.get(String(a.quizId));
-        return {
-          id: a._id,
-          quiz: q.title,
-          type: q.type,
-          batchName: batchName.get(String(q.batchId)) || '',
-          score: a.score,
-          total: a.total,
-          at: a.createdAt,
-        };
-      }),
     progress: progress.map((p) => {
       const b = batches.find((x) => String(x.programId?._id) === String(p.programId));
       const total = lessonTotal(b?.programId);
@@ -380,7 +361,9 @@ router.delete('/:id', requireAuth, requireRole('admin'), async (req, res) => {
 
   await Promise.all([
     Submission.deleteMany({ studentId: id }),
-    QuizAttempt.deleteMany({ studentId: id }),
+    // Left over from the retired quizzes: nothing reads these any more, but a
+    // deleted account's rows still go with it.
+    User.db.collection('lms_quiz_attempts').deleteMany({ studentId: id }),
     Attendance.deleteMany({ studentId: id }),
     Progress.deleteMany({ studentId: id }),
     Notification.deleteMany({ userId: id }),

@@ -30,6 +30,13 @@ cd server && node scripts/syncCurriculumAssignments.js     # dry run; --apply to
                                # assignments + 4 milestone projects, Kickstarter 17
                                # session assignments + 4 portfolio projects. Name one
                                # programme to limit it. Idempotent; sets no dates.
+cd server && node scripts/createBatches.js "Nov 2026"      # dry run; --apply to write
+                               # opens a month's intake: "AI Kickstarter · Nov 2026"
+                               # and "AI Generalist · Nov 2026", start the 1st, end
+                               # 14 weeks on (--start/--end override), mentors copied
+                               # from the newest batch (--mentors=none skips), and the
+                               # curriculum's assignments synced on. No students, no
+                               # sessions. Idempotent on the name (needs CONFIRM_DB).
 cd server && node scripts/addMasterclassRecordings.js       # dry run; --apply to write
                                # the four recorded masterclasses onto the Webinars
                                # tab as past rows with their Drive recording, and
@@ -144,6 +151,26 @@ carries `materials` across a re-author the way it carries the ebook.
 `tierNames()` in [features.js](client/src/features.js) decides what the two
 levels are called on screen: a Kickstarter module (`S01 · …`) is a *session*
 of *parts*, a Generalist module is a *week* of *sessions*.
+
+**Teacher notes are per batch.** They live on the curriculum, which every
+batch of a programme shares, so a new intake used to open Week 1 and find
+the last cohort's mentor's decks. A material now carries `batchIds`: the
+mentor picks the batch at the top of the Teacher notes page, the push
+goes to that batch alone (a mentor with one batch of the programme is never
+asked), and a student is served only their own batches' notes — on Learning
+(`GET /programs`, `/programs/:id`) and on the Assignments & Projects tab
+(`attachWorkMaterials`). A note from before this carries no `batchIds` and
+belongs to the batches that existed when it was added, so the September
+cohorts kept everything and a November batch starts empty, with no
+migration. The rule is `materialInBatch()` in
+[utils/materialScope.js](server/utils/materialScope.js), proved in
+`tests/materialScope.test.js`. Mentors and admins still get the whole
+tree, because they save it back whole and a filtered tree would go back up
+missing every other batch's notes. Removing a note from one batch's view
+takes only that batch off it. What is NOT per batch: the ebook, the
+`notesUrl` slots (an assignment's solution book is the curriculum's), and
+notes an admin adds in the curriculum editor, which go to the batches that
+exist at the time.
 
 The student's **Teacher notes** chip lists everything at once — the
 resolved `notesUrl`, then the lesson's, the session's and the week's
@@ -272,17 +299,19 @@ produce the same data.
   Each batch therefore has 10.
 - **Per batch** 13 sessions (9 past with attendance + recordings, 1 today,
   3 upcoming), 4 assignments + 2 projects spanning closed/overdue/open/not-yet-open,
-  3 quizzes incl. an exam, 3 announcements, 5 doubt threads with mentor answers.
+  3 announcements, 5 doubt threads with mentor answers.
 - **Support** 3 tickets across the desk — one waiting on the team, one answered,
   one resolved — so each state is on screen without a wall of invented
   complaints burying what the screen is meant to show.
-- Every student has graded work with feedback, quiz attempts, attendance and
-  partial progress. Deliberate edge cases are pinned, not random: one student per
-  batch is at 100% (certificate path), one is failing (at-risk panel), one never
-  sat the exam, and some submissions sit in `NEEDS_FIXES` / `PENDING_CHECK`.
+- Every student has graded work with feedback, attendance and partial
+  progress. Deliberate edge cases are pinned, not random: one student per
+  batch is at 100% (certificate path), one is failing (at-risk panel), and
+  some submissions sit in `NEEDS_FIXES` / `PENDING_CHECK`.
+
+**There are no quizzes.** The LMS had them (a builder, a Quizzes tab, a quiz signal in the at-risk score and the gradebook) and they were removed outright: the courses are graded on assignments and projects alone. The old `lms_quizzes` / `lms_quiz_attempts` collections are left in the database untouched, `resetForLaunch.js` and account deletion still clear them by name, and the bell hides any old "New quiz" notification.
 
 `npm run test:flows` then drives the real HTTP API as admin, mentor and student —
-120 assertions covering both the happy paths and the RBAC refusals. It needs the
+about 150 assertions covering both the happy paths and the RBAC refusals. It needs the
 server running, and the API rate-limits login to 10/min/IP while the script uses
 9, so leave ~60s between consecutive runs.
 
@@ -385,7 +414,7 @@ this week, gone quiet for seven days or more, and never opened it, the last
 two by name (`lastActiveAt`, stamped on any request a student makes).
 
 The at-risk panel is off this page on purpose (the mentor Home keeps it). It
-scores on due dates and quizzes this course does not use; the grid shows who
+scores on due dates this course does not use; the grid shows who
 has gone quiet as plain facts instead.
 
 ### One account, one device

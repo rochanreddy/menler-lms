@@ -36,6 +36,8 @@
 // sets real deadlines in the UI. Once set, this script leaves them alone — it
 // only ever rewrites the brief and the grouping.
 import 'dotenv/config';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { connectDb } from '../db.js';
 import { assertSeedTarget } from './seedGuard.js';
 import { Program } from '../models/Program.js';
@@ -113,19 +115,22 @@ function kickstarterItems(program) {
   return out;
 }
 
-const PROGRAMS = [
+export const PROGRAMS = [
   { title: PROGRAMME_TITLES.generalist, build: generalistItems },
   { title: PROGRAMME_TITLES.kickstarter, build: kickstarterItems },
 ];
 
-async function syncProgram({ title, build }) {
+// Exported so scripts/createBatches.js can fill a batch it has just made:
+// `batchIds` limits the sync to those batches, `apply` says whether to write,
+// `verbose` prints the per-item rubric dump (off when the caller already did).
+export async function syncProgram({ title, build }, { apply = APPLY, batchIds = null, verbose = true } = {}) {
   const tally = { created: 0, updated: 0, unchanged: 0 };
   const program = await Program.findOne(titleQuery(title));
   if (!program) { console.log(`\n${title}: no such programme, skipped.`); return tally; }
   const items = build(program);
-  const batches = await Batch.find({ programId: program._id });
+  const batches = await Batch.find(batchIds ? { programId: program._id, _id: { $in: batchIds } } : { programId: program._id });
   console.log(`\n═══ ${title}: ${items.length} pieces of work · ${batches.length} batch(es)`);
-  for (const it of items) {
+  for (const it of verbose ? items : []) {
     console.log(`  ${it.type.padEnd(10)} ${it.groupLabel.padEnd(19)} ${it.title.slice(0, 62)}`);
     // The classifier reads all of this off the brief, so all of it is shown.
     // "?" marks a title the rubric class table did not know, which is the row
@@ -135,7 +140,7 @@ async function syncProgram({ title, build }) {
     else console.log(`${' '.repeat(16)}(no checklist found in the brief, so C1 will say so)`);
   }
   const unmatched = items.filter((i) => !i.matchedByTitle);
-  if (unmatched.length) console.log(`\n  ! ${unmatched.length} title(s) are not in the rubric class table and were guessed from the brief: ${unmatched.map((i) => i.title).join(' · ')}`);
+  if (verbose && unmatched.length) console.log(`\n  ! ${unmatched.length} title(s) are not in the rubric class table and were guessed from the brief: ${unmatched.map((i) => i.title).join(' · ')}`);
   if (!items.length || !batches.length) return tally;
 
   for (const b of batches) {
@@ -145,7 +150,7 @@ async function syncProgram({ title, build }) {
       if (!existing) {
         console.log(`   + ${it.type.padEnd(10)} ${it.title.slice(0, 62)}`);
         tally.created++;
-        if (APPLY) {
+        if (apply) {
           await Assignment.create({
             batchId: b._id,
             type: it.type,
@@ -178,7 +183,7 @@ async function syncProgram({ title, build }) {
       if (same) { tally.unchanged++; continue; }
       console.log(`   ~ ${it.type.padEnd(10)} ${it.title.slice(0, 62)}`);
       tally.updated++;
-      if (APPLY) {
+      if (apply) {
         existing.description = it.description;
         existing.week = it.week;
         existing.groupLabel = it.groupLabel;
@@ -205,7 +210,8 @@ async function run() {
       'It creates or updates Assignment documents for every batch of the programmes it touches.',
     );
   }
-  const wanted = PROGRAMS.filter((p) => !ONLY || p.title.toLowerCase() === ONLY.toLowerCase());
+  // "Kickstarter" still names "AI Kickstarter": the bare word is what everyone types.
+  const wanted = PROGRAMS.filter((p) => !ONLY || p.title.toLowerCase().includes(ONLY.toLowerCase()));
   if (!wanted.length) throw new Error(`No programme called "${ONLY}". Try: ${PROGRAMS.map((p) => p.title).join(', ')}`);
 
   const total = { created: 0, updated: 0, unchanged: 0 };
@@ -220,4 +226,7 @@ async function run() {
   process.exit(0);
 }
 
-run().catch((err) => { console.error('Sync failed:', err); process.exit(1); });
+// Only run as a command; createBatches.js imports syncProgram() without this.
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  run().catch((err) => { console.error('Sync failed:', err); process.exit(1); });
+}

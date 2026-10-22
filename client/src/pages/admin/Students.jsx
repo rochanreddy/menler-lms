@@ -49,7 +49,7 @@ export default function AdminStudents() {
   // the student's page) as the alternative that keeps the record.
   async function remove(s) {
     const who = s.full_name || s.email;
-    if (!window.confirm(`Delete ${who}’s account?\n\nThis removes their login and everything recorded against them: submissions, quiz attempts, attendance and lesson progress. It cannot be undone.\n\nTo keep the record but shut them out, open the student and use “Block LMS access” instead.`)) return;
+    if (!window.confirm(`Delete ${who}’s account?\n\nThis removes their login and everything recorded against them: submissions, attendance and lesson progress. It cannot be undone.\n\nTo keep the record but shut them out, open the student and use “Block LMS access” instead.`)) return;
     setListErr('');
     try {
       await api(`/users/${s.id}`, { method: 'DELETE' });

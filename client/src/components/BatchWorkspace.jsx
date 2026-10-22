@@ -4,8 +4,8 @@ import { api, downloadFile, mailNote } from '../api.js';
 import LineIcon from './LineIcon.jsx';
 import Markdown from './Markdown.jsx';
 import Empty from './Empty.jsx';
-import { AnnouncementForm, SessionForm, BulkSessionForm, SessionEditForm, QuizBuilder, AssignmentForm, DRIVE_TYPES } from './BatchForms.jsx';
-import { QuizResults, Attendance, Submissions } from './BatchGrading.jsx';
+import { AnnouncementForm, SessionForm, BulkSessionForm, SessionEditForm, AssignmentForm, DRIVE_TYPES } from './BatchForms.jsx';
+import { Attendance, Submissions } from './BatchGrading.jsx';
 import { ShowcasePanel } from './Showcase.jsx';
 
 // Re-exported from its new home in BatchForms.jsx so this module's public
@@ -21,7 +21,6 @@ export default function BatchWorkspace({ batchId, mode }) {
   const [batch, setBatch] = useState(null);
   const [sessions, setSessions] = useState([]);
   const [assignments, setAssignments] = useState([]);
-  const [quizzes, setQuizzes] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
   const [gradebook, setGradebook] = useState(null);
   const [msg, setMsg] = useState('');
@@ -36,14 +35,13 @@ export default function BatchWorkspace({ batchId, mode }) {
   const loadBatch = () => api(`/batches/${batchId}`).then((d) => setBatch(d.batch)).catch(() => {});
   const loadSessions = () => api(`/sessions?batchId=${batchId}`).then((d) => setSessions(d.sessions || [])).catch(() => {});
   const loadAssignments = () => api(`/assignments?batchId=${batchId}`).then((d) => setAssignments(d.assignments || [])).catch(() => {});
-  const loadQuizzes = () => api(`/quizzes?batchId=${batchId}`).then((d) => setQuizzes(d.quizzes || [])).catch(() => {});
   const loadPeople = () => {
     api('/users?role=mentor').then((d) => setAllMentors(d.users || [])).catch(() => {});
     api('/users?role=student').then((d) => setAllStudents(d.users || [])).catch(() => {});
   };
   const loadAnnouncements = () => api(`/announcements?batchId=${batchId}`).then((d) => setAnnouncements(d.announcements || [])).catch(() => {});
   const loadGradebook = () => api(`/grades/batch/${batchId}`).then(setGradebook).catch(() => setGradebook(null));
-  useEffect(() => { loadBatch(); loadSessions(); loadAssignments(); loadQuizzes(); loadAnnouncements(); loadGradebook(); }, [batchId]);
+  useEffect(() => { loadBatch(); loadSessions(); loadAssignments(); loadAnnouncements(); loadGradebook(); }, [batchId]);
   useEffect(() => { if (mode === 'admin') loadPeople(); }, [mode]);
 
   // The programme's session and week titles, to prefill the bulk scheduler (admin only).
@@ -402,28 +400,13 @@ export default function BatchWorkspace({ batchId, mode }) {
       {/* Kickstarter only: renders nothing for any other programme. */}
       <ShowcasePanel batchId={batchId} canModerate={canManage} />
 
-      {/* Quizzes & exams (mentor authors + tracks results) */}
-      <section className="panel">
-        <h3>Quizzes & Exams</h3>
-        {canManage && (
-          <QuizBuilder onCreate={(body) => act(() => api('/quizzes', { method: 'POST', body: { batchId, ...body } }).then(loadQuizzes), 'Quiz posted')} />
-        )}
-        {quizzes.map((q) => (
-          <div key={q._id} className="assignment">
-            <div className="row"><strong>{q.title}</strong><span className="badge">{q.type}</span><span className="muted">{q.questions?.length || 0} questions</span></div>
-            {canManage && <QuizResults quizId={q._id} />}
-          </div>
-        ))}
-        {quizzes.length === 0 && <Empty inline icon="learning" title="No quizzes yet." hint="Build one above to test the batch on what you have covered." />}
-      </section>
-
       {/* Gradebook, students × assessments matrix */}
       <section className="panel">
         <h3>Gradebook</h3>
         {!gradebook || gradebook.rows.length === 0 ? (
           <Empty inline icon="students" title="No students to grade yet." hint="Enrol students in the roster above and the gradebook fills in." />
         ) : gradebook.columns.length === 0 ? (
-          <Empty inline icon="grades" title="Nothing to grade yet." hint="Add an assignment or a quiz above and every student gets a column here." />
+          <Empty inline icon="grades" title="Nothing to grade yet." hint="Add an assignment or a project above and every student gets a column here." />
         ) : (
           <div className="table-wrap">
             <table className="grade-table">

@@ -4,8 +4,6 @@ import { requireAuth, requireRole } from '../middleware/auth.js';
 import { User } from '../models/User.js';
 import { Batch } from '../models/Batch.js';
 import { Program } from '../models/Program.js';
-import { Quiz } from '../models/Quiz.js';
-import { QuizAttempt } from '../models/QuizAttempt.js';
 import { Assignment } from '../models/Assignment.js';
 import { Submission } from '../models/Submission.js';
 import { Attendance } from '../models/Attendance.js';
@@ -23,16 +21,15 @@ const router = Router();
 // GET /api/lms/stats/overview — admin platform analytics: headline counts +
 // student distribution per batch (for the chart).
 router.get('/overview', requireAuth, requireRole('admin'), async (_req, res) => {
-  const [students, mentors, batches, programs, quizzes] = await Promise.all([
+  const [students, mentors, batches, programs] = await Promise.all([
     User.countDocuments({ role: 'student' }),
     User.countDocuments({ role: 'mentor' }),
     Batch.countDocuments(),
     Program.countDocuments(),
-    Quiz.countDocuments(),
   ]);
   const batchDocs = await Batch.find().select('name studentIds').sort({ createdAt: -1 });
   const perBatch = batchDocs.map((b) => ({ name: b.name.replace(/^Demo[^A-Za-z0-9]+/, ''), count: b.studentIds.length }));
-  res.json({ stats: { students, mentors, batches, programs, quizzes }, perBatch });
+  res.json({ stats: { students, mentors, batches, programs }, perBatch });
 });
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -178,13 +175,6 @@ function assess(m) {
   if (m.missedAssignments >= 2) flag(3, 'Missing work', `${m.missedAssignments} assignments overdue`);
   else if (m.missedAssignments === 1) flag(1, 'Missing work', '1 assignment overdue');
 
-  if (m.quizzesTaken >= 1) {
-    if (m.quizAvg < 40) flag(3, 'Failing quizzes', `${m.quizAvg}% average`);
-    else if (m.quizAvg < 60) flag(2, 'Struggling on quizzes', `${m.quizAvg}% average`);
-  } else if (m.quizzesAvailable >= 2) {
-    flag(2, 'No quizzes attempted', `${m.quizzesAvailable} available`);
-  }
-
   // null = never seen since lastActiveAt was introduced. That's missing data,
   // not evidence of absence, so it contributes nothing rather than a false flag.
   if (m.daysInactive !== null) {
@@ -216,24 +206,19 @@ router.get('/at-risk', requireAuth, requireRole('mentor', 'admin'), async (req, 
 
   // Fetch every signal in two batched rounds, then score in memory. Per-student
   // queries would be N+1 and get slow the moment a cohort grows.
-  const [users, attendance, assignments, quizzes, programs, progress] = await Promise.all([
+  const [users, attendance, assignments, programs, progress] = await Promise.all([
     User.find({ _id: { $in: studentIds } }).select('fullName email lastActiveAt'),
     Attendance.find({ batchId: { $in: batchIds }, studentId: { $in: studentIds } }).select('studentId batchId status'),
     Assignment.find({ batchId: { $in: batchIds } }).select('batchId dueDate'),
-    Quiz.find({ batchId: { $in: batchIds } }).select('batchId'),
     Program.find({ _id: { $in: programIds } }).select('modules'),
     Progress.find({ studentId: { $in: studentIds }, programId: { $in: programIds } }).select('studentId programId completedTopics'),
   ]);
 
-  const [submissions, attempts] = await Promise.all([
-    Submission.find({ assignmentId: { $in: assignments.map((a) => a._id) }, studentId: { $in: studentIds }, isDeleted: false }).select('assignmentId studentId'),
-    QuizAttempt.find({ quizId: { $in: quizzes.map((q) => q._id) }, studentId: { $in: studentIds } }).select('quizId studentId score total'),
-  ]);
+  const submissions = await Submission.find({ assignmentId: { $in: assignments.map((a) => a._id) }, studentId: { $in: studentIds }, isDeleted: false }).select('assignmentId studentId');
 
   // ── Lookup tables ──
   const userById = new Map(users.map((u) => [u._id.toString(), u]));
   const submitted = new Set(submissions.map((s) => `${s.assignmentId}:${s.studentId}`));
-  const batchOfQuiz = new Map(quizzes.map((q) => [q._id.toString(), q.batchId.toString()]));
 
   const lessonTotals = new Map(programs.map((p) => [
     p._id.toString(),
@@ -250,14 +235,6 @@ router.get('/at-risk', requireAuth, requireRole('mentor', 'admin'), async (req, 
     attByKey.set(k, v);
   }
 
-  const attemptsByKey = new Map();
-  for (const a of attempts) {
-    const bid = batchOfQuiz.get(a.quizId.toString());
-    if (!bid) continue;
-    const k = key(a.studentId, bid);
-    attemptsByKey.set(k, [...(attemptsByKey.get(k) || []), a]);
-  }
-
   const progressByKey = new Map(progress.map((p) => [key(p.studentId, p.programId), (p.completedTopics || []).length]));
 
   // ── Score every student in every batch ──
@@ -268,7 +245,6 @@ router.get('/at-risk', requireAuth, requireRole('mentor', 'admin'), async (req, 
     const bid = b._id.toString();
     const pid = b.programId ? b.programId.toString() : null;
     const overdue = assignments.filter((a) => a.batchId.toString() === bid && a.dueDate && new Date(a.dueDate).getTime() < now);
-    const quizzesAvailable = quizzes.filter((q) => q.batchId.toString() === bid).length;
     const lessonTotal = (pid && lessonTotals.get(pid)) || 0;
 
     for (const sid of b.studentIds.map(String)) {
@@ -276,18 +252,12 @@ router.get('/at-risk', requireAuth, requireRole('mentor', 'admin'), async (req, 
       if (!u) continue;
 
       const att = attByKey.get(key(sid, bid)) || { present: 0, total: 0 };
-      const myAttempts = attemptsByKey.get(key(sid, bid)) || [];
       const doneLessons = (pid && progressByKey.get(key(sid, pid))) || 0;
 
       const metrics = {
         attendancePct: att.total ? Math.round((att.present / att.total) * 100) : 0,
         attendanceTotal: att.total,
         missedAssignments: overdue.filter((a) => !submitted.has(`${a._id}:${sid}`)).length,
-        quizAvg: myAttempts.length
-          ? Math.round(myAttempts.reduce((s, a) => s + (a.total ? (a.score / a.total) * 100 : 0), 0) / myAttempts.length)
-          : 0,
-        quizzesTaken: myAttempts.length,
-        quizzesAvailable,
         lessonPct: lessonTotal ? Math.round((Math.min(doneLessons, lessonTotal) / lessonTotal) * 100) : 0,
         lessonTotal,
         daysInactive: u.lastActiveAt ? Math.floor((now - u.lastActiveAt.getTime()) / DAY) : null,

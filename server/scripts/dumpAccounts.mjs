@@ -15,7 +15,6 @@ import { User } from '../models/User.js';
 import { Batch } from '../models/Batch.js';
 import { Program } from '../models/Program.js';
 import { Submission } from '../models/Submission.js';
-import { QuizAttempt } from '../models/QuizAttempt.js';
 import { Attendance } from '../models/Attendance.js';
 import { Progress } from '../models/Progress.js';
 
@@ -131,16 +130,15 @@ async function run() {
   L.push('## Students (this fixture)');
   L.push('');
   L.push('Every one of them has real history: submissions, at least one graded submission with');
-  L.push('mentor feedback, quiz attempts, attendance and partial lesson progress.');
+  L.push('mentor feedback, attendance and partial lesson progress.');
   L.push('');
-  L.push('| Email | Password | Name | Batches | Progress | Subs (graded) | Quizzes | Attendance |');
-  L.push('|---|---|---|---|---|---|---|---|');
+  L.push('| Email | Password | Name | Batches | Progress | Subs (graded) | Attendance |');
+  L.push('|---|---|---|---|---|---|---|');
 
   const notable = [];
   for (const s of students) {
     const subs = await Submission.find({ studentId: s._id, isDeleted: false });
     const graded = subs.filter((x) => x.status === 'graded').length;
-    const quizzes = await QuizAttempt.countDocuments({ studentId: s._id });
     const attRows = await Attendance.find({ studentId: s._id });
     const present = attRows.filter((a) => a.status === 'present').length;
     const progs = await Progress.find({ studentId: s._id });
@@ -151,7 +149,7 @@ async function run() {
       return `${p?.title?.slice(0, 4)} ${pct(pr.completedTopics.length, lessonsIn(p))}%`;
     }).join(' · ');
 
-    L.push(`| \`${s.email}\` | \`${PASSWORD}\` | ${s.fullName} | ${batchNames.join(' + ') || '-'} | ${progStr || '-'} | ${subs.length} (${graded}) | ${quizzes} | ${present}/${attRows.length} |`);
+    L.push(`| \`${s.email}\` | \`${PASSWORD}\` | ${s.fullName} | ${batchNames.join(' + ') || '-'} | ${progStr || '-'} | ${subs.length} (${graded}) | ${present}/${attRows.length} |`);
 
     const maxPct = Math.max(0, ...progs.map((pr) => pct(pr.completedTopics.length, lessonsIn(progById.get(String(pr.programId))))));
     const attPct = pct(present, attRows.length);

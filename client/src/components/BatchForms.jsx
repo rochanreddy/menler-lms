@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import DateTimePicker from './DateTimePicker.jsx';
 
-// The four authoring forms a mentor uses inside a batch: post an announcement,
-// schedule a session, build a quiz, set an assignment. Extracted from
+// The authoring forms a mentor uses inside a batch: post an announcement,
+// schedule a session, set an assignment. Extracted from
 // BatchWorkspace.jsx unchanged — each is self-contained, holding only its own
 // draft state and handing the finished object to the workspace via a callback.
 
@@ -291,65 +291,6 @@ export function SessionEditForm({ session, onSave, onCancel }) {
   );
 }
 
-// Mentor quiz author: title/type + a growing list of questions, each with
-// options and a "correct" radio.
-export function QuizBuilder({ onCreate }) {
-  const [open, setOpen] = useState(false);
-  const [title, setTitle] = useState('');
-  const [type, setType] = useState('quiz');
-  const blank = () => ({ text: '', options: ['', ''], correctIndex: 0, explanation: '' });
-  const [questions, setQuestions] = useState([blank()]);
-
-  const setQ = (i, patch) => setQuestions((qs) => qs.map((q, idx) => (idx === i ? { ...q, ...patch } : q)));
-  const setOpt = (qi, oi, val) => setQ(qi, { options: questions[qi].options.map((o, idx) => (idx === oi ? val : o)) });
-  const addOption = (qi) => setQ(qi, { options: [...questions[qi].options, ''] });
-  const addQuestion = () => setQuestions((qs) => [...qs, blank()]);
-
-  function submit(e) {
-    e.preventDefault();
-    const clean = questions
-      .map((q) => ({ ...q, options: q.options.map((o) => o.trim()).filter(Boolean) }))
-      .filter((q) => q.text.trim() && q.options.length >= 2);
-    if (!title.trim() || clean.length === 0) return;
-    onCreate({ title, type, questions: clean });
-    setTitle(''); setType('quiz'); setQuestions([blank()]); setOpen(false);
-  }
-
-  if (!open) return <button className="btn sm" onClick={() => setOpen(true)}>+ New quiz / exam</button>;
-  return (
-    <form className="quiz-builder" onSubmit={submit}>
-      <div className="inline-form">
-        <input placeholder="Quiz title" value={title} onChange={(e) => setTitle(e.target.value)} />
-        <select value={type} onChange={(e) => setType(e.target.value)}><option value="quiz">Quiz</option><option value="exam">Exam</option></select>
-      </div>
-      {questions.map((q, qi) => (
-        <div key={qi} className="quiz-q">
-          <input placeholder={`Question ${qi + 1}`} value={q.text} onChange={(e) => setQ(qi, { text: e.target.value })} />
-          {q.options.map((o, oi) => (
-            <label key={oi} className="quiz-opt">
-              <input type="radio" name={`correct-${qi}`} checked={q.correctIndex === oi} onChange={() => setQ(qi, { correctIndex: oi })} />
-              <input placeholder={`Option ${oi + 1}`} value={o} onChange={(e) => setOpt(qi, oi, e.target.value)} />
-            </label>
-          ))}
-          <button type="button" className="btn sm ghost" onClick={() => addOption(qi)}>+ option</button>
-          <textarea
-            className="quiz-why-input"
-            rows={2}
-            placeholder="Explanation (optional), shown to students after they answer"
-            value={q.explanation}
-            onChange={(e) => setQ(qi, { explanation: e.target.value })}
-          />
-        </div>
-      ))}
-      <div className="row">
-        <button type="button" className="btn sm ghost" onClick={addQuestion}>+ question</button>
-        <button className="btn sm" type="submit">Post quiz</button>
-        <button type="button" className="btn sm ghost" onClick={() => setOpen(false)}>Cancel</button>
-      </div>
-      <p className="muted" style={{ fontSize: 12 }}>Tick the radio next to the correct option. Explanations appear in the student's answer review.</p>
-    </form>
-  );
-}
 
 // What a mentor can demand inside the student's Drive folder. Ticking 'html'
 // also lifts the default block on HTML files for this assignment only.

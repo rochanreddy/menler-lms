@@ -5,8 +5,6 @@ import { User } from '../models/User.js';
 import { Batch } from '../models/Batch.js';
 import { Assignment } from '../models/Assignment.js';
 import { Submission } from '../models/Submission.js';
-import { Quiz } from '../models/Quiz.js';
-import { QuizAttempt } from '../models/QuizAttempt.js';
 import { Attendance } from '../models/Attendance.js';
 
 const router = Router();
@@ -97,26 +95,18 @@ router.get('/batch/:id', requireAuth, requireRole('admin', 'mentor'), async (req
   const batch = await Batch.findById(req.params.id).populate('programId', 'title').populate('studentIds', 'fullName email blocked lastActiveAt');
   if (!batch) return res.status(404).json({ error: 'Batch not found.' });
 
-  const [assignments, quizzes, attendance] = await Promise.all([
+  const [assignments, attendance] = await Promise.all([
     Assignment.find({ batchId: batch._id }).select('_id'),
-    Quiz.find({ batchId: batch._id }).select('_id'),
     Attendance.find({ batchId: batch._id }).select('studentId status'),
   ]);
-  const [submissions, attempts] = await Promise.all([
-    Submission.find({ assignmentId: { $in: assignments.map((a) => a._id) }, isDeleted: false }).select('studentId status score'),
-    QuizAttempt.find({ quizId: { $in: quizzes.map((q) => q._id) } }).select('studentId score total'),
-  ]);
+  const submissions = await Submission.find({ assignmentId: { $in: assignments.map((a) => a._id) }, isDeleted: false }).select('studentId status score');
 
-  const rows = [['Student', 'Email', 'Attendance %', 'Submitted', 'Graded', 'Avg score', 'Quizzes taken', 'Quiz avg %', 'Blocked', 'Last active']];
+  const rows = [['Student', 'Email', 'Attendance %', 'Submitted', 'Graded', 'Avg score', 'Blocked', 'Last active']];
   for (const s of batch.studentIds) {
     const sid = String(s._id);
     const att = attendance.filter((a) => String(a.studentId) === sid);
     const subs = submissions.filter((x) => String(x.studentId) === sid);
     const graded = subs.filter((x) => x.status === 'graded' && x.score != null);
-    const myAttempts = attempts.filter((a) => String(a.studentId) === sid);
-    const quizAvg = myAttempts.length
-      ? Math.round(myAttempts.reduce((n, a) => n + (a.total ? (a.score / a.total) * 100 : 0), 0) / myAttempts.length)
-      : null;
     rows.push([
       s.fullName || '',
       s.email,
@@ -124,8 +114,6 @@ router.get('/batch/:id', requireAuth, requireRole('admin', 'mentor'), async (req
       `${subs.length}/${assignments.length}`,
       graded.length,
       graded.length ? (graded.reduce((n, x) => n + x.score, 0) / graded.length).toFixed(1) : '',
-      `${myAttempts.length}/${quizzes.length}`,
-      quizAvg === null ? '' : `${quizAvg}%`,
       s.blocked?.lms ? 'YES' : '',
       s.lastActiveAt ? new Date(s.lastActiveAt).toISOString().slice(0, 10) : '',
     ]);
@@ -152,13 +140,8 @@ router.get('/student/:id', requireAuth, requireRole('admin', 'mentor'), async (r
     Assignment.find({ batchId: { $in: batchIds } }).sort({ createdAt: 1 }),
     Attendance.find({ studentId: student._id }).select('batchId status'),
   ]);
-  const [submissions, quizzes] = await Promise.all([
-    Submission.find({ studentId: student._id, isDeleted: false }).select('assignmentId status score feedback updatedAt'),
-    Quiz.find({ batchId: { $in: batchIds } }).select('title batchId'),
-  ]);
-  const attempts = await QuizAttempt.find({ studentId: student._id, quizId: { $in: quizzes.map((q) => q._id) } });
+  const submissions = await Submission.find({ studentId: student._id, isDeleted: false }).select('assignmentId status score feedback updatedAt');
   const subByAssignment = new Map(submissions.map((s) => [String(s.assignmentId), s]));
-  const quizById = new Map(quizzes.map((q) => [String(q._id), q]));
 
   const rows = [
     ['Student report', student.fullName || student.email],
@@ -185,12 +168,6 @@ router.get('/student/:id', requireAuth, requireRole('admin', 'mentor'), async (r
       s?.score ?? '',
       s?.feedback || '',
     ]);
-  }
-
-  rows.push([], ['Quiz', 'Batch', 'Score', 'Total', 'Taken on']);
-  for (const a of attempts) {
-    const q = quizById.get(String(a.quizId));
-    rows.push([q?.title || '', batchName.get(String(q?.batchId)) || '', a.score, a.total, a.createdAt.toISOString().slice(0, 10)]);
   }
 
   const safe = (student.fullName || student.email).replace(/[^a-z0-9]+/gi, '-').toLowerCase();

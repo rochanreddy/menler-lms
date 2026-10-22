@@ -16,6 +16,7 @@
 // matches on, so the two cannot disagree.
 import { Batch } from '../models/Batch.js';
 import { Program } from '../models/Program.js';
+import { materialInBatch } from './materialScope.js';
 
 const norm = (s) => String(s || '').replace(/\s+/g, ' ').trim().toLowerCase();
 
@@ -50,13 +51,13 @@ function indexProgram(program) {
       put(chap.title, {
         briefUrl: chap.readingUrl || firstOf(lessons, 'readingUrl'),
         solutionUrl: chap.notesUrl || firstOf(lessons, 'notesUrl'),
-        materials: [...(chap.materials || []), ...lessons.flatMap((t) => t.materials || [])].map(plain),
+        materials: [...(chap.materials || []), ...lessons.flatMap((t) => t.materials || [])],
       });
       for (const t of lessons) {
         put(t.title, {
           briefUrl: t.readingUrl || '',
           solutionUrl: t.notesUrl || '',
-          materials: (t.materials || []).map(plain),
+          materials: t.materials || [],
         });
       }
     }
@@ -80,7 +81,7 @@ export async function attachWorkMaterials(assignments) {
   if (!assignments.length) return assignments;
 
   const batchIds = [...new Set(assignments.map(batchIdOf).filter(Boolean))];
-  const batches = await Batch.find({ _id: { $in: batchIds } }).select('programId').lean();
+  const batches = await Batch.find({ _id: { $in: batchIds } }).select('programId createdAt').lean();
   const programIds = [...new Set(batches.map((b) => String(b.programId || '')).filter(Boolean))];
   if (!programIds.length) return assignments.map((a) => ({ ...a, ...NONE }));
 
@@ -94,7 +95,15 @@ export async function attachWorkMaterials(assignments) {
     .lean();
 
   const byProgram = new Map(programs.map((p) => [String(p._id), indexProgram(p)]));
-  const byBatch = new Map(batches.map((b) => [String(b._id), byProgram.get(String(b.programId))]));
+  const batchById = new Map(batches.map((b) => [String(b._id), b]));
 
-  return assignments.map((a) => ({ ...a, ...(byBatch.get(batchIdOf(a))?.get(norm(a.title)) || NONE) }));
+  // The brief and the solution book are the curriculum's and go to every
+  // batch; the materials are a mentor's teacher notes and go only to the
+  // batch they were pushed to (utils/materialScope.js).
+  return assignments.map((a) => {
+    const batch = batchById.get(batchIdOf(a));
+    const hit = batch && byProgram.get(String(batch.programId))?.get(norm(a.title));
+    if (!hit) return { ...a, ...NONE };
+    return { ...a, ...hit, materials: hit.materials.filter((m) => materialInBatch(m, batch)).map(plain) };
+  });
 }

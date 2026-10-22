@@ -8,7 +8,7 @@ const shortName = (n) => (n || '').replace(/^Demo[^A-Za-z0-9]+/, '');
 
 // Admin: provision mentor accounts, list them, and manage which BATCHES each
 // mentor runs. Batch assignment is what grants a mentor access to a batch
-// (attendance, announcements, quizzes, grading) — so it lives right here.
+// (attendance, announcements, grading) — so it lives right here.
 export default function AdminMentors() {
   const [mentors, setMentors] = useState([]);
   const [batches, setBatches] = useState([]);

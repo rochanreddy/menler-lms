@@ -31,6 +31,11 @@ import { opensInReader } from './ReadingPicker.jsx';
 //
 // Admins get the same page from Programs, because it is the faster way to do
 // this for them too; the editor stays for everything else.
+//
+// Notes are per BATCH: what one cohort's mentor put up after their class is
+// not the next intake's (server/utils/materialScope.js). So the page works on
+// one batch at a time, picked at the top — the rows list only what that
+// batch's students see, and a drop goes to that batch alone.
 export default function MaterialsManager({ programId, onClose }) {
   const [program, setProgram] = useState(null);
   const [error, setError] = useState('');
@@ -38,12 +43,31 @@ export default function MaterialsManager({ programId, onClose }) {
   // Which class is on screen. One at a time, picked from a drop-down: a stack
   // of folding weeks grew into a page you scrolled through to find Tuesday.
   const [cur, setCur] = useState(0);
+  // The batches of this programme the viewer can push to (a mentor's own; an
+  // admin's all), newest first, and the one on screen.
+  const [batches, setBatches] = useState(null);
+  const [batchId, setBatchId] = useState('');
 
   useEffect(() => {
     api(`/programs/${programId}`)
       .then(({ program: p }) => setProgram(p))
       .catch((e) => setError(e.message));
+    api('/batches')
+      .then(({ batches: list }) => {
+        const mine = (list || [])
+          .filter((b) => String(b.programId) === String(programId))
+          .sort((a, b) => new Date(b.startDate || b.createdAt || 0) - new Date(a.startDate || a.createdAt || 0));
+        setBatches(mine);
+        // The cohort being taught now, else the newest.
+        const now = Date.now();
+        const live = mine.find((b) => b.status === 'ongoing' || (b.startDate && new Date(b.startDate) <= now && (!b.endDate || new Date(b.endDate) >= now)));
+        setBatchId(String((live || mine[0])?.id || ''));
+      })
+      .catch(() => setBatches([]));
   }, [programId]);
+
+  const batch = (batches || []).find((b) => String(b.id) === batchId) || null;
+  const forBatch = (list) => (batch ? (list || []).filter((m) => inBatch(m, batch)) : []);
 
   const flash = (m) => { setMsg(m); setTimeout(() => setMsg(''), 3000); };
 
@@ -65,23 +89,23 @@ export default function MaterialsManager({ programId, onClose }) {
   };
 
   async function push(pos, files, link, label, kind) {
-    const { materials, added } = await addMaterials(programId, idsFor(pos), files, link, kind);
+    const { materials, added } = await addMaterials(programId, idsFor(pos), files, link, kind, batchId);
     setNodeMaterials(pos, materials);
     const n = added;
     const what = kind === 'resource' ? (n === 1 ? 'resource' : 'resources') : (n === 1 ? 'notes file' : 'notes files');
-    flash(n === 0 ? 'Already attached there.' : `Added ${n} ${what} to ${label}. Students can open ${n === 1 ? 'it' : 'them'} now.`);
+    flash(n === 0 ? 'Already attached there.' : `Added ${n} ${what} to ${label}. Students in ${batch?.name || 'this batch'} can open ${n === 1 ? 'it' : 'them'} now.`);
   }
 
   async function remove(pos, material) {
-    const { materials } = await removeMaterial(programId, material._id);
+    const { materials } = await removeMaterial(programId, material._id, batchId);
     setNodeMaterials(pos, materials);
     flash(`Removed ${material.name || 'the file'}.`);
   }
 
-  const countUnder = (m) => (m.materials || []).length + (m.chapters || []).reduce((k, c) => k + (c.materials || []).length + (c.topics || []).reduce((j, t) => j + (t.materials || []).length, 0), 0);
+  const countUnder = (m) => forBatch(m.materials).length + (m.chapters || []).reduce((k, c) => k + forBatch(c.materials).length + (c.topics || []).reduce((j, t) => j + forBatch(t.materials).length, 0), 0);
 
   if (error) return <div className="panel"><Empty icon="programs" title="Couldn’t open this programme." hint={error} /></div>;
-  if (!program) return <div className="panel"><Loading rows={4} /></div>;
+  if (!program || !batches) return <div className="panel"><Loading rows={4} /></div>;
 
   return (
     <div className="mm">
@@ -98,15 +122,19 @@ export default function MaterialsManager({ programId, onClose }) {
         <LineIcon name="upload" size={18} />
         <div>
           <strong>Drop a class’s notes on the class.</strong>
-          <p className="muted">Several files at a time — PDF, Word, Excel, PowerPoint, Markdown, images — as <b>Notes</b> (the deck, what was taught) or <b>Resources</b> (a notice, a template, further reading). Each one saves the moment it lands, and every lesson in that session or week lists it under <b>Teacher notes</b>, in those two groups — except the assignments, which keep their own. The ebook under <b>Reading material</b> stays as the admin set it.</p>
+          <p className="muted">Several files at a time — PDF, Word, Excel, PowerPoint, Markdown, images — as <b>Notes</b> (the deck, what was taught) or <b>Resources</b> (a notice, a template, further reading). Each one saves the moment it lands, and every lesson in that session or week lists it under <b>Teacher notes</b>, in those two groups — except the assignments, which keep their own. Notes go to <b>one batch</b>: only the students of the batch picked below see them. The ebook under <b>Reading material</b> stays as the admin set it.</p>
         </div>
       </div>
 
-      {(program.modules || []).length === 0 && (
+      {batches.length === 0 && (
+        <Empty icon="programs" title="No batch of this programme to add notes to." hint="Teacher notes go to a batch. Once you are assigned to one, it appears here." />
+      )}
+
+      {batches.length > 0 && (program.modules || []).length === 0 && (
         <Empty icon="learning" title="This programme has no weeks yet." hint="An admin builds the curriculum under Programs → Manage curriculum; the rows to drop files on appear here once it exists." />
       )}
 
-      {(program.modules || []).length > 0 && (() => {
+      {batches.length > 0 && (program.modules || []).length > 0 && (() => {
         const mods = program.modules;
         const mi = Math.min(cur, mods.length - 1);
         const m = mods[mi];
@@ -114,6 +142,12 @@ export default function MaterialsManager({ programId, onClose }) {
         return (
           <>
             <div className="list-filter mm-pick">
+              <label>
+                <span className="muted">Batch</span>
+                <select value={batchId} onChange={(e) => setBatchId(e.target.value)}>
+                  {batches.map((b) => <option key={b.id} value={String(b.id)}>{b.name}</option>)}
+                </select>
+              </label>
               <label>
                 <span className="muted">Class</span>
                 <select value={mi} onChange={(e) => setCur(Number(e.target.value))}>
@@ -135,7 +169,7 @@ export default function MaterialsManager({ programId, onClose }) {
                   title={names.topWhole}
                   hint={`Every lesson in this ${names.top.toLowerCase()} lists these, except the assignments.`}
                   ebook={m.notesUrl}
-                  materials={m.materials || []}
+                  materials={forBatch(m.materials)}
                   onAdd={(files, link, kind) => push({ mi }, files, link, m.title, kind)}
                   onRemove={(x) => remove({ mi }, x)}
                 />
@@ -146,6 +180,17 @@ export default function MaterialsManager({ programId, onClose }) {
       })()}
     </div>
   );
+}
+
+// Is this material for this batch? The client copy of materialInBatch in
+// server/utils/materialScope.js: pushed to it by id, or — for a note from
+// before notes were per batch — added after the batch was created.
+function inBatch(m, batch) {
+  const ids = (m.batchIds || []).map(String);
+  if (ids.length) return ids.includes(String(batch.id));
+  const id = String(m._id || '');
+  const at = m.addedAt ? new Date(m.addedAt).getTime() : (/^[a-f0-9]{24}$/i.test(id) ? parseInt(id.slice(0, 8), 16) * 1000 : 0);
+  return (batch.createdAt ? new Date(batch.createdAt).getTime() : 0) <= at;
 }
 
 // One drop target. The same component for a week, a session and a lesson,

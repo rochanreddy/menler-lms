@@ -1,6 +1,6 @@
 // Reset the LMS to its launch state: the admin, the programmes' lesson trees,
 // the real library, the batches you name — and nothing else. Every cohort
-// artefact (sessions, attendance, assignments, submissions, quizzes, attempts,
+// artefact (sessions, attendance, assignments, submissions, retired quiz rows,
 // progress, announcements, doubts, chat, notifications, lesson videos, device
 // sessions, playback leases, webinars, `[seed]` library items) is deleted,
 // every non-admin account is deleted, and one fresh student is created in the
@@ -45,8 +45,6 @@ import { Session } from '../models/Session.js';
 import { Attendance } from '../models/Attendance.js';
 import { Assignment } from '../models/Assignment.js';
 import { Submission } from '../models/Submission.js';
-import { Quiz } from '../models/Quiz.js';
-import { QuizAttempt } from '../models/QuizAttempt.js';
 import { Progress } from '../models/Progress.js';
 import { Announcement } from '../models/Announcement.js';
 import { Doubt } from '../models/Doubt.js';
@@ -173,8 +171,9 @@ async function run() {
     ['attendance', Attendance.deleteMany({})],
     ['assignments', Assignment.deleteMany({})],
     ['submissions', Submission.deleteMany({})],
-    ['quizzes', Quiz.deleteMany({})],
-    ['quiz attempts', QuizAttempt.deleteMany({})],
+    // Quizzes are retired; an older database still holds their rows.
+    ['retired quizzes', db.collection('lms_quizzes').deleteMany({})],
+    ['retired quiz attempts', db.collection('lms_quiz_attempts').deleteMany({})],
     ['progress', Progress.deleteMany({})],
     ['announcements', Announcement.deleteMany({})],
     ['doubts', Doubt.deleteMany({})],

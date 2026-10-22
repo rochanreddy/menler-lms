@@ -132,7 +132,7 @@ async function send(path, method, body) {
   // common on localhost). HTTP error responses are NOT retried. Only GET is
   // retried: a write can fail on the network AFTER the server has already
   // processed it, and several of ours aren't safe to repeat blind (a doubts
-  // post, a like toggle, a one-shot quiz attempt) — a failing write surfaces
+  // post, a like toggle, a submission) — a failing write surfaces
   // to the caller instead, which already handles that.
   const attempts = method === 'GET' ? 3 : 1;
   for (let attempt = 0; attempt < attempts; attempt += 1) {
@@ -263,11 +263,12 @@ export const uploadFile = (file) => postFile('/uploads', file);
 // Teacher notes / resources on a week / session / lesson — several PDFs in
 // one push, saved at once. `node` is { moduleId, chapterId?, topicId? };
 // `kind` is 'notes' or 'resource'; `link` is an optional { url, name } to add
-// instead of or alongside the files. Returns { materials, added }.
-export const addMaterials = (programId, node, files = [], link = null, kind = 'notes') =>
-  postFiles(`/programs/${programId}/materials`, files, { ...node, kind, url: link?.url, name: link?.name });
-export const removeMaterial = (programId, materialId) =>
-  api(`/programs/${programId}/materials/${materialId}`, { method: 'DELETE' });
+// instead of or alongside the files. `batchId` is the cohort they are for —
+// teacher notes are per batch. Returns { materials, added }.
+export const addMaterials = (programId, node, files = [], link = null, kind = 'notes', batchId = '') =>
+  postFiles(`/programs/${programId}/materials`, files, { ...node, kind, batchId, url: link?.url, name: link?.name });
+export const removeMaterial = (programId, materialId, batchId = '') =>
+  api(`/programs/${programId}/materials/${materialId}${batchId ? `?batchId=${encodeURIComponent(batchId)}` : ''}`, { method: 'DELETE' });
 
 // Extra resources on a masterclass — the deck, a cheat sheet — as PDFs or a
 // pasted link. Admin only; returns the whole updated webinar.

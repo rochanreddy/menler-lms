@@ -8,8 +8,6 @@ import { User } from '../models/User.js';
 import { Batch } from '../models/Batch.js';
 import { Assignment } from '../models/Assignment.js';
 import { Submission } from '../models/Submission.js';
-import { Quiz } from '../models/Quiz.js';
-import { QuizAttempt } from '../models/QuizAttempt.js';
 import { Attendance } from '../models/Attendance.js';
 import { Session } from '../models/Session.js';
 import { Announcement } from '../models/Announcement.js';
@@ -41,12 +39,9 @@ async function run() {
   // Delete every other batch + its scoped data.
   const dropBatchIds = batches.filter((b) => String(b._id) !== String(keep._id)).map((b) => b._id);
   const dropAssignments = await Assignment.find({ batchId: { $in: dropBatchIds } }).select('_id');
-  const dropQuizzes = await Quiz.find({ batchId: { $in: dropBatchIds } }).select('_id');
   await Promise.all([
     Submission.deleteMany({ assignmentId: { $in: dropAssignments.map((a) => a._id) } }),
-    QuizAttempt.deleteMany({ quizId: { $in: dropQuizzes.map((q) => q._id) } }),
     Assignment.deleteMany({ batchId: { $in: dropBatchIds } }),
-    Quiz.deleteMany({ batchId: { $in: dropBatchIds } }),
     Session.deleteMany({ batchId: { $in: dropBatchIds } }),
     Attendance.deleteMany({ batchId: { $in: dropBatchIds } }),
     Announcement.deleteMany({ batchId: { $in: dropBatchIds } }),
@@ -61,7 +56,6 @@ async function run() {
   const dropUserIds = dropUsers.map((u) => u._id);
   await Promise.all([
     Submission.deleteMany({ studentId: { $in: dropUserIds } }),
-    QuizAttempt.deleteMany({ studentId: { $in: dropUserIds } }),
     Attendance.deleteMany({ studentId: { $in: dropUserIds } }),
     Progress.deleteMany({ studentId: { $in: dropUserIds } }),
     Notification.deleteMany({ userId: { $in: dropUserIds } }),

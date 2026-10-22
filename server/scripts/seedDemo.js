@@ -1,6 +1,6 @@
 // Rich demo data so the dashboards look alive: a mentor, a batch of students
-// (Jul + Jun cohorts), sessions with Zoom links, attendance, and a quiz with
-// attempts. Idempotent — it clears its own demo data first, then recreates.
+// (Jul + Jun cohorts), sessions with Zoom links, attendance and a forum.
+// Idempotent — it clears its own demo data first, then recreates.
 //   npm run seed:demo
 import 'dotenv/config';
 import { connectDb } from '../db.js';
@@ -9,8 +9,6 @@ import { Program } from '../models/Program.js';
 import { Batch } from '../models/Batch.js';
 import { Session } from '../models/Session.js';
 import { Attendance } from '../models/Attendance.js';
-import { Quiz } from '../models/Quiz.js';
-import { QuizAttempt } from '../models/QuizAttempt.js';
 import { Message } from '../models/Message.js';
 import { Doubt } from '../models/Doubt.js';
 import { hashPassword } from '../utils/password.js';
@@ -34,10 +32,7 @@ async function run() {
   const oldBatches = await Batch.find({ name: /^Demo[^A-Za-z0-9]+/ }).select('_id');
   const oldBatchIds = oldBatches.map((b) => b._id);
   const oldSessions = await Session.find({ batchId: { $in: oldBatchIds } }).select('_id');
-  const oldQuizzes = await Quiz.find({ batchId: { $in: oldBatchIds } }).select('_id');
   await Attendance.deleteMany({ sessionId: { $in: oldSessions.map((s) => s._id) } });
-  await QuizAttempt.deleteMany({ quizId: { $in: oldQuizzes.map((q) => q._id) } });
-  await Quiz.deleteMany({ batchId: { $in: oldBatchIds } });
   await Message.deleteMany({ batchId: { $in: oldBatchIds } });
   await Doubt.deleteMany({ batchId: { $in: oldBatchIds } });
   await Session.deleteMany({ batchId: { $in: oldBatchIds } });
@@ -97,23 +92,6 @@ async function run() {
     }
   }
   console.log('✓ attendance marked for 2 sessions');
-
-  // ── Quiz with attempts ──
-  const quiz = await Quiz.create({
-    batchId: julBatch._id, title: 'Week 1 · AI basics', type: 'quiz',
-    questions: [
-      { text: 'What does LLM stand for?', options: ['Large Language Model', 'Long Logic Machine', 'Linear Learning Method'], correctIndex: 0 },
-      { text: 'Which is a Claude model family?', options: ['Opus', 'Falcon', 'Titan'], correctIndex: 0 },
-      { text: 'A prompt is…', options: ['The model weights', 'The input you give the model', 'A GPU'], correctIndex: 1 },
-    ],
-  });
-  for (let i = 0; i < julStudents.length; i += 1) {
-    const answers = [0, i % 2 === 0 ? 0 : 1, 1]; // some get Q2 wrong
-    const score = [quiz.questions[0].correctIndex, quiz.questions[1].correctIndex, quiz.questions[2].correctIndex]
-      .reduce((s, c, idx) => s + (answers[idx] === c ? 1 : 0), 0);
-    await QuizAttempt.create({ quizId: quiz._id, studentId: julStudents[i]._id, answers, score, total: quiz.questions.length });
-  }
-  console.log('✓ quiz "Week 1 · AI basics" with attempts');
 
   // ── Forum: group chat + a doubt with a comment + likes ──
   const [a, b, c] = julStudents;

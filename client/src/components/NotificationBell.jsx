@@ -21,7 +21,6 @@ const ICON_FOR = {
   webinar: 'video',
   announcement: 'megaphone',
   assignment: 'upload',
-  quiz: 'slides',
   grade: 'award',
   support: 'lifebuoy',
 };

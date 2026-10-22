@@ -23,6 +23,10 @@ const materialSchema = new mongoose.Schema(
     kind: { type: String, enum: ['notes', 'resource'], default: 'notes' },
     addedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     addedAt: { type: Date, default: Date.now },
+    // The batches it was pushed to. A student sees it only through one of
+    // them; empty means it predates per-batch notes and belongs to the
+    // batches that existed when it was added (utils/materialScope.js).
+    batchIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Batch' }],
   },
   { _id: true },
 );

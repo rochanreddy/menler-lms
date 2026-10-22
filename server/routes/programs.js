@@ -7,6 +7,7 @@ import { User } from '../models/User.js';
 import { Batch } from '../models/Batch.js';
 import { parseDocToModules } from '../utils/docparse.js';
 import { CURRICULUM_FILE_REFUSAL, MAX_CURRICULUM_BYTES, curriculumFileType, storeCurriculumFile } from '../utils/curriculumFiles.js';
+import { materialInBatch, scopeMaterials } from '../utils/materialScope.js';
 
 const router = Router();
 
@@ -75,6 +76,45 @@ async function canViewProgram(user, program) {
   return batches.some((b) => !blocked.has(String(b._id)));
 }
 
+// What a student is served of a programme: the blocked modules gone, and the
+// teacher notes cut down to the ones pushed to their own batch — a new
+// intake must not open the last cohort's mentor's decks (utils/materialScope).
+// Mentors and admins get the whole tree, because they save it back whole.
+function forViewer(program, user, studentBatches) {
+  const p = withoutBlockedModules(program, user);
+  if (user.role !== 'student') return p;
+  const plain = typeof p.toObject === 'function' ? p.toObject() : p;
+  const mine = (studentBatches || []).filter((b) => String(b.programId) === String(plain._id));
+  return scopeMaterials(plain, mine);
+}
+
+/** A student's own unblocked batches, with what materialInBatch needs. */
+async function studentBatchesOf(user) {
+  if (user.role !== 'student') return [];
+  const blocked = new Set((user.blocked?.batchIds || []).map(String));
+  const batches = await Batch.find({ studentIds: user._id }).select('programId createdAt').lean();
+  return batches.filter((b) => !blocked.has(String(b._id)));
+}
+
+/**
+ * The batch a push of teacher notes is for. A mentor may push only to a batch
+ * of this programme they teach; an admin to any batch of it. When the body
+ * names none and there is exactly one candidate, that one — so a mentor with
+ * one cohort is never asked. Returns { batch } or { error, status }.
+ */
+async function pushTarget(user, program, batchId) {
+  const scope = { programId: program._id, ...(user.role === 'mentor' ? { mentorIds: user._id } : {}) };
+  if (batchId) {
+    if (!mongoose.isValidObjectId(batchId)) return { status: 400, error: 'That batch id is not valid.' };
+    const batch = await Batch.findOne({ ...scope, _id: batchId }).select('_id name');
+    return batch ? { batch } : { status: 403, error: 'You can only add notes to a batch of this programme that you teach.' };
+  }
+  const candidates = await Batch.find(scope).select('_id name').limit(2);
+  if (candidates.length === 1) return { batch: candidates[0] };
+  if (!candidates.length) return { status: 403, error: 'Teacher notes go to a batch, and you are not teaching one of this programme.' };
+  return { status: 400, error: 'Pick the batch these notes are for.' };
+}
+
 // GET /api/lms/programs — lists the programmes this user is actually in.
 // ?fields=summary skips the embedded curriculum tree (every module, chapter,
 // topic and lesson body) for callers that only need id/title/published to
@@ -86,7 +126,8 @@ router.get('/', requireAuth, async (req, res) => {
   const query = Program.find(visible === null ? {} : { _id: { $in: visible } }).sort({ createdAt: -1 });
   if (summary) query.select('title slug type published');
   const programs = await query;
-  res.json({ programs: programs.map((p) => withoutBlockedModules(p, req.user)) });
+  const mine = summary ? [] : await studentBatchesOf(req.user);
+  res.json({ programs: programs.map((p) => (summary ? withoutBlockedModules(p, req.user) : forViewer(p, req.user, mine))) });
 });
 
 // GET /api/lms/programs/:id — full curriculum tree, members only.
@@ -94,7 +135,7 @@ router.get('/:id', requireAuth, async (req, res) => {
   const program = await Program.findById(req.params.id);
   if (!program) return res.status(404).json({ error: 'Program not found.' });
   if (!(await canViewProgram(req.user, program))) return res.status(403).json({ error: 'Forbidden.' });
-  res.json({ program: withoutBlockedModules(program, req.user) });
+  res.json({ program: forViewer(program, req.user, await studentBatchesOf(req.user)) });
 });
 
 // POST /api/lms/programs — admin only.
@@ -182,6 +223,10 @@ router.post('/:id/materials', requireAuth, requireRole('admin', 'mentor'), (req,
     if (!(await canEditProgram(req.user, program))) return res.status(403).json({ error: 'Only mentors assigned to this program can add its reading materials.' });
     const node = findNode(program, req.body || {});
     if (!node) return res.status(404).json({ error: 'That week, session or lesson was not found. Reload and try again.' });
+    // Notes are for one cohort: the one this mentor taught (utils/materialScope).
+    const target = await pushTarget(req.user, program, String(req.body?.batchId || '').trim());
+    if (target.error) return res.status(target.status).json({ error: target.error });
+    const batchIds = [target.batch._id];
 
     const files = req.files || [];
     const link = String(req.body?.url || '').trim();
@@ -195,17 +240,27 @@ router.post('/:id/materials', requireAuth, requireRole('admin', 'mentor'), (req,
     if (link && !isOpenableLink(link)) return res.status(400).json({ error: 'That link must start with https://.' });
 
     try {
+      // The same file pushed twice onto the same node is one entry. Pushed
+      // for a second batch, that entry gains the batch rather than a twin.
+      // An entry from before per-batch notes is first pinned to the batches
+      // that already see it, so widening it never takes it from them.
+      const programBatches = await Batch.find({ programId: program._id }).select('_id createdAt').lean();
+      const forBatch = programBatches.find((b) => String(b._id) === String(target.batch._id));
+      const place = (url, entry) => {
+        const have = node.materials.find((x) => x.url === url);
+        if (!have) { node.materials.push({ ...entry, batchIds }); return 1; }
+        if (materialInBatch(have, forBatch)) return 0;
+        if (!(have.batchIds || []).length) have.batchIds = programBatches.filter((b) => materialInBatch(have, b)).map((b) => b._id);
+        have.batchIds.push(forBatch._id);
+        return 1;
+      };
       let added = 0;
       for (const [i, f] of files.entries()) {
         const { url, name } = await storeCurriculumFile(f, req.user._id, types[i]);
-        // The same file pushed twice onto the same node is one entry.
-        if (node.materials.some((x) => x.url === url)) continue;
-        node.materials.push({ url, name, kind, addedBy: req.user._id });
-        added++;
+        added += place(url, { url, name, kind, addedBy: req.user._id });
       }
-      if (link && !node.materials.some((x) => x.url === link)) {
-        node.materials.push({ url: link, name: String(req.body?.name || '').trim() || link, kind, addedBy: req.user._id });
-        added++;
+      if (link) {
+        added += place(link, { url: link, name: String(req.body?.name || '').trim() || link, kind, addedBy: req.user._id });
       }
       await program.save();
       return res.status(201).json({ materials: node.materials, added });
@@ -226,7 +281,13 @@ router.delete('/:id/materials/:mid', requireAuth, requireRole('admin', 'mentor')
   const nodes = program.modules.flatMap((m) => [m, ...m.chapters.flatMap((c) => [c, ...c.topics])]);
   const node = nodes.find((n) => (n.materials || []).some((x) => String(x._id) === mid));
   if (!node) return res.status(404).json({ error: 'That material is already gone.' });
-  node.materials.pull(mid);
+  // Removed while looking at one batch, a note pushed to several leaves only
+  // that batch; the others keep it. Otherwise it goes outright.
+  const batchId = String(req.query.batchId || '');
+  const m = node.materials.id(mid);
+  const others = (m.batchIds || []).filter((b) => String(b) !== batchId);
+  if (batchId && others.length && others.length < (m.batchIds || []).length) m.batchIds = others;
+  else node.materials.pull(mid);
   await program.save();
   res.json({ materials: node.materials });
 });

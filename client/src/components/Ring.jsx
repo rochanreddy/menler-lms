@@ -1,9 +1,8 @@
-// A percentage as a ring. Used by the Classroom rail (course progress) and the
-// quiz cards (score). r=17 on a 40-unit box; the size prop scales the whole thing.
+// A percentage as a ring, for course progress. r=17 on a 40-unit box; the size prop scales the whole thing.
 export default function Ring({ pct, size = 44, label, tone }) {
   const C = 2 * Math.PI * 17;
   // tone overrides the automatic colouring (a course at 30% isn't "low", a
-  // quiz score of 30% is).
+  // score of 30% is).
   const cls = tone != null ? tone : (pct >= 100 ? 'ring-full' : pct < 50 ? 'ring-low' : '');
   return (
     <span className={`ring ${cls}`} style={{ width: size, height: size }} role="img" aria-label={label || `${pct}%`}>

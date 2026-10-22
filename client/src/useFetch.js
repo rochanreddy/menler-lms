@@ -22,7 +22,7 @@ export default function useFetch(path, { select, initial = null } = {}) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  // Kept in a ref so an inline arrow (`select: (d) => d.quizzes || []`) doesn't
+  // Kept in a ref so an inline arrow (`select: (d) => d.sessions || []`) doesn't
   // change identity every render and re-fire the effect forever.
   const selectRef = useRef(select);
   selectRef.current = select;

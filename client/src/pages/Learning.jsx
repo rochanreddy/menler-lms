@@ -2,14 +2,13 @@ import { useEffect, useMemo, useState } from 'react';
 import { useOutletContext, useSearchParams } from 'react-router-dom';
 import Empty, { Loading } from '../components/Empty.jsx';
 import Content from '../components/Classroom.jsx';
-import QuizCard from '../components/QuizCard.jsx';
 import AssignmentCard, { assignmentState, relative } from '../components/AssignmentCard.jsx';
 import { ShowcaseBoard } from '../components/Showcase.jsx';
 import useFetch from '../useFetch.js';
 
-// Learning. For students: Content + Assignments (submit) + Quizzes (take).
+// Learning. For students: Content + Assignments & Projects (submit).
 // For mentors/admins: just the course content to teach from — they create &
-// grade assignments/quizzes under Programs → a batch, not here.
+// grade the work under Programs → a batch, not here.
 //
 // This module is the tab shell and the two list wrappers, nothing more. The
 // three screens it switches between are their own components under
@@ -23,14 +22,14 @@ export default function Learning() {
   const [params] = useSearchParams();
   const [tab, setTab] = useState(() => {
     const t = params.get('tab');
-    return ['content', 'assignments', 'quizzes'].includes(t) ? t : 'content';
+    return ['content', 'assignments'].includes(t) ? t : 'content';
   });
 
   // …and keeps working when a result is opened while already on this page.
   const wantTab = params.get('tab');
   const wantTopic = params.get('topic');
   useEffect(() => {
-    if (wantTab && ['content', 'assignments', 'quizzes'].includes(wantTab)) setTab(wantTab);
+    if (wantTab && ['content', 'assignments'].includes(wantTab)) setTab(wantTab);
     else if (wantTopic) setTab('content');
   }, [wantTab, wantTopic]);
 
@@ -42,7 +41,7 @@ export default function Learning() {
       <div>
         <div className="learn-page-head">
           <h1>Learning</h1>
-          <p className="muted">The course content your students see. Teach from this. Create &amp; grade assignments and quizzes under <b>Programs → your batch</b>.</p>
+          <p className="muted">The course content your students see. Teach from this. Create &amp; grade assignments and projects under <b>Programs → your batch</b>.</p>
         </div>
         <Content />
       </div>
@@ -56,42 +55,10 @@ export default function Learning() {
         <div className="tabs learn-tabs" role="tablist">
           <button role="tab" aria-selected={tab === 'content'} className={`tab ${tab === 'content' ? 'active' : ''}`} onClick={() => setTab('content')}>Content</button>
           <button role="tab" aria-selected={tab === 'assignments'} className={`tab ${tab === 'assignments' ? 'active' : ''}`} onClick={() => setTab('assignments')}>Assignments & Projects</button>
-          <button role="tab" aria-selected={tab === 'quizzes'} className={`tab ${tab === 'quizzes' ? 'active' : ''}`} onClick={() => setTab('quizzes')}>Quizzes</button>
         </div>
       </div>
       {tab === 'content' && <Content />}
       {tab === 'assignments' && <Assignments />}
-      {tab === 'quizzes' && <Quizzes />}
-    </div>
-  );
-}
-
-// ── Quizzes ──────────────────────────────────────────────────────────────────
-function Quizzes() {
-  // useFetch keeps the list on screen across a reload after an attempt, and
-  // keeps "no quizzes yet" from being shown before the answer has arrived.
-  const { data: items, loading, reload } = useFetch('/quizzes?scope=mine', {
-    select: (d) => d.quizzes || [],
-    initial: [],
-  });
-  if (loading) return <Loading rows={3} />;
-  if (items.length === 0) return <Empty icon="learning" title="No quizzes yet." hint="Your mentor posts them here as the programme moves along. Nothing for you to do until then." />;
-
-  const taken = items.filter((q) => q.myAttempt);
-  const avg = taken.length ? Math.round(taken.reduce((s, q) => s + (q.myAttempt.total ? q.myAttempt.score / q.myAttempt.total : 0), 0) / taken.length * 100) : null;
-  // Untaken first — that's the work; results after, in the order the API sends them.
-  const ordered = [...items.filter((q) => !q.myAttempt), ...taken];
-
-  return (
-    <div className="work">
-      <div className="work-bar">
-        <div className="work-stats">
-          <div className="work-stat"><b>{items.length - taken.length}</b><span>to take</span></div>
-          <div className="work-stat"><b>{taken.length}</b><span>taken</span></div>
-          {avg != null && <div className="work-stat"><b>{avg}%</b><span>average</span></div>}
-        </div>
-      </div>
-      <div className="list work-list">{ordered.map((q) => <QuizCard key={q._id} quiz={q} onDone={reload} />)}</div>
     </div>
   );
 }

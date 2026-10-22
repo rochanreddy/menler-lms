@@ -190,10 +190,9 @@ async function run() {
   const project = mAssignments.json.assignments.find((a) => a.type === 'project');
   ok('the batch has projects as well as assignments', !!project);
 
+  // Quizzes are retired from the LMS: the route is gone, not just hidden.
   const mQuizzes = await call(`/quizzes?batchId=${bK.id}`, { token: mentorAll.token });
-  ok('mentor lists batch quizzes', mQuizzes.json.quizzes?.length === 3, `got ${mQuizzes.json.quizzes?.length}`);
-  ok('mentor sees the exam among them', mQuizzes.json.quizzes.some((q) => q.type === 'exam'));
-  ok('mentor sees correct answers', mQuizzes.json.quizzes[0].questions[0].correctIndex !== undefined);
+  ok('quizzes route is gone (mentor)', mQuizzes.status === 404, `got ${mQuizzes.status}`);
 
   const mSessions = await call(`/sessions?batchId=${bK.id}`, { token: mentorAll.token });
   ok('mentor lists sessions', (mSessions.json.sessions || []).length === 13, `got ${(mSessions.json.sessions || []).length}`);
@@ -291,11 +290,7 @@ async function run() {
   ok('an overdue-never-submitted case exists', !!overdueUnsubmitted || mine.some((a) => !a.mySubmission));
 
   const sQuiz = await call('/quizzes?scope=mine', { token: sK.token });
-  const quizzes = sQuiz.json.quizzes || [];
-  ok('student sees their quizzes', quizzes.length === 3, `got ${quizzes.length}`);
-  ok('quizzes never leak correct answers', quizzes.every((q) => q.questions.every((x) => x.correctIndex === undefined)));
-  const attempted = quizzes.filter((q) => q.myAttempt);
-  ok('student has quiz attempts with scores', attempted.length > 0 && attempted.every((q) => typeof q.myAttempt.score === 'number'), `${attempted.length} attempted`);
+  ok('quizzes route is gone (student)', sQuiz.status === 404, `got ${sQuiz.status}`);
 
   // The reading list the chip shows: the lesson's own files and the week's.
   const sKick = await call(`/programs/${kick._id}`, { token: sK.token });
@@ -307,6 +302,24 @@ async function run() {
   ok('student can open a pushed PDF', sOpen.status === 200 && (sOpen.headers.get('content-type') || '').includes('pdf'), `got ${sOpen.status}`);
   const sPush = await pushMaterials(sK.token, kick._id, { moduleId: kMod._id }, [[`${FLOW} student.pdf`, pdfA]]);
   ok('student is refused pushing materials', sPush.status === 403, `got ${sPush.status}`);
+
+  // Teacher notes are per batch: a note pushed to a second Kickstarter batch
+  // must not reach a student of the first (utils/materialScope.js).
+  const isoBatch = await call('/batches', { token: admin.token, method: 'POST', body: { programId: kick._id, name: `${FLOW} isolation batch` } });
+  const isoId = isoBatch.json?.batch?._id;
+  ok('admin opens a second Kickstarter batch', isoBatch.status === 201 && !!isoId, `got ${isoBatch.status}`);
+  const adminNoBatch = await pushMaterials(admin.token, kick._id, { moduleId: kMod._id, chapterId: kChap._id, topicId: kTopic._id, url: 'https://example.com/flow-iso.pdf', name: `${FLOW} iso` });
+  ok('with two batches to choose from, a push must name one', adminNoBatch.status === 400, `got ${adminNoBatch.status}`);
+  const isoPush = await pushMaterials(admin.token, kick._id, { moduleId: kMod._id, chapterId: kChap._id, topicId: kTopic._id, batchId: isoId, url: 'https://example.com/flow-iso.pdf', name: `${FLOW} iso` });
+  const isoNote = (isoPush.json?.materials || []).find((x) => x.name === `${FLOW} iso`);
+  ok('admin pushes a note to the second batch only', isoPush.status === 201 && (isoNote?.batchIds || []).map(String).join() === String(isoId), `got ${isoPush.status}`);
+  const sKickIso = await call(`/programs/${kick._id}`, { token: sK.token });
+  const sTopicIso = (sKickIso.json.program?.modules || []).find((m) => String(m._id) === String(kMod._id))
+    ?.chapters.find((c) => String(c._id) === String(kChap._id))?.topics.find((t) => String(t._id) === String(kTopic._id));
+  ok('a student of the first batch does not see it', !!sTopicIso && !(sTopicIso.materials || []).some((x) => x.name === `${FLOW} iso`));
+  ok('…while still seeing their own batch\'s notes', pushedUrls.every((u) => (sTopicIso?.materials || []).some((x) => x.url === u)));
+  if (isoNote) await call(`/programs/${kick._id}/materials/${isoNote._id}`, { token: admin.token, method: 'DELETE' });
+  if (isoId) await call(`/batches/${isoId}`, { token: admin.token, method: 'DELETE' });
 
   const sProgress = await call(`/progress/me?programId=${kick._id}`, { token: sK.token });
   ok('student progress loads', sProgress.status === 200);
@@ -328,6 +341,7 @@ async function run() {
 
   const sGrades = await call('/grades/me', { token: sK.token });
   ok('student grades page loads', sGrades.status === 200);
+  ok('gradebook holds only assignments and projects', (sGrades.json.rows || []).every((r) => r.kind === 'Assignment' || r.kind === 'Project'), `kinds: ${[...new Set((sGrades.json.rows || []).map((r) => r.kind))].join(', ')}`);
 
   // Forum round trip.
   const doubtsBefore = await call(`/forum/doubts?batchId=${bK.id}`, { token: sK.token });
@@ -392,8 +406,6 @@ async function run() {
   ok('dual student sees assignments from both', (dualAssign.json.assignments || []).length >= 12, `got ${(dualAssign.json.assignments || []).length}`);
   const batchNames = new Set((dualAssign.json.assignments || []).map((a) => a.batchId?.name).filter(Boolean));
   ok('…spanning both batch names', batchNames.size === 2, `got ${[...batchNames].join(', ')}`);
-  const dualQuiz = await call('/quizzes?scope=mine', { token: sBoth.token });
-  ok('dual student sees 6 quizzes', (dualQuiz.json.quizzes || []).length === 6, `got ${(dualQuiz.json.quizzes || []).length}`);
   const pK = await call(`/progress/me?programId=${kick._id}`, { token: sBoth.token });
   const pG = await call(`/progress/me?programId=${gen._id}`, { token: sBoth.token });
   ok('dual student has separate progress per programme', pK.status === 200 && pG.status === 200 && pK.json.pct !== undefined && pG.json.pct !== undefined, `K=${pK.json.pct}% G=${pG.json.pct}%`);
