@@ -33,6 +33,9 @@ import {
   displayCompany,
   laneTargets,
   recencyPoints,
+  daysOld,
+  isEarly,
+  EARLY_DAYS,
   RECENCY_MAX,
 } from '../utils/jobShortlist.js';
 import { parseFilters, isHttpUrl, PAGE_SIZE } from '../routes/jobs.js';
@@ -327,18 +330,50 @@ for (const t of ["Kids' Stories & Grammar Worksheets", 'Updating AI Data Pipelin
   ], { now });
   ok(list[0]?.title === 'Fresh AI Engineer', "yesterday's job leads a 9-day-old one of about the same fit");
 
-  // But it is not newest-first: a far better old job still wins.
+  // Past the early-applicant days the boost is not newest-first: a far
+  // better older job still beats a weak, slightly newer one.
   const strong = curate([
     job({ title: 'Strong AI Engineer', company: 'A', relevance: 95, postedAt: daysAgo(8) }),
-    job({ title: 'Weak AI Engineer', company: 'B', relevance: 31, postedAt: daysAgo(0) }),
+    job({ title: 'Weak AI Engineer', company: 'B', relevance: 31, postedAt: daysAgo(5) }),
   ], { now });
-  ok(strong[0]?.title === 'Strong AI Engineer', 'a much better 8-day-old job still beats a weak one from today');
+  ok(strong[0]?.title === 'Strong AI Engineer', 'a much better 8-day-old job still beats a weak 5-day-old one');
 
   // And it decides who makes the cut, not only the order.
   const pool = Array.from({ length: 20 }, (_, i) =>
     job({ title: `AI Engineer ${i}`, company: `Co ${i}`, relevance: 60, postedAt: daysAgo(i % 2 ? 9 : 1) }));
   const cut = curate(pool, { now, size: 10 });
   ok(cut.every((j) => j.title.match(/\d+$/)[0] % 2 === 0), 'with equal fit, a short board keeps the fresh ones');
+}
+
+// ── early applicants first ──────────────────────────────────────────────────
+// Asked for directly: jobs posted yesterday and the day before lead the
+// board, because a student is likelier to apply when they can be early.
+{
+  // 26 Oct, 10:00 in India.
+  const now = new Date('2026-10-26T04:30:00Z').getTime();
+  const at = (iso) => new Date(iso);
+
+  ok(EARLY_DAYS === 2, 'early means today, yesterday and the day before');
+  ok(daysOld(job({ postedAt: at('2026-10-26T01:00:00Z') }), now) === 0, 'this morning is today');
+  ok(daysOld(job({ postedAt: at('2026-10-25T00:00:00Z') }), now) === 1, 'a date-only posting for the 25th is yesterday');
+  // 23:00 on the 24th in India is still the 24th, two days back - not three.
+  ok(daysOld(job({ postedAt: at('2026-10-24T17:30:00Z') }), now) === 2, 'calendar days in India time, not 24-hour spans');
+  ok(!isEarly(job({ postedAt: at('2026-10-23T12:00:00Z') }), now), 'three days back is no longer early');
+  ok(!isEarly(job({ postedAt: null, fetchedAt: null }), now), 'no date is never early');
+
+  const list = curate([
+    job({ title: 'Best Old AI Engineer', company: 'A', relevance: 95, postedAt: at('2026-10-19T00:00:00Z') }),
+    job({ title: 'Good Old AI Engineer', company: 'B', relevance: 80, postedAt: at('2026-10-20T00:00:00Z') }),
+    job({ title: 'Fresh AI Engineer', company: 'C', relevance: 40, postedAt: at('2026-10-25T00:00:00Z') }),
+    job({ title: 'Two Day AI Engineer', company: 'D', relevance: 50, postedAt: at('2026-10-24T00:00:00Z') }),
+    job({ title: 'Three Day AI Engineer', company: 'E', relevance: 99, postedAt: at('2026-10-23T00:00:00Z') }),
+  ], { now });
+  const order = list.map((j) => j.title.split(' AI')[0]);
+  ok(order.slice(0, 2).every((t) => ['Fresh', 'Two Day'].includes(t)),
+    `yesterday's and two-day-old jobs lead, however much better the older ones score (${order.join(', ')})`);
+  ok(order[0] === 'Fresh', "yesterday's comes before the day before's, even at a lower fit");
+  ok(order.slice(2).join() === 'Three Day,Best Old,Good Old', 'the rest keep their usual order behind them');
+  ok(list.filter((j) => j.early).length === 2, 'each job carries whether it is early');
 }
 
 // ── filters narrow within the 750 ───────────────────────────────────────────

@@ -205,16 +205,26 @@ function FilterMenu({ label, value, options, onChange }) {
   );
 }
 
+/**
+ * Calendar days since a date, in India time - the same count the server uses
+ * to put early-applicant jobs first (daysOld in utils/jobShortlist.js), so
+ * the green pill marks exactly the jobs it moved to the top.
+ */
+const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+const istDay = (t) => Math.floor((t + IST_OFFSET_MS) / 86400000);
+const daysOld = (value) => Math.max(0, istDay(Date.now()) - istDay(new Date(value).getTime()));
+
 /** How long ago, in the units people think in. */
 function ago(value) {
   if (!value) return '';
-  const days = Math.floor((Date.now() - new Date(value).getTime()) / 86400000);
+  const days = daysOld(value);
   if (days <= 0) return 'Today';
   if (days === 1) return 'Yesterday';
   return `${days}d ago`;
 }
 
-const isFresh = (value) => value && Date.now() - new Date(value).getTime() < 2 * 86400000;
+/** Today, yesterday or the day before: still time to be an early applicant. */
+const isFresh = (value) => Boolean(value) && daysOld(value) <= 2;
 
 /** Two letters and a tone for the company, when there is no logo. */
 function monogram(company) {

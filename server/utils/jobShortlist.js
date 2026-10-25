@@ -410,6 +410,8 @@ export function recencyPoints(job, now = Date.now()) {
  *   3. Whatever the lanes left empty - a lane short of jobs - is filled from
  *      the best of the rest, on Menler score plus recency.
  *   4. The lanes are interleaved, so every page is a cross-section.
+ *   5. Jobs posted in the last EARLY_DAYS go to the top, so the board opens
+ *      on roles a student can still be an early applicant for.
  *
  * Throughout, a duplicate of a job already kept is skipped and an employer
  * stops at `perCompany`, so the version kept of a duplicate is always the
@@ -478,8 +480,40 @@ export function curate(
     list.forEach((job, i) => placed.push({ job, at: (i + 0.5) / list.length }));
   }
   placed.sort((a, b) => a.at - b.at || b.job.boardScore - a.job.boardScore);
-  return placed.map((p) => p.job);
+
+  // Early-applicant jobs lead: today's, then yesterday's, then the day
+  // before's, each day in the order above so it is still a cross-section;
+  // then the rest in the order above. Which jobs make the 750 does not
+  // change - only that a student opening the board sees first the roles they
+  // can still be among the first to apply for.
+  const ordered = placed.map((p, i) => {
+    const age = daysOld(p.job, now);
+    return { job: { ...p.job, early: age <= EARLY_DAYS }, day: age <= EARLY_DAYS ? age : EARLY_DAYS + 1, i };
+  });
+  ordered.sort((a, b) => a.day - b.day || a.i - b.i);
+  return ordered.map((o) => o.job);
 }
+
+/**
+ * How many calendar days back counts as "early applicant": today, yesterday
+ * and the day before. Past that, a posting has usually had its first wave of
+ * applicants, and being early is the whole reason to put a job first.
+ */
+export const EARLY_DAYS = 2;
+
+/** India time: the boards' readers are in India, so "yesterday" is theirs. */
+const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+const istDay = (t) => Math.floor((t + IST_OFFSET_MS) / DAY_MS);
+
+/** Calendar days since a job was posted, in India time. Infinity with no date. */
+export function daysOld(job, now = Date.now()) {
+  const at = newest(job);
+  if (!at) return Infinity;
+  return Math.max(0, istDay(now) - istDay(at));
+}
+
+/** Posted today, yesterday or the day before. */
+export const isEarly = (job, now = Date.now()) => daysOld(job, now) <= EARLY_DAYS;
 
 /** How many of a list sit in each lane. */
 export function laneCounts(jobs) {
