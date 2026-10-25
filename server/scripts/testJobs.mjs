@@ -32,6 +32,8 @@ import {
   TITLE_BOOST,
   displayCompany,
   laneTargets,
+  recencyPoints,
+  RECENCY_MAX,
 } from '../utils/jobShortlist.js';
 import { parseFilters, isHttpUrl, PAGE_SIZE } from '../routes/jobs.js';
 
@@ -304,6 +306,39 @@ for (const t of ["Kids' Stories & Grammar Worksheets", 'Updating AI Data Pipelin
   ok(displayCompany(gigs[0]) === 'Client on Freelancer.com', 'and its card names the marketplace');
   ok(displayCompany(job({ company: 'null', source: 'indeed' })) === null, 'an unnamed job elsewhere still shows no employer');
   ok(displayCompany(job({ company: ' Acme ' })) === 'Acme', 'a named employer is shown as named');
+}
+
+// ── freshness: a boost, not a sort ──────────────────────────────────────────
+{
+  const now = new Date('2026-10-26T06:00:00Z').getTime();
+  const daysAgo = (d) => new Date(now - d * 86400000);
+
+  ok(recencyPoints(job({ postedAt: daysAgo(0) }), now) === RECENCY_MAX, `posted today is worth ${RECENCY_MAX}`);
+  ok(recencyPoints(job({ postedAt: daysAgo(1) }), now) === 11, 'yesterday is worth 11');
+  ok(recencyPoints(job({ postedAt: daysAgo(9) }), now) === 1, 'nine days old is worth 1');
+  ok(recencyPoints(job({ postedAt: daysAgo(12) }), now) === 0, 'past the window is worth nothing, not less');
+  ok(recencyPoints(job({ postedAt: null, fetchedAt: daysAgo(1) }), now) === 11, 'no posting date falls back to first seen');
+  ok(recencyPoints(job({ postedAt: null, fetchedAt: null }), now) === 0, 'no date at all is worth nothing');
+
+  // The complaint: 8- and 9-day-old postings leading over yesterday's.
+  const list = curate([
+    job({ title: 'Old AI Engineer', company: 'A', relevance: 66, postedAt: daysAgo(9) }),
+    job({ title: 'Fresh AI Engineer', company: 'B', relevance: 60, postedAt: daysAgo(1) }),
+  ], { now });
+  ok(list[0]?.title === 'Fresh AI Engineer', "yesterday's job leads a 9-day-old one of about the same fit");
+
+  // But it is not newest-first: a far better old job still wins.
+  const strong = curate([
+    job({ title: 'Strong AI Engineer', company: 'A', relevance: 95, postedAt: daysAgo(8) }),
+    job({ title: 'Weak AI Engineer', company: 'B', relevance: 31, postedAt: daysAgo(0) }),
+  ], { now });
+  ok(strong[0]?.title === 'Strong AI Engineer', 'a much better 8-day-old job still beats a weak one from today');
+
+  // And it decides who makes the cut, not only the order.
+  const pool = Array.from({ length: 20 }, (_, i) =>
+    job({ title: `AI Engineer ${i}`, company: `Co ${i}`, relevance: 60, postedAt: daysAgo(i % 2 ? 9 : 1) }));
+  const cut = curate(pool, { now, size: 10 });
+  ok(cut.every((j) => j.title.match(/\d+$/)[0] % 2 === 0), 'with equal fit, a short board keeps the fresh ones');
 }
 
 // ── filters narrow within the 750 ───────────────────────────────────────────

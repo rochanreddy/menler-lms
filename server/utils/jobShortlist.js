@@ -371,21 +371,54 @@ function employerKey(job) {
 
 const newest = (job) => new Date(job.postedAt || job.fetchedAt || 0).getTime();
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** The board's window in days; recency runs out at its edge. */
+export const WINDOW_DAYS = 10;
+
+/**
+ * The most points freshness is worth: a job posted today.
+ *
+ * A boost, not a sort. Ranked on fit alone, an 8- or 9-day-old posting often
+ * led its lane over yesterday's, and an opening that old has usually had
+ * its applicants. But sorting newest-first would bury the right job under
+ * yesterday's walk-ins. So freshness adds points that fade to nothing across
+ * the window: yesterday's job wins against an older one of about the same
+ * fit, and a far better old one still wins.
+ */
+export const RECENCY_MAX = 12;
+
+/**
+ * Points for how recently a job was posted: RECENCY_MAX today, falling in a
+ * straight line to 0 at the window's edge. Yesterday is ~11, day 5 is 6,
+ * day 9 is ~1.
+ */
+export function recencyPoints(job, now = Date.now()) {
+  const at = newest(job);
+  if (!at) return 0;
+  const days = Math.max(0, (now - at) / DAY_MS);
+  return Math.round(RECENCY_MAX * Math.max(0, 1 - days / WINDOW_DAYS));
+}
+
 /**
  * Picks the shortlist from the candidates.
  *
  *   1. Each job is put in its lane and has to clear that lane's bar.
  *   2. Each lane takes its best, up to its share of `size`, in lane order:
- *      Menler score plus TITLE_BOOST for an explicit title, newest on a tie.
+ *      Menler score, plus TITLE_BOOST for an explicit title, plus recency
+ *      points for a fresh posting; newest on a tie.
  *   3. Whatever the lanes left empty - a lane short of jobs - is filled from
- *      the best of the rest, on Menler score alone.
+ *      the best of the rest, on Menler score plus recency.
  *   4. The lanes are interleaved, so every page is a cross-section.
  *
  * Throughout, a duplicate of a job already kept is skipped and an employer
  * stops at `perCompany`, so the version kept of a duplicate is always the
  * best-scoring one.
  */
-export function curate(candidates, { size = SHORTLIST_SIZE, perCompany = PER_COMPANY, lanes = LANES } = {}) {
+export function curate(
+  candidates,
+  { size = SHORTLIST_SIZE, perCompany = PER_COMPANY, lanes = LANES, now = Date.now() } = {},
+) {
   const eligible = [];
   for (const job of candidates) {
     if (isExcludedTitle(job.title) || isTopicOnlyTitle(job.title) || isTiedAbroad(job)) continue;
@@ -393,7 +426,14 @@ export function curate(candidates, { size = SHORTLIST_SIZE, perCompany = PER_COM
     if (!passesLane(job, lane)) continue;
     const score = menlerScore(job);
     const boost = lane.title?.test(job.title || '') ? TITLE_BOOST : 0;
-    eligible.push({ ...job, lane: lane.key, menlerScore: score, laneScore: score + boost });
+    const fresh = recencyPoints(job, now);
+    eligible.push({
+      ...job,
+      lane: lane.key,
+      menlerScore: score,
+      boardScore: score + fresh,
+      laneScore: score + boost + fresh,
+    });
   }
 
   const target = laneTargets(size, lanes);
@@ -424,7 +464,7 @@ export function curate(candidates, { size = SHORTLIST_SIZE, perCompany = PER_COM
   }
 
   // The places a short lane could not fill, to the best of the rest.
-  leftover.sort((a, b) => b.menlerScore - a.menlerScore || newest(b) - newest(a));
+  leftover.sort((a, b) => b.boardScore - a.boardScore || newest(b) - newest(a));
   for (const job of leftover) {
     if (count >= size) break;
     take(job);
@@ -437,7 +477,7 @@ export function curate(candidates, { size = SHORTLIST_SIZE, perCompany = PER_COM
   for (const list of inLane.values()) {
     list.forEach((job, i) => placed.push({ job, at: (i + 0.5) / list.length }));
   }
-  placed.sort((a, b) => a.at - b.at || b.job.menlerScore - a.job.menlerScore);
+  placed.sort((a, b) => a.at - b.at || b.job.boardScore - a.job.boardScore);
   return placed.map((p) => p.job);
 }
 
