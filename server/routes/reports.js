@@ -6,6 +6,8 @@ import { Batch } from '../models/Batch.js';
 import { Assignment } from '../models/Assignment.js';
 import { Submission } from '../models/Submission.js';
 import { Attendance } from '../models/Attendance.js';
+import { buildCohortHealth, reportRecipients, sendCohortHealth } from '../utils/cohortHealth.js';
+import { cohortHealthEmail } from '../utils/emailTemplates.js';
 
 const router = Router();
 
@@ -30,6 +32,23 @@ const sendCsv = (res, filename, rows) => {
   res.send('﻿' + toCsv(rows));
 };
 const pct = (part, total) => (total ? `${Math.round((part / total) * 100)}%` : '');
+
+// GET /api/lms/reports/cohort-health, the weekly cohort health mail as it
+// would go out right now: the numbers, the rendered mail and who receives it.
+router.get('/cohort-health', requireAuth, requireRole('admin'), async (_req, res) => {
+  const report = await buildCohortHealth();
+  const { subject, html } = cohortHealthEmail(report);
+  res.json({ report, subject, html, to: await reportRecipients() });
+});
+
+// POST /api/lms/reports/cohort-health/send, send it now instead of waiting for
+// Monday. Does not touch the Monday send.
+router.post('/cohort-health/send', requireAuth, requireRole('admin'), async (_req, res) => {
+  const r = await sendCohortHealth();
+  if (!r.to.length) return res.status(400).json({ error: 'No one to send it to. Set COHORT_REPORT_TO or add an admin.' });
+  if (!r.sent) return res.status(502).json({ error: 'The mail could not be sent.', ...r });
+  res.json(r);
+});
 
 // GET /api/lms/reports/platform, one row per batch: enrolment + engagement.
 router.get('/platform', requireAuth, requireRole('admin'), async (_req, res) => {

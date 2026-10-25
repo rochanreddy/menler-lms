@@ -749,3 +749,71 @@ export function assignmentReminderEmail({
 
   return { subject, text, html };
 }
+
+const istDay = (at) => new Date(at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'Asia/Kolkata' });
+
+/** "82% (▲ 6 pts from 76%)" — this week, with the change from last week when both exist. */
+export function trendText(now, last) {
+  if (now === null) return 'No attendance marked';
+  if (last === null) return `${now}%`;
+  const d = now - last;
+  if (!d) return `${now}% (same as last week)`;
+  return `${now}% (${d > 0 ? '▲' : '▼'} ${Math.abs(d)} pts from ${last}%)`;
+}
+
+function cohortRows(b) {
+  const rating = b.rating === null
+    ? 'No ratings this week'
+    : `${b.rating} / 5 from ${b.ratingCount} review${b.ratingCount === 1 ? '' : 's'}${b.ratingLastWeek === null ? '' : ` (last week ${b.ratingLastWeek})`}`;
+  const quiet = b.quiet
+    ? `${b.quiet} student${b.quiet === 1 ? '' : 's'} — ${b.quietNames.join(', ')}${b.quiet > b.quietNames.length ? '…' : ''}`
+    : 'None';
+  const doubts = b.doubtsAsked ? `${b.doubtsAnswered} of ${b.doubtsAsked} answered by a mentor` : 'No doubts posted';
+  return [
+    ['Students', String(b.students)],
+    ['Classes held', String(b.classes)],
+    ['Attendance', b.classes ? trendText(b.attendance, b.attendanceLastWeek) : 'No classes this week'],
+    ['Class rating', rating],
+    ['Lessons completed', b.completion === null ? '—' : `${b.completion}% on average`],
+    ['Gone quiet', quiet],
+    b.neverOpened && ['Never opened', `${b.neverOpened} student${b.neverOpened === 1 ? '' : 's'}`],
+    ['Doubts', doubts],
+  ].filter(Boolean);
+}
+
+/**
+ * The weekly cohort health report to the team lead — one box per ongoing
+ * batch. `report` is what buildCohortHealth() returns.
+ */
+export function cohortHealthEmail({ from, to, batches }) {
+  const range = `${istDay(from)} – ${istDay(to)}`;
+  const subject = `Cohort health · ${range}`;
+  const href = appUrl('/app');
+  const quiet = batches.reduce((n, b) => n + b.quiet, 0);
+  const summary = batches.length
+    ? `${batches.length} ongoing batch${batches.length === 1 ? '' : 'es'}, ${quiet} student${quiet === 1 ? '' : 's'} gone quiet.`
+    : 'No batches are running right now.';
+
+  const boxes = batches.map((b) => factsBox(b.name, cohortRows(b).map(([k, v]) => [k, esc(v)]))).join('\n');
+
+  const html = shell({
+    title: subject,
+    preview: summary,
+    greeting: 'team',
+    body: [P(`Here is how every cohort did this week (${esc(range)}). ${esc(summary)}`), boxes].join('\n'),
+    cta: { label: 'Open the LMS', href },
+    help: '"Gone quiet" means the student has not opened the LMS in 7 days, the same rule as the admin Home.',
+    closing: '',
+    why: 'You\'re receiving this weekly report as a Menler LMS admin. It is sent every Monday morning.',
+  });
+
+  const text = [
+    'Dear team,', '',
+    `Here is how every cohort did this week (${range}). ${summary}`,
+    ...batches.flatMap((b) => ['', b.name.toUpperCase(), ...cohortRows(b).map(([k, v]) => `${k}: ${v}`)]),
+    '', href, '',
+    SIGN_OFF,
+  ].join('\n');
+
+  return { subject, text, html };
+}

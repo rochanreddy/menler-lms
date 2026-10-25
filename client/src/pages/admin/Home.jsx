@@ -310,6 +310,19 @@ export default function AdminHome() {
   const [batchId, setBatchId] = useState(''); // '' = every batch
   useEffect(() => { api('/stats/admin-dashboard').then(setData).catch((e) => setErr(e.message)); }, []);
 
+  // The Monday cohort health mail, sent on demand. The label reports back.
+  const [health, setHealth] = useState('');
+  const sendHealth = async () => {
+    setHealth('sending');
+    try {
+      const r = await api('/reports/cohort-health/send', { method: 'POST' });
+      setHealth(`Sent to ${r.sent} ✓`);
+    } catch (e) {
+      setHealth('');
+      alert(e.message || 'The cohort report could not be sent.');
+    }
+  };
+
   const all = data?.batches || [];
   const scope = useMemo(() => (batchId ? all.filter((b) => b.id === batchId) : all), [all, batchId]);
   // A student in two batches is one person, in the count and in the filter.
@@ -359,7 +372,12 @@ export default function AdminHome() {
           <p className="greet">Everything, at a glance.</p>
           <p>How each cohort is doing, and what is waiting on you.</p>
         </div>
-        <button className="btn sm ghost" onClick={() => downloadFile('/reports/platform')}>Platform report (CSV)</button>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          <button className="btn sm ghost" onClick={sendHealth} disabled={health === 'sending'} title="The weekly cohort health mail goes out every Monday at 9am. This sends it now.">
+            {health === 'sending' ? 'Sending…' : health || 'Email cohort report'}
+          </button>
+          <button className="btn sm ghost" onClick={() => downloadFile('/reports/platform')}>Platform report (CSV)</button>
+        </div>
       </div>
 
       {err && <div className="blockbox">{err}</div>}

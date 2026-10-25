@@ -13,6 +13,7 @@ import { startSessionReminders } from './utils/sessionReminders.js';
 import { startAssignmentReminders } from './utils/assignmentReminders.js';
 import { startDoubtAttachmentSweep } from './utils/doubtAttachmentSweep.js';
 import { startAutoGrader } from './utils/autoGrade.js';
+import { startCohortHealth } from './utils/cohortHealth.js';
 import routes from './routes/index.js';
 
 const app = express();
@@ -234,6 +235,7 @@ async function start() {
     startAssignmentReminders();
     startDoubtAttachmentSweep();
     startAutoGrader();
+    startCohortHealth();
   } catch (err) {
     console.error('Failed to start LMS server:', err);
     process.exit(1);
