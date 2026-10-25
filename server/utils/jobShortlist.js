@@ -538,7 +538,9 @@ export function applyFilters(jobs, f) {
     if (f.places.length) {
       const inIndia = job.country === 'India';
       const matches =
-        (f.places.includes('india') && inIndia) || (f.places.includes('remote') && job.isRemote);
+        (f.places.includes('india') && inIndia) ||
+        (f.places.includes('international') && !inIndia) ||
+        (f.places.includes('remote') && job.isRemote);
       if (!matches) return false;
     }
 
@@ -585,6 +587,7 @@ export function facetCounts(jobs, f) {
     workTypeTotal: forType.length,
     remote: forPlace.filter((job) => job.isRemote).length,
     india: forPlace.filter((job) => job.country === 'India').length,
+    international: forPlace.filter((job) => job.country !== 'India').length,
     placeTotal: forPlace.length,
   };
 }

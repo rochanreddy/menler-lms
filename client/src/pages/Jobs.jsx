@@ -36,12 +36,12 @@ const buildPath = (filters, page) => {
  * empty page - except the one already picked, which stays so it can be seen
  * and undone. Each carries a live count, taken with the other filters applied.
  */
-function menuOptions(list, { total, allLabel, picked, skip = [] }) {
+function menuOptions(list, { total, allLabel, picked, skip = [], allRow = true }) {
   const options = (list || [])
     .filter((o) => !skip.includes(o.value))
     .filter((o) => o.count > 0 || o.value === picked)
     .map((o) => ({ value: o.value, label: o.label, short: o.short, count: o.count }));
-  return [{ value: '', label: allLabel, count: total }, ...options];
+  return allRow ? [{ value: '', label: allLabel, count: total }, ...options] : options;
 }
 
 const SearchIcon = () => (
@@ -78,7 +78,7 @@ const CheckIcon = () => (
  * outside close it, and the listbox pattern tells a screen reader which row
  * is highlighted and which is chosen.
  */
-function FilterMenu({ label, value, options, onChange }) {
+function FilterMenu({ label, value, options, onChange, placeholder }) {
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
   const [alignRight, setAlignRight] = useState(false);
@@ -87,8 +87,12 @@ function FilterMenu({ label, value, options, onChange }) {
   const listRef = useRef(null);
   const listId = useId();
 
-  const selected = Math.max(0, options.findIndex((o) => o.value === value));
-  const current = options[selected] || options[0];
+  // A menu without an "All" row (Place) shows its placeholder until
+  // something is picked.
+  const found = options.findIndex((o) => o.value === value);
+  const selected = Math.max(0, found);
+  const current = found >= 0 ? options[found] : null;
+  const shown = current ? current.short || current.label : placeholder || options[0]?.label || '';
   const isSet = Boolean(value);
 
   const openMenu = (at = selected) => {
@@ -102,7 +106,9 @@ function FilterMenu({ label, value, options, onChange }) {
   };
   const choose = (index) => {
     const option = options[index];
-    if (option) onChange(option.value);
+    // Picking the ticked option again clears it, which is how a menu with
+    // no "All" row is reset.
+    if (option) onChange(option.value === value && value ? '' : option.value);
     close();
   };
 
@@ -162,13 +168,13 @@ function FilterMenu({ label, value, options, onChange }) {
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={open ? listId : undefined}
-        aria-label={`${label}: ${current.label}`}
+        aria-label={`${label}: ${current ? current.label : shown}`}
         onClick={() => (open ? close() : openMenu())}
         onKeyDown={onButtonKeyDown}
       >
         {/* The short name on the button ("AI & ML"), where the full one would
             be cut off; the menu and the screen-reader label keep the full one. */}
-        <span className="fmenu-value">{current.short || current.label}</span>
+        <span className="fmenu-value">{shown}</span>
         <ChevronIcon />
       </button>
 
@@ -316,11 +322,14 @@ export default function Jobs() {
   );
   const placeOptions = useMemo(
     () => menuOptions(
+      // International, India, Remote - no "Anywhere" row: with nothing picked
+      // the board already shows every place, and the button says so.
       [
+        { value: 'international', label: 'International', count: facets?.international },
         { value: 'india', label: 'India', count: facets?.india },
         { value: 'remote', label: 'Remote', count: facets?.remote },
       ],
-      { total: facets?.placeTotal, allLabel: 'Anywhere', picked: filters.place },
+      { picked: filters.place, allRow: false },
     ),
     [facets, filters.place],
   );
@@ -400,7 +409,7 @@ export default function Jobs() {
           />
         </label>
         <FilterMenu label="Domain" value={filters.domain} options={domainOptions} onChange={pick('domain')} />
-        <FilterMenu label="Place" value={filters.place} options={placeOptions} onChange={pick('place')} />
+        <FilterMenu label="Place" value={filters.place} options={placeOptions} onChange={pick('place')} placeholder="Any place" />
         <FilterMenu label="Type" value={filters.workType} options={typeOptions} onChange={pick('workType')} />
         <FilterMenu label="Level" value={filters.experience} options={levelOptions} onChange={pick('experience')} />
       </div>

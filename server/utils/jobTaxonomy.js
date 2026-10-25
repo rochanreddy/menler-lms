@@ -50,7 +50,10 @@ export const EXPERIENCE_LEVELS = [
   { value: 'unspecified', label: 'Not specified' },
 ];
 
+// International is everything not based in India, remote roles abroad
+// included - so a remote role from abroad counts under both it and Remote.
 export const PLACES = [
+  { value: 'international', label: 'International' },
   { value: 'india', label: 'India' },
   { value: 'remote', label: 'Remote' },
 ];

@@ -390,6 +390,8 @@ for (const t of ["Kids' Stories & Grammar Worksheets", 'Updating AI Data Pipelin
   ok(run({ places: ['india'] }) === 'A', 'India');
   ok(run({ places: ['remote'] }) === 'B', 'remote');
   ok(run({ places: ['india', 'remote'] }) === 'AB', 'India or remote');
+  ok(run({ places: ['international'] }) === 'BC', 'international is everything not based in India, remote abroad included');
+  ok(parseFilters({ place: 'international' }).places.join() === 'international', 'international is a known place');
   ok(run({ levels: ['entry'] }) === 'B', 'level');
   ok(run({ workTypes: ['full-time'] }) === 'C', 'type');
   ok(run({ search: 'b' }) === 'B', 'search is case-insensitive');
@@ -413,6 +415,7 @@ for (const t of ["Kids' Stories & Grammar Worksheets", 'Updating AI Data Pipelin
   ok(none.domainTotal === 5 && none.domains.design === 2 && none.domains['ai-ml'] === 3, 'with nothing picked, counts cover the whole list');
   ok(none.levels.internship === 2 && none.remote === 2, 'level and remote counts');
   ok(none.india === 5 && none.placeTotal === 5, 'India count for the Place menu');
+  ok(none.international === 0, 'and an International count beside it');
 
   const design = facetCounts(list, { ...NO_FILTERS, domains: ['design'] });
   ok(design.levels.internship === 1, 'with Design picked, "Internship" counts design internships only (1, not 2)');

@@ -220,6 +220,7 @@ router.get('/', requireAuth, requireRole('student', 'admin'), async (req, res) =
       places: PLACES,
       remote: counts.remote,
       india: counts.india,
+      international: counts.international,
       placeTotal: counts.placeTotal,
     },
   });
