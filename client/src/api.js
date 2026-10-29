@@ -320,6 +320,15 @@ export const isStoredFile = (url) => /^\/uploads\//.test(url || '');
 // random name with no extension, which the OS then cannot open. So when the
 // file's `name` is known and the browser cannot show it, it is saved under
 // that name instead.
+const DOWNLOAD_EXT = {
+  'application/msword': '.doc',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
+  'application/vnd.ms-excel': '.xls',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': '.xlsx',
+  'application/vnd.ms-powerpoint': '.ppt',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation': '.pptx',
+};
+
 export async function openStoredFile(path, name) {
   const res = await authedFetch(path);
   if (!res.ok) {
@@ -329,9 +338,12 @@ export async function openStoredFile(path, name) {
   const blob = await res.blob();
   const url = URL.createObjectURL(blob);
   if (name && !/^(application\/pdf|image\/|text\/plain)/.test(blob.type)) {
+    // A name typed by us ("Asha Rao resume") carries no extension; take it
+    // from the type the server sniffed, or the OS cannot open the download.
+    const ext = /\.[a-z0-9]+$/i.test(name) ? '' : (DOWNLOAD_EXT[blob.type] || '');
     const a = document.createElement('a');
     a.href = url;
-    a.download = name;
+    a.download = name + ext;
     document.body.appendChild(a);
     a.click();
     a.remove();

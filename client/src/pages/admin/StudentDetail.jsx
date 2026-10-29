@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link, useOutletContext, useNavigate } from 'react-router-dom';
-import { api, downloadFile, mailNote } from '../../api.js';
+import { api, downloadFile, mailNote, isStoredFile, openStoredFile } from '../../api.js';
 import { Donut, Meter, SEQ, SEQ_AQUA, EMPTY_SLICE } from '../../components/Charts.jsx';
 import { CheckBadge, SubmissionCheckPanel } from '../../components/SubmissionCheck.jsx';
 import AiReview from '../../components/AiReview.jsx';
@@ -81,6 +81,15 @@ export default function StudentDetail() {
     } catch (e2) { setErr(e2.message); }
   }
 
+  // An uploaded resume sits behind requireAuth (owner or admin), so it is
+  // fetched with the token; a pasted link is just a link.
+  async function viewResume() {
+    setErr('');
+    const who = data.user.full_name || data.user.email;
+    try { await openStoredFile(data.user.resume_url, `${who} resume`); }
+    catch (e) { setErr(e.message); }
+  }
+
   async function resetPassword() {
     if (!window.confirm(`Reset password for ${data.user.email}?`)) return;
     try {
@@ -126,6 +135,11 @@ export default function StudentDetail() {
         <div className="row">
           {msg && <span className="ws-flash">{msg}</span>}
           <button className="btn sm ghost" onClick={() => downloadFile(`/reports/student/${id}`)}>Download report (CSV)</button>
+          {isAdmin && (
+            !u.resume_url ? <span className="muted" style={{ fontSize: 'var(--text-sm)' }}>No resume yet</span>
+              : isStoredFile(u.resume_url) ? <button className="btn sm ghost" onClick={viewResume}>Resume</button>
+                : <a className="btn sm ghost" href={u.resume_url} target="_blank" rel="noreferrer">Resume ↗</a>
+          )}
           {isAdmin && !form && (
             <button className="btn sm ghost" onClick={() => setForm({ fullName: u.full_name || '', email: u.email, phone: u.phone || '' })}>
               {u.full_name ? 'Edit profile' : 'Add name'}
