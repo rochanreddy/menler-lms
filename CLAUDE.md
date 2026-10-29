@@ -930,6 +930,54 @@ card's `row-link`, so the whole card opens the posting. Only http(s) is ever
 rendered as an href or an `<img src>`, and `POST /jobs` refuses any other
 apply link: these strings come from eleven third-party sources and a form.
 
+### Specialisations
+
+After the six weeks of the AI Generalist a student may take up one of six
+tracks — Analyst, Finance Operations, Founder's Office, Human Resource,
+Marketing, Product Management (`SPECIALISATIONS` in
+[utils/specialisations.js](server/utils/specialisations.js); a seventh is
+one more line) — or none. The admin runs all of it from the
+**Specialisations** tab ([pages/admin/Specialisations.jsx](client/src/pages/admin/Specialisations.jsx)),
+and **none of it is wired into batches, sessions, assignments, grading or
+Learning**: a specialisation is not a `Program`, it is its own
+`lms_specialisations` row, so it cannot leak into a batch dropdown, the
+certificate rule or the gradebook. The six are created on first read
+(`ensureSpecialisations`, upsert on `key`), and the title is the admin's to
+reword without minting a seventh.
+
+**Allotting.** The board lists every student in an AI Generalist batch
+with their Generalist progress and certificate, and one drop-down per row:
+not decided, a track, or not opting. `lms_specialisation_allotments` holds
+one row per student on a unique index, so a second allotment *moves* them.
+"Not opting" is a row (`status: 'opted_out'`), because "said no" and
+"nobody has asked yet" are different facts; no row is "not decided". Landing
+in a track — new or moved — notifies the student with a link to their tab;
+opting out and clearing tell nobody. Deleting an account and
+`resetForLaunch.js` clear allotments; the tracks and their syllabi stay.
+
+**The syllabus** is modules → lessons, and every module and lesson carries
+one reading PDF (`readingUrl`, the ebook, opened in the reader; a lesson
+with none opens its module's) and a teacher-notes list (`materials`, any
+format the curriculum store takes, `notes` | `resource`). Plus track-wide
+`resources` and a Markdown `description`. Files go through `/uploads` with
+`kind: curriculum-pdf | curriculum-file`, the same hash-deduped store as
+course PDFs. The editor ([SpecialisationEditor](client/src/components/SpecialisationEditor.jsx))
+has no Save button: it PATCHes the whole tree after each change (typing
+waits 900 ms), with the `updatedAt` it last saw as `version` — a stale
+version gets a 409 carrying the stored copy instead of overwriting it. New
+nodes get an ObjectId-shaped id on the client, which `cleanModules()` keeps,
+so keys and saves agree. `cleanModules()` is the only gate between the
+browser and the stored tree (links must be https or `/uploads/<id>`, a
+reading slot must be a PDF) and is proved in `tests/specialisations.test.js`.
+
+**Students** see their track on a **Specialisation** dock tab
+([pages/Specialisation.jsx](client/src/pages/Specialisation.jsx)) that
+exists only once they are placed — AppShell asks `GET /specialisations/mine`
+— while the route is always registered, so the notification opens before
+the dock has caught up. The admin's **Student view** tab renders the same
+`SpecialisationView`. Mentors see none of it; every route but `/mine` is
+`requireRole('admin')`.
+
 ### Grading a submission
 
 **Assignments are graded by the AI, end to end**

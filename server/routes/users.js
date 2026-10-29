@@ -15,6 +15,7 @@ import { Message } from '../models/Message.js';
 import { DeviceSession } from '../models/DeviceSession.js';
 import { PlaybackLease } from '../models/PlaybackLease.js';
 import { FileAsset } from '../models/FileAsset.js';
+import { SpecialisationAllotment } from '../models/Specialisation.js';
 import { hashPassword, DEFAULT_TEMP_PASSWORD } from '../utils/password.js';
 import { trySendMail } from '../utils/email.js';
 import { accountCreatedEmail, mentorWelcomeEmail, passwordResetByAdminEmail, loginUrl } from '../utils/emailTemplates.js';
@@ -366,6 +367,7 @@ router.delete('/:id', requireAuth, requireRole('admin'), async (req, res) => {
     User.db.collection('lms_quiz_attempts').deleteMany({ studentId: id }),
     Attendance.deleteMany({ studentId: id }),
     Progress.deleteMany({ studentId: id }),
+    SpecialisationAllotment.deleteMany({ studentId: id }),
     Notification.deleteMany({ userId: id }),
     Message.deleteMany({ authorId: id }),
     Doubt.deleteMany({ authorId: id }),

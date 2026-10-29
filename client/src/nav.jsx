@@ -46,6 +46,10 @@ const Jobs = lazy(() => import('./pages/Jobs.jsx'));
 // Batch chat, carried by Ably (see server/routes/chat.js). Everyone in a
 // batch posts: its students, its mentors, and admins in every batch.
 const Chat = lazy(() => import('./pages/Chat.jsx'));
+// The tracks after the AI Generalist: the admin runs them from one tab; a
+// student reads their own on a tab that exists only once they are placed.
+const AdminSpecialisations = lazy(() => import('./pages/admin/Specialisations.jsx'));
+const Specialisation = lazy(() => import('./pages/Specialisation.jsx'));
 
 // A placeholder page factory — renders the spec's sections for screens whose
 // backend is Phase 2.
@@ -79,6 +83,10 @@ export function extraRoutesFor(role) {
       { path: 'profile', Component: Profile },
       { path: 'doubt-session', Component: DoubtSession },
       { path: 'support', Component: Support },
+      // Always routed, so the "you're in Marketing" notification opens even
+      // before the dock has learned about it; the dock tab itself appears
+      // only for a student who is in a track (see navFor).
+      { path: 'specialisation', Component: Specialisation },
     ];
   }
   return [];
@@ -86,12 +94,18 @@ export function extraRoutesFor(role) {
 
 // Each role's nav tabs. path '' is the index (Home). label drives the sidebar;
 // Component drives the route. Kept in one place so nav + routing never drift.
-export function navFor(role) {
+//
+// `extra.specialisation` is true for a student placed in a specialisation
+// (AppShell asks the server). It adds a dock tab only — the route is in
+// extraRoutesFor either way, so App's router never depends on it.
+export function navFor(role, extra = {}) {
   switch (role) {
     case 'student':
       return [
         { label: 'Home', path: '', Component: StudentHome },
         { label: 'Learning', path: 'learning', Component: Learning },
+        // Next to Learning: once the six weeks are done, this is the course.
+        ...(extra.specialisation ? [{ label: 'Specialisation', path: 'specialisation', Component: Specialisation }] : []),
         { label: 'Grades', path: 'grades', Component: StudentGrades },
         { label: 'Library', path: 'library', Component: Library },
         { label: 'Webinar', path: 'webinar', Component: Webinar },
@@ -122,6 +136,7 @@ export function navFor(role) {
         { label: 'Programs', path: 'programs', Component: ProgramsManage },
         { label: 'Batches', path: 'batches', Component: AdminBatches },
         { label: 'Students', path: 'students', Component: AdminStudents },
+        { label: 'Specialisations', path: 'specialisations', Component: AdminSpecialisations },
         { label: 'Mentors', path: 'mentors', Component: AdminMentors },
         { label: 'Feedback', path: 'feedback', Component: Feedback },
         { label: 'Doubts', path: 'doubts', Component: AdminDoubts },

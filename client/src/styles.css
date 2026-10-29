@@ -3671,3 +3671,172 @@ button.ds-slot-email:hover { color: var(--ink); }
 }
 .dock-item.on .dock-dot { box-shadow: 0 0 0 2px var(--parchment); }
 @media (max-width: 900px) { .dock-dot { top: 5px; right: calc(50% - 15px); width: 8px; height: 8px; } }
+
+/* ── Specialisations ─────────────────────────────────────────────────────────
+   The tracks after the AI Generalist (pages/admin/Specialisations.jsx, the
+   editor in components/SpecialisationEditor.jsx, the student's page in
+   pages/Specialisation.jsx). Each track carries one of the six accents as
+   --sp-accent / --sp-soft / --sp-ink, set inline from its position. */
+
+/* The six cards on the board. */
+.sp-tracks { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.sp-track {
+  position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; min-width: 0;
+  padding: 18px 20px 16px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card);
+  box-shadow: var(--shadow); font-family: var(--font); text-align: left; color: var(--ink); cursor: pointer; overflow: hidden;
+  transition: border-color .16s, box-shadow .16s, transform .16s;
+}
+.sp-track::before { content: ''; position: absolute; left: 20px; top: 0; width: 26px; height: 3px; border-radius: 0 0 3px 3px; background: var(--sp-accent); transition: width .28s cubic-bezier(.2,.7,.3,1); }
+.sp-track:hover { border-color: var(--line-strong); box-shadow: var(--shadow-lg); transform: translateY(-1px); }
+.sp-track:hover::before { width: 56px; }
+.sp-track:focus-visible { outline: none; box-shadow: var(--ring); }
+.sp-track-title { font-family: var(--display); font-size: 17px; font-weight: 700; letter-spacing: -0.01em; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sp-track-n { font-size: 13.5px; color: var(--ink-2); }
+.sp-track-n b { font-family: var(--display); font-size: 22px; color: var(--sp-ink); margin-right: 2px; font-variant-numeric: tabular-nums; }
+.sp-track-meta { font-size: 12.5px; color: var(--muted); }
+.sp-track-go { display: inline-flex; align-items: center; gap: 4px; margin-top: 8px; font-size: 12.5px; font-weight: 600; color: var(--sp-ink); }
+.sp-optout-note { margin: 12px 0 0; font-size: 13.5px; }
+.sp-board-head { margin-top: 34px; }
+
+/* Filters, status pills and the bulk bar. */
+.sp-filter { margin-bottom: 10px; }
+.sp-search { flex: 1 1 240px; min-width: 0; padding: 7px 12px; border: 1px solid var(--line); border-radius: 9px; font-size: 13px; font-family: var(--font); background: var(--card); color: var(--ink); }
+.sp-search:focus, .sp-allot:focus, .sp-bulk select:focus { outline: none; border-color: var(--violet); box-shadow: var(--ring); }
+.sp-status { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+.sp-pill { display: inline-flex; align-items: center; gap: 7px; padding: 6px 12px; border: 1px solid var(--line); border-radius: var(--pill); background: var(--card); color: var(--ink-2); font-family: var(--font); font-size: 13px; font-weight: 500; cursor: pointer; transition: background .14s, border-color .14s, color .14s; }
+.sp-pill:hover { border-color: var(--line-strong); color: var(--ink); }
+.sp-pill.on { background: var(--indigo); border-color: var(--indigo); color: var(--parchment); }
+.sp-pill-n { font-size: 11.5px; font-weight: 700; font-variant-numeric: tabular-nums; padding: 1px 7px; border-radius: var(--pill); background: var(--line-soft); color: var(--muted); }
+.sp-pill.on .sp-pill-n { background: rgba(241,239,232,.16); color: var(--parchment); }
+.sp-bulk {
+  position: sticky; top: 72px; z-index: 5; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin-bottom: 10px; padding: 10px 14px; border-radius: 12px; background: var(--violet-soft); border: 1px solid var(--violet-line); font-size: 13.5px;
+}
+.sp-bulk select { padding: 7px 10px; border: 1px solid var(--line); border-radius: 9px; font-size: 13px; font-family: var(--font); background: var(--card); color: var(--ink); }
+.sp-msg { margin: 0 0 10px; padding: 9px 14px; border-radius: 10px; background: var(--ok-soft); color: var(--ok-ink); font-size: 13.5px; font-weight: 600; }
+
+/* The student list: one row each, a drop-down on the right. */
+.sp-rows { display: flex; flex-direction: column; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); box-shadow: var(--shadow); overflow: hidden; }
+.sp-row { display: flex; align-items: center; gap: 14px; padding: 12px 18px; border-top: 1px solid var(--line-soft); min-width: 0; }
+.sp-row:first-child { border-top: 0; }
+.sp-row.picked { background: var(--violet-soft); }
+.sp-row-head { padding-top: 9px; padding-bottom: 9px; background: var(--sunken); font-size: 12.5px; cursor: pointer; }
+.sp-row input[type="checkbox"] { flex: none; width: 16px; height: 16px; margin: 0; accent-color: var(--violet); cursor: pointer; }
+.sp-row-who { flex: 1 1 auto; min-width: 0; }
+.sp-row-who strong { font-size: 14px; }
+.sp-row-who .badge { margin-left: 8px; vertical-align: 1px; }
+.sp-row-who .muted { font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sp-row-prog { flex: none; display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.sp-bar { display: block; width: 64px; height: 5px; border-radius: 3px; background: var(--line-soft); overflow: hidden; }
+.sp-bar > span { display: block; height: 100%; border-radius: 3px; background: var(--violet); }
+.sp-allot { flex: none; width: 190px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 9px; font-size: 13px; font-family: var(--font); background: var(--card); color: var(--ink); cursor: pointer; }
+.sp-allot.is-in { border-color: var(--violet-line); background: var(--violet-soft); color: var(--violet-dark); font-weight: 600; }
+.sp-allot.is-out { color: var(--muted); background: var(--sunken); }
+.sp-allot:disabled { opacity: .6; cursor: progress; }
+
+/* One track: save state, tabs. */
+.sp-save { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; font-size: 12.5px; font-weight: 600; color: var(--muted); }
+.sp-save.is-saved { color: var(--ok-ink); }
+.sp-save.is-error { color: var(--danger); }
+.sp-save-err { margin: -6px 0 12px; }
+.sp-tabs { margin-bottom: 20px; flex-wrap: wrap; row-gap: 0; }
+.sp-tab-intro { margin: 0 0 14px; font-size: 13.5px; }
+.mm-linkbtn.sp-inline { padding: 0; font-size: inherit; color: var(--violet); }
+.sp-about-edit .sp-about-res { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--line-soft); }
+.sp-preview { padding: 22px; border: 1.5px dashed var(--line-strong); border-radius: var(--radius); background: var(--bg); }
+
+/* The syllabus editor. */
+.sp-syllabus { display: flex; flex-direction: column; gap: 12px; }
+.sp-start { display: flex; gap: 14px; align-items: flex-start; padding: 16px 18px; border: 1.5px dashed var(--violet-line); border-radius: 12px; background: var(--violet-soft); }
+.sp-start svg { flex: none; color: var(--violet); margin-top: 2px; }
+.sp-start strong { display: block; font-size: 15px; }
+.sp-start p { margin: 3px 0 0; font-size: 13.5px; line-height: 1.5; }
+.sp-add-module { align-self: flex-start; }
+.sp-mod { border: 1px solid var(--line); border-left: 3px solid var(--sp-accent, var(--violet)); border-radius: 14px; background: var(--card); box-shadow: var(--shadow); }
+.sp-mod-head, .sp-lesson-head { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.sp-mod-head { padding: 12px 14px; }
+.sp-fold { flex: none; display: grid; place-items: center; width: 26px; height: 26px; border: 0; border-radius: 7px; background: none; color: var(--muted); cursor: pointer; transition: transform .18s, background .14s; }
+.sp-fold:hover { background: var(--line-soft); color: var(--ink); }
+.sp-mod.open > .sp-mod-head .sp-fold, .sp-lesson.open > .sp-lesson-head .sp-fold { transform: rotate(90deg); }
+.sp-kicker { flex: none; font-size: 10.5px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--sp-ink, var(--violet)); }
+.ce-field.sp-title-input { flex: 1 1 auto; min-width: 0; width: auto; padding: 7px 10px; font-weight: 600; border-color: transparent; background: transparent; color: var(--ink); }
+.ce-field.sp-title-input:hover { border-color: var(--line); }
+.ce-field.sp-title-input:focus { outline: none; border-color: var(--violet); background: var(--card); box-shadow: var(--ring); }
+.sp-mod-count { flex: none; font-size: 12.5px; }
+.sp-order { flex: none; display: inline-flex; gap: 2px; }
+.sp-order .icon-btn { width: 28px; height: 28px; font-size: 14px; font-family: var(--font); }
+.sp-order .icon-btn:disabled { opacity: .3; cursor: default; background: none; }
+.sp-order .sp-del:hover { background: var(--danger-soft); color: var(--danger); }
+.sp-mod-body { padding: 0 18px 18px 50px; }
+.sp-files-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); gap: 14px; margin-top: 14px; }
+.sp-slot { min-width: 0; padding: 12px 14px; border: 1.5px dashed transparent; border-radius: 10px; background: var(--sunken); transition: border-color .15s, background .15s; }
+.sp-slot .ce-label { margin-top: 0; }
+.sp-notes.drag { border-color: var(--violet); background: var(--violet-soft); }
+.sp-notes-add { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.sp-hint { margin: 6px 0 0; font-size: 12.5px; }
+.sp-file-open { display: inline-flex; align-items: center; gap: 6px; min-width: 0; padding: 0; border: 0; background: none; font: inherit; color: inherit; cursor: pointer; }
+.sp-file-open:hover .mm-file-name { text-decoration: underline; }
+.sp-lessons { margin-top: 18px; display: flex; flex-direction: column; gap: 8px; }
+.sp-lessons .btn { align-self: flex-start; }
+.sp-lessons-head .ce-label { margin: 0; }
+.sp-none { margin: 0; font-size: 13px; }
+.sp-lesson { border: 1px solid var(--line-soft); border-radius: 10px; background: var(--card); }
+.sp-lesson.open { border-color: var(--line); box-shadow: 0 1px 2px rgba(16,20,36,.04); }
+.sp-lesson-head { padding: 6px 10px; }
+.sp-lesson-n { flex: none; display: grid; place-items: center; min-width: 22px; height: 22px; padding: 0 5px; border-radius: 6px; background: var(--line-soft); color: var(--muted); font-size: 11.5px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.sp-lesson-tags { flex: none; display: inline-flex; gap: 4px; }
+.sp-lesson-body { padding: 0 14px 14px 46px; }
+
+/* The student's page (and the admin's Student view). */
+.sp-view { display: flex; flex-direction: column; gap: 14px; }
+.sp-about > :first-child { margin-top: 0; }
+.sp-about > :last-child { margin-bottom: 0; }
+.sp-track-res h3 { margin: 0 0 4px; }
+.sp-tools { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0 4px; }
+.sp-chip { display: inline-flex; align-items: center; gap: 7px; max-width: 100%; padding: 7px 13px; border: 1px solid var(--line); border-radius: var(--pill); background: var(--card); color: var(--ink); font-family: var(--font); font-size: 12.5px; font-weight: 600; text-decoration: none; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: background .14s, border-color .14s; }
+.sp-chip svg { flex: none; color: var(--violet); }
+.sp-chip:hover:not(:disabled) { background: var(--violet-soft); border-color: var(--violet-line); text-decoration: none; }
+.sp-chip:focus-visible { outline: none; box-shadow: var(--ring); }
+.sp-chip:disabled { color: var(--faint); background: transparent; border-style: dashed; cursor: not-allowed; }
+.sp-chip:disabled svg { color: var(--faint); }
+.sp-vmod { border-top: 3px solid var(--sp-accent, var(--violet)); }
+.sp-vmod-title { margin: 6px 0 0; font-family: var(--display); font-size: 21px; letter-spacing: -0.01em; }
+.sp-summary { margin-top: 8px; color: var(--ink-2); }
+.sp-summary > :first-child { margin-top: 0; }
+.sp-summary > :last-child { margin-bottom: 0; }
+.sp-vlessons { list-style: none; margin: 16px 0 0; padding: 0; border-top: 1px solid var(--line-soft); }
+.sp-vlesson { border-bottom: 1px solid var(--line-soft); }
+.sp-vlesson:last-child { border-bottom: 0; }
+.sp-vlesson-head { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 4px; border: 0; background: none; font-family: var(--font); text-align: left; color: var(--ink); cursor: pointer; }
+.sp-vlesson-head:hover .sp-vlesson-title { color: var(--violet); }
+.sp-vlesson-head:focus-visible { outline: none; box-shadow: var(--ring); border-radius: 8px; }
+.sp-vlesson-title { flex: 1; min-width: 0; font-size: 14.5px; font-weight: 600; }
+.sp-vlesson-chev { flex: none; color: var(--muted); transition: transform .18s; }
+.sp-vlesson.open .sp-vlesson-chev { transform: rotate(90deg); }
+.sp-vlesson-body { padding: 0 4px 16px 38px; }
+.sp-vlesson-body .sp-tools { margin-top: 0; margin-bottom: 12px; }
+
+@media (max-width: 900px) {
+  .sp-tracks { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .sp-files-grid { grid-template-columns: minmax(0, 1fr); }
+  .sp-mod-body { padding-left: 18px; }
+  .sp-lesson-body { padding-left: 14px; }
+}
+@media (max-width: 640px) {
+  .sp-tracks { gap: 8px; }
+  .sp-track { padding: 14px 14px 12px; }
+  .sp-track-title { font-size: 15px; white-space: normal; }
+  .sp-track-n b { font-size: 19px; }
+  .sp-track-go { display: none; }
+  .sp-row { flex-wrap: wrap; padding: 12px 14px; gap: 10px; }
+  .sp-row-who { flex: 1 1 0; }
+  .sp-row-prog { margin-left: 26px; }
+  .sp-allot { flex: 1 1 160px; width: auto; }
+  .sp-mod-head, .sp-lesson-head { flex-wrap: wrap; }
+  .ce-field.sp-title-input { flex-basis: 100%; order: 3; }
+  .sp-order { margin-left: auto; }
+  .sp-mod-count, .sp-lesson-tags { display: none; }
+  .sp-vlesson-body { padding-left: 4px; }
+  .sp-preview { padding: 14px; }
+  .sp-bulk { top: 64px; }
+}

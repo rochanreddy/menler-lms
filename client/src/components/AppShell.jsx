@@ -24,10 +24,20 @@ const isMac = typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(na
 // ⌘K still works for people who reach for it, but it's a shortcut, not the
 // primary path; making a modal the only way to move was ceremony around a menu.
 export default function AppShell({ user, setUser, logout }) {
-  const tabs = navFor(user.role);
+  const location = useLocation();
+  // Whether this student is in a specialisation, which is what puts its tab
+  // in the dock. Asked again on landing on the page itself, so a student who
+  // opens it from the "you're in Marketing" notification gets the tab there
+  // and then rather than on their next visit.
+  const [inTrack, setInTrack] = useState(false);
+  const onTrackPage = location.pathname === '/app/specialisation';
+  useEffect(() => {
+    if (user.role !== 'student') return;
+    api('/specialisations/mine').then((d) => setInTrack(!!d.specialisation)).catch(() => {});
+  }, [user.role, onTrackPage]);
+  const tabs = useMemo(() => navFor(user.role, { specialisation: inTrack }), [user.role, inTrack]);
   const [cmdOpen, setCmdOpen] = useState(false);
   const [stuck, setStuck] = useState(false);
-  const location = useLocation();
   // Rooms with a message you have not seen; drives the dot on the Chat tab.
   const chatUnread = useChatUnread(user);
 

@@ -175,6 +175,9 @@ async function run() {
     ['retired quizzes', db.collection('lms_quizzes').deleteMany({})],
     ['retired quiz attempts', db.collection('lms_quiz_attempts').deleteMany({})],
     ['progress', Progress.deleteMany({})],
+    // Who is in which specialisation goes with the cohort; the six tracks and
+    // their syllabi stay, like the lesson trees.
+    ['specialisation allotments', db.collection('lms_specialisation_allotments').deleteMany({})],
     ['announcements', Announcement.deleteMany({})],
     ['doubts', Doubt.deleteMany({})],
     ['chat messages', Message.deleteMany({})],

@@ -23,6 +23,7 @@ const ICON_FOR = {
   assignment: 'upload',
   grade: 'award',
   support: 'lifebuoy',
+  specialisation: 'rocket',
 };
 
 /** Drop a leading emoji from text written before the icon existed. Escapes,
