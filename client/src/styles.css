@@ -1973,6 +1973,8 @@ h1.md-h { font-size: 22px; } h2.md-h { font-size: 19px; } h3.md-h { font-size: 1
 .lib-card strong { font-size: 15px; }
 .lib-card .muted { font-size: 13px; }
 .lib-open { color: var(--brand); font-weight: 600; font-size: 13px; margin-top: auto; }
+/* A stored PDF is a button (it opens the reader), and must look like the link cards. */
+button.lib-card { font: inherit; text-align: left; cursor: pointer; width: 100%; }
 
 /* ── Forum ── */
 .ask-box { margin-bottom: 18px; }
