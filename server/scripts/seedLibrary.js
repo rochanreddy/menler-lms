@@ -22,9 +22,9 @@ const ITEMS = [
   { category: 'eBook', title: 'Claude Design Playbook', description: 'Generate visuals, mockups and on-brand design assets with Claude.', file: 'Menler_Claude_Design_Playbook.pdf' },
   { category: 'eBook', title: 'Claude in Microsoft 365', description: 'Use Claude across Word, Excel, PowerPoint and Teams.', file: 'Menler_Claude_Microsoft_Playbook.pdf' },
 
-  // ── Note: practice question banks ──
-  { category: 'Note', title: 'AI Generalist (Entry): Question Bank', description: 'Entry-level AI Generalist practice questions.', file: 'Menler_AIGeneralist_Entry_QuestionBank.pdf' },
-  { category: 'Note', title: 'AI Generalist (Level-Up): Question Bank', description: 'Advanced AI Generalist practice questions.', file: 'Menler_AIGeneralist_LevelUp_QuestionBank.pdf' },
+  // The two AI Generalist question banks were taken out of the Library on
+  // 2026-10-31. Do not add them back here: this seed deletes and re-inserts
+  // every menler.in item, so a row listed here returns on the next run.
 ];
 
 async function run() {
