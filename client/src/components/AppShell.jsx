@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useMemo, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { navFor, loadLearning, loadStudentGrades } from '../nav.jsx';
 import Dock from './Dock.jsx';
@@ -8,7 +8,6 @@ import CommandPalette from './CommandPalette.jsx';
 import UserMenu from './UserMenu.jsx';
 import ErrorBoundary from './ErrorBoundary.jsx';
 import ClassReviewGate from './ClassReviewGate.jsx';
-import BatchSwitcher from './BatchSwitcher.jsx';
 import { api, setActiveBatch } from '../api.js';
 import { useChatUnread } from '../chatUnread.js';
 
@@ -31,11 +30,11 @@ export default function AppShell({ user, setUser, logout }) {
   // choice travels on each request and no page holds it. A lesson stays open
   // across two batches of one programme; another programme has no such lesson.
   const [batchView, setBatchView] = useState(0);
-  const switchBatch = (id, sameProgramme) => {
+  const switchBatch = useCallback((id, sameProgramme) => {
     setActiveBatch(id);
     if (!sameProgramme) navigate(location.pathname, { replace: true });
     setBatchView((n) => n + 1);
-  };
+  }, [navigate, location.pathname]);
   // Whether this student is in a specialisation, which is what puts its tab
   // in the dock. Asked again on landing on the page itself, so a student who
   // opens it from the "you're in Marketing" notification gets the tab there
@@ -97,7 +96,7 @@ export default function AppShell({ user, setUser, logout }) {
   // Otherwise a new object every render (command palette toggles, the scroll
   // "stuck" flag) re-renders every one of the ten useOutletContext() readers
   // below, even though only user/logout ever actually change.
-  const outletContext = useMemo(() => ({ user, setUser, logout }), [user, logout]);
+  const outletContext = useMemo(() => ({ user, setUser, logout, switchBatch }), [user, logout, switchBatch]);
 
   return (
     <div className="app">
@@ -105,8 +104,6 @@ export default function AppShell({ user, setUser, logout }) {
         <div className="brand"><MenlerWordmark size={22} /></div>
 
         <div className="spacer" />
-
-        {user.role === 'student' && <BatchSwitcher onSwitch={switchBatch} />}
 
         {/* A field, not an icon. Search is the fastest route to anything in the
             product, so it should look like something you can type into. */}

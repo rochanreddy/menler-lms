@@ -74,7 +74,7 @@ export default function Forum() {
           <p>{board.blurb}</p>
         </div>
         <div className="forum-head-controls">
-          {batches.length > 1 && user.role !== 'student' && (
+          {batches.length > 1 && (
             <div className="learn-select">
               <label htmlFor="forum-batch">Batch</label>
               <select id="forum-batch" value={batchId} onChange={(e) => setBatchId(e.target.value)}>

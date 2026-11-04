@@ -268,8 +268,6 @@ a:focus-visible,
   transition: border-color .2s, background .2s;
 }
 .topbar.stuck { border-bottom-color: var(--line); }
-.batch-switch { min-width: 0; max-width: 240px; padding: 9px 12px; border: 1px solid var(--line); border-radius: 10px; font-size: 13.5px; font-weight: 600; font-family: var(--font); color: var(--ink); background: var(--card); text-overflow: ellipsis; cursor: pointer; }
-.batch-switch:focus-visible { outline: none; border-color: var(--violet); box-shadow: var(--ring); }
 
 /* ── THE DOCK ───────────────────────────────────────────────────────────────
    Primary navigation floats at the bottom, over the content. Icon above label,
@@ -1215,6 +1213,10 @@ a.wchip { text-decoration: none; max-width: 100%; overflow: hidden; text-overflo
 
 .rail-head-copy { flex: 1; min-width: 0; }
 .rail-title { font-family: var(--display); font-weight: 700; font-size: 15px; color: var(--ink); letter-spacing: -0.015em; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rail-title-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-width: 0; }
+.rail-title-row .rail-title { min-width: 0; max-width: 100%; }
+.batch-switch { min-width: 0; max-width: 100%; padding: 3px 6px; border: 1px solid var(--line); border-radius: 8px; font-family: var(--font); font-weight: 600; font-size: 12.5px; color: var(--ink); background: var(--card); text-overflow: ellipsis; cursor: pointer; }
+.batch-switch:focus { outline: none; border-color: var(--violet); box-shadow: var(--ring); }
 .rail-pick { width: 100%; padding: 5px 8px; border: 1px solid var(--line); border-radius: 8px; font-family: var(--display); font-weight: 700; font-size: 14px; color: var(--ink); background: var(--card); }
 .rail-pick:focus { outline: none; border-color: var(--violet); box-shadow: var(--ring); }
 .rail-sub { font-size: 12px; color: var(--muted); margin-top: 3px; font-variant-numeric: tabular-nums; }
@@ -2056,7 +2058,6 @@ button.lib-card { font: inherit; text-align: left; cursor: pointer; width: 100%;
   /* The search field collapses to its icon — the bar has no room for a label. */
   .search-trigger { min-width: 0; padding: 8px; border-radius: 50%; }
   .search-trigger-text, .search-trigger .kbd { display: none; }
-  .batch-switch { max-width: 150px; padding: 8px 10px; font-size: 13px; }
   /* Dock spans the width on phones. Tabs keep their natural width and the dock
      scrolls if a role has too many — squeezing them would clip a long label. */
   .dock { left: 10px; right: 10px; transform: none; max-width: none; justify-content: flex-start; gap: 0; padding: 5px; border-radius: 20px; }

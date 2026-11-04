@@ -40,7 +40,7 @@ function baseHeaders() {
   };
 }
 
-// The batch a student in several has picked in the top bar. A preference, so it
+// The batch a student in several has picked in Learning. A preference, so it
 // outlives logout: the server ignores an id the signed-in student is not in.
 export function getActiveBatch() {
   return localStorage.getItem(ACTIVE_BATCH_KEY) || '';

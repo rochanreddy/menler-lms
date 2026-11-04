@@ -11,6 +11,7 @@ import Empty, { Loading } from './Empty.jsx';
 import VdoCipherPlayer from './VdoCipherPlayer.jsx';
 import { VDOCIPHER_ENABLED, isDirectVideoFile, tierNames, isAssignmentChapter, isProjectChapter, workKind, materialLabels, countLabel } from '../features.js';
 import Ring from './Ring.jsx';
+import BatchSwitcher from './BatchSwitcher.jsx';
 import useMediaQuery, { MOBILE } from '../useMediaQuery.js';
 
 // The Classroom: where a lesson is actually read. Learning's Content tab —
@@ -29,7 +30,7 @@ import useMediaQuery, { MOBILE } from '../useMediaQuery.js';
 const RAIL_KEY = 'lms:classroom-rail';
 
 export default function Classroom() {
-  const { user } = useOutletContext();
+  const { user, switchBatch } = useOutletContext();
   const isStudent = user.role === 'student';
   // The lesson you're on lives in the URL, so a lesson is a shareable link and
   // ⌘K can drop you straight into one instead of onto the page that holds it.
@@ -585,12 +586,17 @@ export default function Classroom() {
         <div className="rail-head">
           {showProgress ? <Ring pct={pct} tone={pct === 100 ? 'ring-full' : ''} label={`${pct}% complete`} /> : <span className="ring ring-idle"><LineIcon name="list" size={16} /></span>}
           <div className="rail-head-copy">
-            {programs.length > 1 ? (
+            {/* A student in two programmes is in two batches, and the batch
+                dropdown already moves between them, so they get that alone. */}
+            {programs.length > 1 && !isStudent ? (
               <select className="rail-pick" aria-label="Programme" value={program._id} onChange={(e) => { if (e.target.value) { setParams({ program: e.target.value }, { replace: true }); pick(e.target.value); } }}>
                 {programs.map((p) => <option key={p._id} value={p._id}>{p.title}</option>)}
               </select>
             ) : (
-              <div className="rail-title" title={program.title}>{program.title}</div>
+              <div className="rail-title-row">
+                <div className="rail-title" title={program.title}>{program.title}</div>
+                {isStudent && <BatchSwitcher onSwitch={switchBatch} />}
+              </div>
             )}
             <div className="rail-sub">{showProgress ? `${done} of ${total} lessons done` : `${flat.length} lessons`}</div>
           </div>

@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api.js';
 
-// The student's batch, in the top bar, once they are in more than one. Which
-// batch is in view is the server's answer (activeBatchId), so a page that loads
-// before this does agrees with it. See server/utils/studentBatches.js for what
-// follows the choice and what deliberately does not.
+// The student's batch, beside the programme's name in Learning, once they are
+// in more than one. Which batch is in view is the server's answer
+// (activeBatchId), so a page that loads before this does agrees with it. See
+// server/utils/studentBatches.js for what follows the choice and what does not.
 export default function BatchSwitcher({ onSwitch }) {
   const [batches, setBatches] = useState([]);
   const [active, setActive] = useState('');

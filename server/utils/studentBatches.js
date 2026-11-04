@@ -5,7 +5,7 @@
 // of everything, and two different kinds of "two":
 //
 // Classes, notices, attendance, teacher notes and the Drive belong to a cohort,
-// so the student looks at one batch at a time and the dropdown in the top bar
+// so the student looks at one batch at a time and the dropdown in Learning
 // picks which. It travels as the X-Active-Batch header, a preference and not a
 // permission: it is only ever matched against batches the student is already
 // in, so an id that is stale or typed by hand falls back to the default rather

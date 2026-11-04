@@ -57,8 +57,8 @@ export async function myBatchIds(user) {
   return batches.map((b) => b._id).filter((id) => !blocked.has(id.toString()));
 }
 
-/** The batch a student in several has in view, from the dropdown in the top
- *  bar. Null for anyone with one batch or none, and for mentors and admins,
+/** The batch a student in several has in view, from the dropdown in
+ *  Learning. Null for anyone with one batch or none, and for mentors and admins,
  *  whose pages name their batch. See utils/studentBatches.js. */
 export async function activeBatchId(req) {
   if (req.user.role !== 'student') return null;
