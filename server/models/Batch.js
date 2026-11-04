@@ -14,6 +14,11 @@ const batchSchema = new mongoose.Schema(
     studentIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true }],
 
     status: { type: String, enum: ['ongoing', 'past', 'upcoming'], default: 'upcoming', index: true },
+
+    // This cohort's own class recordings, which its "Watch class video" opens.
+    // null keeps the curriculum's link, '' means none posted yet; a new batch
+    // is created with ''. See utils/classLinks.js.
+    classDriveUrl: { type: String, default: null, trim: true },
   },
   { timestamps: true },
 );

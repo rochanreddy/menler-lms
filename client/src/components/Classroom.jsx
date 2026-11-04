@@ -134,6 +134,8 @@ export default function Classroom() {
   // work chapter resolves to its own file and its lessons' — never upwards.
   const pageKind = page ? workKind({ chapter: page.chap?.title }) : null;
   const pageMedia = (field) => (page ? page.node[field] || (page.chap && !pageKind ? page.mod[field] : '') || fromLessons(field) : '');
+  // contentUrl holds a lesson's PDF as often as its video, and a PDF is not a class video.
+  const pageVideo = pageLessons.map((f) => f.topic).find((t) => t.contentType === 'video' && t.contentUrl)?.contentUrl || '';
   // Every note there is here, as one list: the teacher-notes slot the lesson
   // resolves to, then every file a mentor pushed onto the lesson, its session
   // and its week. Notes, not reading: the reading is the ebook the admin
@@ -491,7 +493,7 @@ export default function Classroom() {
               </button>
             </div>
             <h1 className="reader-title">{page.title}</h1>
-            {toolsRow({ reading: pageMedia('readingUrl'), notes: pageNotes, classLink: fromLessons('classLink'), video: fromLessons('contentUrl'), subtitle: page.crumb, kind: pageKind })}
+            {toolsRow({ reading: pageMedia('readingUrl'), notes: pageNotes, classLink: fromLessons('classLink'), video: pageVideo, subtitle: page.crumb, kind: pageKind })}
             <div className="reader-read" aria-hidden="true"><span style={{ transform: `scaleX(${read})` }} /></div>
           </div>
         ) : (

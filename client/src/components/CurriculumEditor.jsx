@@ -317,7 +317,7 @@ export default function CurriculumEditor({ programId, batch, onClose }) {
 
               {/* Independent of content type — a reading lesson can still have
                   had a live class about it. */}
-              <label className="ce-label">Class link <span className="muted">(Zoom while it's live, then the Google Drive or YouTube recording. Leave empty and students see "Video not available yet")</span></label>
+              <label className="ce-label">Class link <span className="muted">(Zoom while it's live, then the Google Drive or YouTube recording. Leave empty and students see "Video not available yet". A batch with its own class Drive opens that instead)</span></label>
               <input
                 className="ce-field"
                 placeholder="https://zoom.us/j/… or https://drive.google.com/…"

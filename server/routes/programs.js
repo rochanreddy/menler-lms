@@ -8,6 +8,7 @@ import { Batch } from '../models/Batch.js';
 import { parseDocToModules } from '../utils/docparse.js';
 import { CURRICULUM_FILE_REFUSAL, MAX_CURRICULUM_BYTES, curriculumFileType, storeCurriculumFile } from '../utils/curriculumFiles.js';
 import { materialInBatch, scopeMaterials } from '../utils/materialScope.js';
+import { scopeClassLinks } from '../utils/classLinks.js';
 
 const router = Router();
 
@@ -78,21 +79,22 @@ async function canViewProgram(user, program) {
 
 // What a student is served of a programme: the blocked modules gone, and the
 // teacher notes cut down to the ones pushed to their own batch — a new
-// intake must not open the last cohort's mentor's decks (utils/materialScope).
+// intake must not open the last cohort's mentor's decks (utils/materialScope)
+// or their class recordings (utils/classLinks).
 // Mentors and admins get the whole tree, because they save it back whole.
 function forViewer(program, user, studentBatches) {
   const p = withoutBlockedModules(program, user);
   if (user.role !== 'student') return p;
   const plain = typeof p.toObject === 'function' ? p.toObject() : p;
   const mine = (studentBatches || []).filter((b) => String(b.programId) === String(plain._id));
-  return scopeMaterials(plain, mine);
+  return scopeClassLinks(scopeMaterials(plain, mine), mine);
 }
 
 /** A student's own unblocked batches, with what materialInBatch needs. */
 async function studentBatchesOf(user) {
   if (user.role !== 'student') return [];
   const blocked = new Set((user.blocked?.batchIds || []).map(String));
-  const batches = await Batch.find({ studentIds: user._id }).select('programId createdAt').lean();
+  const batches = await Batch.find({ studentIds: user._id }).select('programId createdAt classDriveUrl').lean();
   return batches.filter((b) => !blocked.has(String(b._id)));
 }
 

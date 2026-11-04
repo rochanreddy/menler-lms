@@ -255,6 +255,14 @@ export default function BatchWorkspace({ batchId, mode }) {
         )}
       </section>
 
+      {mode === 'admin' && (
+        <ClassDrive
+          key={batch._id}
+          current={batch.classDriveUrl}
+          onSave={(classDriveUrl) => act(() => api(`/batches/${batchId}`, { method: 'PATCH', body: { classDriveUrl } }).then(loadBatch), classDriveUrl ? 'Class Drive saved' : 'Class Drive removed')}
+        />
+      )}
+
       {/* Announcements */}
       <section className="panel">
         <h3 className="h3-ic"><LineIcon name="megaphone" size={17} /> Announcements</h3>
@@ -442,6 +450,31 @@ export default function BatchWorkspace({ batchId, mode }) {
 
 // Admin roster row: clickable identity + clearly-labeled actions, instead of
 // cryptic chip glyphs. Blocked members are visually muted with an explicit badge.
+// One Drive per cohort: the curriculum is shared, its recordings are not. See
+// server/utils/classLinks.js for the three states of `current`.
+function ClassDrive({ current, onSave }) {
+  const [url, setUrl] = useState(current || '');
+  useEffect(() => setUrl(current || ''), [current]);
+  const unchanged = url.trim() === (current || '');
+  return (
+    <section className="panel">
+      <h3 className="h3-ic"><LineIcon name="video" size={17} /> Class recordings</h3>
+      <p className="muted">
+        {current == null
+          ? 'Students here open the Drive link set on the lessons. Paste a link to give this batch its own.'
+          : current
+            ? 'Every class lesson opens this Drive for this batch.'
+            : 'No Drive yet, so students here see "Video not available yet".'}
+        {' '}Share it as Anyone with the link → Viewer, or students get a request-access screen.
+      </p>
+      <form className="row" onSubmit={(e) => { e.preventDefault(); if (!unchanged) onSave(url.trim()); }}>
+        <input className="ce-field" style={{ flex: 1, width: 'auto', minWidth: 0 }} type="url" placeholder="https://drive.google.com/drive/folders/…" value={url} onChange={(e) => setUrl(e.target.value)} />
+        <button className="btn sm" disabled={unchanged}>Save</button>
+      </form>
+    </section>
+  );
+}
+
 function MemberRow({ user, kind, href, blocked, onToggleBlock, onRemove }) {
   const name = user.fullName || user.email;
   return (

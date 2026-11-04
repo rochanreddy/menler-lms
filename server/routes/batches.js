@@ -8,6 +8,7 @@ import { trySendMail } from '../utils/email.js';
 import { accountCreatedEmail, loginUrl } from '../utils/emailTemplates.js';
 import { nameForNewAccount } from '../utils/names.js';
 import { stampBatchJoin, clearBatchJoin } from '../utils/enrollment.js';
+import { cleanClassDrive } from '../utils/classLinks.js';
 
 const router = Router();
 
@@ -45,13 +46,17 @@ router.get('/:id', requireAuth, async (req, res) => {
 router.post('/', requireAuth, requireRole('admin'), async (req, res) => {
   const { programId, name, startDate, endDate, status } = req.body || {};
   if (!programId || !name) return res.status(400).json({ error: 'programId and name are required.' });
-  const batch = await Batch.create({ programId, name, startDate: startDate || null, endDate: endDate || null, status: status || 'upcoming' });
+  const batch = await Batch.create({ programId, name, startDate: startDate || null, endDate: endDate || null, status: status || 'upcoming', classDriveUrl: '' });
   res.status(201).json({ batch });
 });
 
-// PATCH /api/lms/batches/:id — admin edits name/dates/status.
+// PATCH /api/lms/batches/:id — admin edits name/dates/status/class Drive.
 router.patch('/:id', requireAuth, requireRole('admin'), async (req, res) => {
-  const allowed = (({ name, startDate, endDate, status }) => ({ name, startDate, endDate, status }))(req.body || {});
+  const allowed = (({ name, startDate, endDate, status, classDriveUrl }) => ({ name, startDate, endDate, status, classDriveUrl }))(req.body || {});
+  if (allowed.classDriveUrl !== undefined) {
+    allowed.classDriveUrl = cleanClassDrive(allowed.classDriveUrl);
+    if (allowed.classDriveUrl === undefined) return res.status(400).json({ error: 'The Drive link must start with https://.' });
+  }
   Object.keys(allowed).forEach((k) => allowed[k] === undefined && delete allowed[k]);
   const batch = await Batch.findByIdAndUpdate(req.params.id, allowed, { new: true });
   if (!batch) return res.status(404).json({ error: 'Batch not found.' });

@@ -117,7 +117,7 @@ async function openBatch({ title, build, courseWeeks }) {
     console.log(`   = ${name} already exists (${batch.status}, ${day(batch.startDate || dates.start)} → ${day(batch.endDate || dates.end)}, ${batch.mentorIds.length} mentors, ${batch.studentIds.length} students) — left as is`);
   } else {
     console.log(`   + ${name}: ${status}, ${day(dates.start)} → ${day(dates.end)}`);
-    if (APPLY) batch = await Batch.create({ programId: program._id, name, startDate: dates.start, endDate: dates.end, status });
+    if (APPLY) batch = await Batch.create({ programId: program._id, name, startDate: dates.start, endDate: dates.end, status, classDriveUrl: '' });
   }
 
   // Mentors: carried over only onto a batch that has none, so a list the

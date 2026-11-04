@@ -303,6 +303,27 @@ async function run() {
   const sPush = await pushMaterials(sK.token, kick._id, { moduleId: kMod._id }, [[`${FLOW} student.pdf`, pdfA]]);
   ok('student is refused pushing materials', sPush.status === 403, `got ${sPush.status}`);
 
+  // A batch's own class Drive: what the student opens, handed back at the end.
+  const classLinks = (r) => (r.json.program?.modules || []).flatMap((m) => m.chapters.flatMap((c) => c.topics.map((t) => t.classLink))).filter(Boolean);
+  const setDrive = (classDriveUrl, token = admin.token) => call(`/batches/${bK.id}`, { token, method: 'PATCH', body: { classDriveUrl } });
+  const readAs = (token) => call(`/programs/${kick._id}`, { token });
+  const sharedLinks = classLinks(sKick);
+  ok('the fixture has class links to test with', sharedLinks.length > 0);
+  const ownDrive = 'https://drive.google.com/drive/folders/flow-own-drive';
+  const driveBad = await setDrive('javascript:alert(1)');
+  ok('a class Drive that is not http(s) is refused', driveBad.status === 400, `got ${driveBad.status}`);
+  const driveMentor = await setDrive(ownDrive, mentorAll.token);
+  ok('a mentor cannot set a batch\'s class Drive', driveMentor.status === 403, `got ${driveMentor.status}`);
+  await setDrive('');
+  ok('a batch with no Drive sees no class link at all', classLinks(await readAs(sK.token)).length === 0);
+  await setDrive(ownDrive);
+  const withDrive = classLinks(await readAs(sK.token));
+  ok('a batch with its own Drive opens it on the same lessons', withDrive.length === sharedLinks.length && withDrive.every((l) => l === ownDrive));
+  const adminTree = classLinks(await readAs(admin.token));
+  ok('an admin still gets the curriculum\'s links, because they save the tree back', adminTree.length > 0 && !adminTree.includes(ownDrive));
+  await setDrive(null);
+  ok('handing it back restores the curriculum\'s links', classLinks(await readAs(sK.token)).join() === sharedLinks.join());
+
   // Teacher notes are per batch: a note pushed to a second Kickstarter batch
   // must not reach a student of the first (utils/materialScope.js).
   const isoBatch = await call('/batches', { token: admin.token, method: 'POST', body: { programId: kick._id, name: `${FLOW} isolation batch` } });

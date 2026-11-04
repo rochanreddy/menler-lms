@@ -535,6 +535,20 @@ The failure mode to know about: a Drive link works for the admin who uploaded
 it and silently shows everyone else a request-access screen. The sharing has to
 be **Anyone with the link → Viewer**, which the editor says next to the field.
 
+**A class Drive belongs to a batch.** `classLink` sits on the curriculum, which
+every batch shares, so a November student opened September's recordings, and a
+link posted for November would have replaced September's.
+`Batch.classDriveUrl` settles it ([utils/classLinks.js](server/utils/classLinks.js),
+`tests/classLinks.test.js`): `null` keeps the curriculum's link (the cohorts from
+before this), `''` is its own with nothing posted yet, a URL is its own and opens
+on every class lesson. The admin sets it under **Class recordings** on the batch
+page, and a batch created from now on starts at `''`, so a new intake inherits
+nothing. The curriculum's link still marks WHICH lessons had a class, so a
+programme whose lessons carry none (the Fellowship, today) shows a batch's Drive
+nowhere until they do. Only students are filtered, for the same reason as teacher
+notes. The two Generalist cohorts were split by
+`node scripts/separateGeneralistDrives.js` (dry run; `--apply` with `CONFIRM_DB`).
+
 ### Forgotten passwords
 
 Three steps on the login page itself: `POST /auth/forgot` mails a six-digit
