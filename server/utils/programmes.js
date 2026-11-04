@@ -1,5 +1,5 @@
-// The two programmes' names as they read on screen: "AI Kickstarter" and
-// "AI Generalist". The title is data — Program.title, and the batch names
+// The programmes' names as they read on screen: "AI Kickstarter", "AI
+// Generalist" and "AI Engineering Fellowship - FDE". The title is data — Program.title, and the batch names
 // built from it — so what a student sees is whatever the database says, and
 // a rename is a data change (scripts/renameProgrammes.js), not a UI change.
 //
@@ -10,6 +10,7 @@
 export const PROGRAMME_TITLES = {
   kickstarter: 'AI Kickstarter',
   generalist: 'AI Generalist',
+  engineering: 'AI Engineering Fellowship - FDE',
 };
 
 /** "AI Kickstarter" → "Kickstarter"; anything else unchanged. */

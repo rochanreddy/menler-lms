@@ -19,7 +19,8 @@
 // Project 1 · …", each with its brief as the chapter's page. Kickstarter has
 // an "Assignment: …" LESSON inside every session topic, and its four portfolio
 // projects in a module of their own at the end. Hence one extractor each,
-// rather than one clever rule that fits neither.
+// rather than one clever rule that fits neither. The AI Engineering Fellowship
+// files its work the Generalist's way, so it uses the Generalist's extractor.
 //
 // ── On grading ──────────────────────────────────────────────────────────
 // It also sets the rubric class, the deliverables checklist and which file
@@ -118,6 +119,7 @@ function kickstarterItems(program) {
 export const PROGRAMS = [
   { title: PROGRAMME_TITLES.generalist, build: generalistItems },
   { title: PROGRAMME_TITLES.kickstarter, build: kickstarterItems },
+  { title: PROGRAMME_TITLES.engineering, build: generalistItems, courseWeeks: 12 },
 ];
 
 // Exported so scripts/createBatches.js can fill a batch it has just made:

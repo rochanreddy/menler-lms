@@ -1,10 +1,12 @@
-// Author the two real Menler curricula into the Learning tree
+// Author the real Menler curricula into the Learning tree
 // (Program → Module → Chapter → Topic), from the official PDFs:
 //   · AI Kickstarter    — 4 sessions · 19 topics · 4 portfolio projects
 //   · AI Generalist     — 6 weeks · 12 sessions · 4 milestone projects
+//   · AI Engineering Fellowship - FDE — 12 weeks · 24 sessions · 6 milestone projects
 // The lesson copy itself lives in curricula.js, which both this script and
 // seedFull.js read from — there is exactly one place to edit it.
-//   npm run seed:content
+//   npm run seed:content                       # every programme
+//   node scripts/seedContent.js Engineering    # one, leaving the others untouched
 //
 // ── Why this script does more than assign p.modules ─────────────────────────
 // Modules/chapters/topics are embedded sub-documents, so writing a new tree
@@ -38,8 +40,10 @@ import { PROGRAMME_TITLES, titleQuery } from '../utils/programmes.js';
 import {
   kickstarterModules,
   generalistModules,
+  fdeModules,
   KICKSTARTER_DESCRIPTION,
   GENERALIST_DESCRIPTION,
+  FDE_DESCRIPTION,
 } from './curricula.js';
 
 // One entry per programme. Titles must match the ones seedFull.js batches
@@ -48,7 +52,10 @@ import {
 const PROGRAMS = [
   { title: PROGRAMME_TITLES.kickstarter, description: KICKSTARTER_DESCRIPTION, build: kickstarterModules },
   { title: PROGRAMME_TITLES.generalist, description: GENERALIST_DESCRIPTION, build: generalistModules },
+  { title: PROGRAMME_TITLES.engineering, description: FDE_DESCRIPTION, build: fdeModules },
 ];
+
+const ONLY = process.argv.slice(2).find((x) => !x.startsWith('--')) || '';
 
 // A lesson's identity is its position in the tree plus its title — stable
 // across edits to the body, and unique because no chapter repeats a topic name.
@@ -187,12 +194,14 @@ async function pruneModuleBlocks() {
 
 async function run() {
   await connectDb();
-  assertSeedTarget('seed:content', 'It re-authors both curriculum trees and prunes lesson progress that no longer matches.');
+  assertSeedTarget('seed:content', 'It re-authors the curriculum trees and prunes lesson progress that no longer matches.');
+  const wanted = PROGRAMS.filter((p) => !ONLY || p.title.toLowerCase().includes(ONLY.toLowerCase()));
+  if (!wanted.length) throw new Error(`No programme called "${ONLY}". Try: ${PROGRAMS.map((p) => p.title).join(', ')}`);
   const admin = await User.findOne({ role: 'admin' });
   if (!admin) throw new Error('No admin user — run npm run seed first.');
-  const pdfUrls = await loadCurriculumPdfUrls(admin._id);
+  const pdfUrls = await loadCurriculumPdfUrls(admin._id, ONLY ? wanted[0].title : undefined);
 
-  for (const { title, description, build } of PROGRAMS) {
+  for (const { title, description, build } of wanted) {
     const fresh = build();
 
     // Either spelling: a database seeded before the "AI …" rename still says
@@ -223,7 +232,7 @@ async function run() {
   }
   const blocks = await pruneModuleBlocks();
   console.log(`\n  module blocks ${blocks} stale id(s) cleared`);
-  console.log('\n✅ AI Kickstarter and AI Generalist curricula authored from the PDFs.');
+  console.log(`\n✅ ${wanted.map((p) => p.title).join(', ')} authored from the PDFs.`);
   process.exit(0);
 }
 

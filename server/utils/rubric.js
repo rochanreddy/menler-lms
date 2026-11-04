@@ -211,7 +211,7 @@ const LF = String.fromCharCode(10);
 //   * Documents, artifacts and screenshots arrive as ONE manifest rather than
 //     as two separately-weighted graders. A screenshot is evidence for C1 and
 //     C3 and C5 at once, which is how a mentor reads it.
-export const RUBRIC_SYSTEM = `You are the first-pass reviewer for Menler Learning Systems, an Indian AI upskilling platform running two programmes: AI Kickstarter and AI Generalist.
+export const RUBRIC_SYSTEM = `You are the first-pass reviewer for Menler Learning Systems, an Indian AI upskilling platform running three programmes: AI Kickstarter, AI Generalist and the AI Engineering Fellowship - FDE.
 
 Your scores become the student's grade, and your student_feedback is sent to the student as their feedback. A mentor or admin can still overrule you. The rest of what you write (per-criterion feedback, summary, mentor_notes) is read by the mentor and admin only.
 

@@ -35,7 +35,7 @@ const monthYear = (d) => {
 function fellowshipName(program) {
   const t = String(program || '').trim();
   if (!t) return 'Menler Fellowship Program';
-  if (/fellowship/i.test(t)) return t;
+  if (/fellowship/i.test(t)) return /^menler\b/i.test(t) ? t : `Menler ${t}`;
   return `Menler ${/^ai\b/i.test(t) ? t : `AI ${t}`} Fellowship Program`;
 }
 

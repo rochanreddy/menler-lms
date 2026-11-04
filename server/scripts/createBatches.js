@@ -4,7 +4,7 @@
 // on the new batch's Assignments & Projects tab — the three things that
 // otherwise take three screens and a script to do by hand for every intake.
 //
-//   node scripts/createBatches.js "Nov 2026"                       # dry run, both programmes
+//   node scripts/createBatches.js "Nov 2026"                       # dry run, every programme
 //   node scripts/createBatches.js "Nov 2026" Kickstarter           # one programme
 //   node scripts/createBatches.js "Nov 2026" --start=2026-11-02 --end=2027-02-07
 //   node scripts/createBatches.js "Nov 2026" --mentors=none        # leave mentors to the UI
@@ -18,7 +18,8 @@
 // ── Dates ───────────────────────────────────────────────────────────────────
 // The label names the month, so the default start is the first of that month
 // and the end is 14 weeks later, which is the span the September cohorts were
-// given (2026-09-01 → 2026-12-08). Both are guesses an admin corrects on the
+// given (2026-09-01 → 2026-12-08); a programme whose syllabus fixes its length
+// says so (`courseWeeks` in syncCurriculumAssignments.js). Both are guesses an admin corrects on the
 // Batches page the moment the real calendar is known; --start/--end set them
 // here. The status follows the start: ahead of today it is "upcoming", else
 // "ongoing".
@@ -58,7 +59,7 @@ const COURSE_WEEKS = 14;
 const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
 
 function usage(msg) {
-  console.error(`\n✗ ${msg}\n\n  node scripts/createBatches.js "Nov 2026" [Kickstarter|Generalist] [--start=YYYY-MM-DD] [--end=YYYY-MM-DD] [--mentors=copy|none] [--apply]\n`);
+  console.error(`\n✗ ${msg}\n\n  node scripts/createBatches.js "Nov 2026" [Kickstarter|Generalist|Engineering] [--start=YYYY-MM-DD] [--end=YYYY-MM-DD] [--mentors=copy|none] [--apply]\n`);
   process.exit(1);
 }
 
@@ -81,11 +82,11 @@ function parseDate(s, what) {
 
 const day = (d) => d.toISOString().slice(0, 10);
 
-function resolveDates() {
+function resolveDates(weeks = COURSE_WEEKS) {
   let start = parseDate(flag('start'), 'start') || monthStart(LABEL);
   if (!start) usage(`Could not read a month out of "${LABEL}". Name one like "Nov 2026", or pass --start.`);
   let end = parseDate(flag('end'), 'end');
-  if (!end) end = new Date(start.getTime() + COURSE_WEEKS * 7 * 24 * 3600 * 1000);
+  if (!end) end = new Date(start.getTime() + weeks * 7 * 24 * 3600 * 1000);
   if (end <= start) usage(`--end (${day(end)}) must be after the start (${day(start)}).`);
   return { start, end };
 }
@@ -102,7 +103,8 @@ async function mentorsToCopy(program, exceptId) {
   return { from: source, users };
 }
 
-async function openBatch({ title, build }, dates) {
+async function openBatch({ title, build, courseWeeks }) {
+  const dates = resolveDates(courseWeeks);
   const program = await Program.findOne(titleQuery(title));
   if (!program) { console.log(`\n═══ ${title}: no such programme, skipped.`); return null; }
   const lessons = (program.modules || []).reduce((n, m) => n + (m.chapters || []).reduce((k, c) => k + (c.topics || []).length, 0), 0);
@@ -151,7 +153,7 @@ async function openBatch({ title, build }, dates) {
 
 async function run() {
   if (!LABEL) usage('Name the intake, e.g. "Nov 2026".');
-  const dates = resolveDates();
+  resolveDates(); // a bad label or date stops here, before anything connects
   const wanted = PROGRAMS.filter((p) => !ONLY || p.title.toLowerCase().includes(ONLY.toLowerCase()));
   if (!wanted.length) usage(`No programme called "${ONLY}". Try: ${PROGRAMS.map((p) => p.title).join(', ')}`);
 
@@ -160,8 +162,8 @@ async function run() {
     assertSeedTarget('createBatches --apply', 'It creates batches, assigns mentors to them and writes their Assignment rows.');
   }
 
-  console.log(`\nIntake "${LABEL}": ${day(dates.start)} → ${day(dates.end)} (${COURSE_WEEKS} weeks)${flag('start') || flag('end') ? '' : ' — defaults; edit on the Batches page once the calendar is fixed'}`);
-  for (const p of wanted) await openBatch(p, dates);
+  console.log(`\nIntake "${LABEL}"${flag('start') || flag('end') ? '' : ' — default dates; edit on the Batches page once the calendar is fixed'}`);
+  for (const p of wanted) await openBatch(p);
 
   if (!APPLY) console.log('\nDry run. Nothing was written. Re-run with --apply (and CONFIRM_DB) to write.');
   else console.log('\n✅ Done. Next, on the admin side: enrol the students on the Batches page, then "Schedule the whole course" on Sessions with the Zoom links, then set assignment dates if the cohort runs on deadlines.');

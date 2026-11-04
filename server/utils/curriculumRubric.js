@@ -27,6 +27,28 @@ import { CLASS_KEYS, DEFAULT_CLASS } from './rubric.js';
 // you have to trust. A title that matches nothing falls through to the
 // heuristic below and then to class B, and the sync script prints which.
 const BY_TITLE = [
+  // AI Engineering Fellowship. First, because its milestone numbers mean other
+  // things in the Generalist rows below: its Milestone Project 2 is a cited
+  // copilot, not a media kit, and its 4 is not the capstone.
+  [/Opportunity Memo & Baselines/i, 'B'],
+  [/ROI Model, SOW & Handover Pack/i, 'B'],
+  [/Triage Engine & Benchmark Report/i, 'C'],
+  [/Extension-Agent Console/i, 'C'],
+  [/Cited Copilot & Bake-off Report/i, 'C'],
+  [/Public MCP Server & Trust-Boundary Diagram/i, 'C'],
+  [/Supervisor System, Review Pack/i, 'C'],
+  [/Eval Harness, Calibrated Judge/i, 'C'],
+  [/Hardened Assistant/i, 'C'],
+  [/Deployed Pipeline, Dashboards/i, 'C'],
+  [/Capstone Design Pack/i, 'C'],
+  [/Capstone Delivery/i, 'E'],
+  [/Complaint Triage Engine/i, 'C'],
+  [/Cited Farm Advisory Copilot/i, 'C'],
+  [/Reconciliation Agent and Public MCP Server/i, 'C'],
+  [/Certified Review Assistant/i, 'C'],
+  [/Production NDR Recovery System/i, 'C'],
+  [/Capstone Engagement/i, 'E'],
+
   // A · Drill — thirty minutes, one screenshot and a few sentences.
   [/AI Audit/i, 'A'],
   [/Interface Comparison Drill/i, 'A'],

@@ -1227,7 +1227,7 @@ a.wchip { text-decoration: none; max-width: 100%; overflow: hidden; text-overflo
 .rail-mods { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 6px 8px 8px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
 .rmod { flex: none; display: flex; flex-direction: column; min-height: 0; border-radius: var(--radius-sm); }
 .rmod + .rmod { margin-top: 2px; }
-.rmod.open { flex: 0 1 auto; min-height: 220px; background: var(--line-soft); }
+.rmod.open { background: var(--line-soft); }
 .rmod-head { display: flex; align-items: center; gap: 10px; width: 100%; background: none; border: 0; padding: 9px 8px; cursor: pointer; text-align: left; font-family: var(--font); border-radius: var(--radius-sm); }
 .rmod-head:hover { background: var(--line-soft); }
 .rmod-idx { flex: none; width: 30px; height: 30px; display: grid; place-items: center; font-family: var(--display); font-weight: 700; font-size: 11.5px; color: var(--violet); background: var(--violet-soft); border-radius: 9px; font-variant-numeric: tabular-nums; transition: background .16s, color .16s; }
@@ -1241,9 +1241,9 @@ a.wchip { text-decoration: none; max-width: 100%; overflow: hidden; text-overflo
 .rmod-count { flex: none; font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .rmod-caret { flex: none; color: var(--muted); font-size: 14px; transition: transform .2s; }
 .rmod-caret.up { transform: rotate(180deg); }
-/* The open module's lessons. Its own scroll, with a little breathing room at
-   the top so the first chapter title never sits clipped under the head. */
-.rmod-body { flex: 1; min-height: 0; overflow-y: auto; padding: 2px 4px 8px; overscroll-behavior: contain; scrollbar-width: thin; scroll-padding-top: 8px; }
+/* The open module's lessons. The rail scrolls as one list: a scroller of its
+   own here was crushed to a sliver by twelve weeks of headers around it. */
+.rmod-body { padding: 2px 4px 8px; }
 /* Sentence case, not tracked capitals — chapter titles here are full sentences
    with a duration on the end, and capitals turned them into a wall. */
 .rchap-title { font-size: 11.5px; font-weight: 600; color: var(--ink-2); line-height: 1.35; padding: 8px 8px 3px 10px; }
@@ -1292,7 +1292,6 @@ a.wchip { text-decoration: none; max-width: 100%; overflow: hidden; text-overflo
   .learn-page-head { margin: -16px 0 10px; }
   .learn-page-head h1 { font-size: 26px; }
   .cls-ws { --cls-bottom: 92px; }
-  .rmod.open { min-height: 170px; }
   .rail-head { padding: 10px 10px 10px 12px; }
   .reader-head { padding-top: 12px; }
   .reader-title { font-size: 23px; margin-top: 5px; }
@@ -1306,7 +1305,6 @@ a.wchip { text-decoration: none; max-width: 100%; overflow: hidden; text-overflo
   .rail-head { padding: 8px 8px 8px 10px; }
   .ring { width: 36px; height: 36px; }
   .rmod-head { padding: 6px 8px; }
-  .rmod.open { min-height: 140px; }
   .reader-crumb { display: none; }
   .reader-top { justify-content: flex-end; }
   .reader-title { margin-top: 0; }
@@ -2143,7 +2141,6 @@ button.lib-card { font: inherit; text-align: left; cursor: pointer; width: 100%;
   .cls-ws { grid-template-columns: minmax(0, 1fr); gap: 0; --cls-bottom: 92px; min-height: 480px; }
   .cls.rail-min .cls-ws { grid-template-columns: minmax(0, 1fr); }
   .reader { grid-column: 1; }
-  .rmod.open { min-height: 0; }
   .cls-backdrop { display: block; position: fixed; inset: 0; z-index: 119; background: rgba(26,22,64,.42); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); opacity: 0; pointer-events: none; transition: opacity .22s; }
   .cls.sheet-open .cls-backdrop { opacity: 1; pointer-events: auto; }
   .rail {
@@ -2160,7 +2157,6 @@ button.lib-card { font: inherit; text-align: left; cursor: pointer; width: 100%;
   /* On the sheet the modules simply scroll as one list — a thumb wants one
      scroll, not nested ones. */
   .rail-mods { display: block; overflow-y: auto; overscroll-behavior: contain; }
-  .rmod-body { overflow: visible; }
 
   .reader-head { padding: 14px 16px 0; }
   .reader-pos { display: none; }

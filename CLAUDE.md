@@ -37,12 +37,15 @@ cd server && node scripts/syncCurriculumAssignments.js     # dry run; --apply to
                                # puts a curriculum's work into every one of its batches'
                                # Assignments & Projects tab: Generalist 6 weekly
                                # assignments + 4 milestone projects, Kickstarter 17
-                               # session assignments + 4 portfolio projects. Name one
-                               # programme to limit it. Idempotent; sets no dates.
+                               # session assignments + 4 portfolio projects, the AI
+                               # Engineering Fellowship 12 + 6. Name one programme to
+                               # limit it. Idempotent; sets no dates.
 cd server && node scripts/createBatches.js "Nov 2026"      # dry run; --apply to write
-                               # opens a month's intake: "AI Kickstarter · Nov 2026"
-                               # and "AI Generalist · Nov 2026", start the 1st, end
-                               # 14 weeks on (--start/--end override), mentors copied
+                               # opens a month's intake, one batch per programme
+                               # ("AI Kickstarter · Nov 2026"; name one to limit it,
+                               # e.g. Engineering), start the 1st, end 14 weeks on
+                               # (12 for the Fellowship; --start/--end override),
+                               # mentors copied
                                # from the newest batch (--mentors=none skips), and the
                                # curriculum's assignments synced on. No students, no
                                # sessions. Idempotent on the name (needs CONFIRM_DB).
@@ -74,6 +77,8 @@ cd server && npm run test:flows # drives all three roles against a RUNNING serve
 cd server && npm run test:rubric # the grading rubric's arithmetic, the curriculum
                                # classifier, the link checker's refusals and the
                                # duplicate detector. No network, no DB, no API key.
+cd server && node scripts/seedContent.js Engineering       # seed:content for one programme,
+                               # leaving the other trees untouched (needs CONFIRM_DB)
 cd server && npm run calibrate  # does the rubric agree with the mentors? Compares
                                # every submission that has BOTH an AI review and a
                                # mentor grade. Read-only.
@@ -90,10 +95,10 @@ cd server && CONFIRM_DB=<db> LMS_LAUNCH_STUDENT_PASSWORD=… node scripts/resetF
 ### Curriculum
 
 [server/scripts/curricula.js](server/scripts/curricula.js) is the **single source
-of truth for lesson copy**, transcribed from the two official PDFs — AI
-Kickstarter (4 sessions · 19 topics · 4 portfolio projects) and the AI Generalist
-fellowship (6 weeks · 12 sessions · 4 milestone projects). `npm run seed:content`
-authors both into the Learning tree; `seed:full` builds its cohort on top of the
+of truth for lesson copy**, transcribed from the official PDFs — AI Kickstarter
+(4 sessions · 19 topics · 4 portfolio projects), the AI Generalist fellowship
+(6 weeks · 12 sessions · 4 milestone projects) and the AI Engineering Fellowship
+(see below). `npm run seed:content` authors them into the Learning tree; `seed:full` builds its cohort on top of the
 same trees and adds the per-lesson PDFs and class links. Neither seed carries
 lesson text of its own — if a PDF changes, it changes in `curricula.js` and both
 seeds follow. `seed:full` will not overwrite a curriculum that already has
@@ -277,9 +282,53 @@ lesson **body** costs nothing; renaming a lesson, its chapter or its module
 retires that lesson and its progress, which is the honest outcome. Any other
 code path that rewrites `Program.modules` owes the same two steps.
 
+### The AI Engineering Fellowship
+
+**AI Engineering Fellowship - FDE** is the third programme: 12 weeks, 24 sessions
+(Saturday and Sunday, 2 hours each), 6 cases, 12 assignments, 6 milestone
+projects, transcribed from [docs/fde-fellowship/](docs/fde-fellowship/). The title
+is the certificate sample's, and with the fallback in `segmentFor()` it gives the
+sample's `MNLR-AIFEL-` code, so `certificates.js` needed no row for it.
+
+It deliberately has the Generalist's shape (`WEEK n · …` → `S1 · Week n: …` →
+`Weekly Assignment: …` → `Milestone Project n · …`), so the Learning page, the
+class outline and the assignment sync read it unchanged: `generalistItems` builds
+its work, and `seed:content` and the sync list it beside the other two. What it
+adds is a `Case n · …` chapter opening each two-week block and a `Lab: …` chapter
+in Weeks 1, 4 and 5. Neither is a hand-in, and neither is matched by the sync.
+
+Rules a change here has to keep (`tests/fdeCurriculum.test.js`):
+
+- **A project is one row, in its block's second week.** The syllabus counts six,
+  so the Week A foundation checkpoint is a section of the project's Brief page,
+  not a chapter or a seventh hand-in. Same reasoning removed the Start Here
+  chapter: the handbook pages stay in the PDFs and Week 1 opens on Case 1.
+- **Every row in the rail folds.** A chapter with no `description` renders as a
+  permanently open label, so every chapter here carries a page.
+- **Topic lessons carry the competency code** (`C001`–`C100`, `K01`–`K20`), and
+  each topic is `[code, name, what it teaches, hands-on task]`; the last two come
+  from the Index PDF, which is why there are two lessons per session.
+- **The rubric rows sit first in `BY_TITLE`**, because `Milestone Project 2` and
+  `4` mean a media kit and a capstone in the Generalist rows below them.
+- **`Submit as:` is the last line of a project's Submission lesson.** The folder
+  check reads from that line on, so the brief above it (Case 2's context says
+  "images") cannot make a screenshot compulsory. Video is required only for the
+  Week 10 assignment and Project 5, which ask for a recorded training.
+
+Twelve weeks is also what showed the syllabus rail's old flaw: the open week was
+a scroller of its own, and twelve headers crushed it to a sliver. The rail now
+scrolls as one list, on every programme.
+
+The syllabus says assignments are reviewed by a mentor and defended, while
+auto-grading runs on every submission here too. That was a decision, not an
+oversight: the AI grade stands until a mentor regrades. When ebooks arrive, a
+PDF rule's prefix must be `WEEK 1 ·` and not `WEEK 1`, which `startsWith` would
+also match on Weeks 10 to 12.
+
 ### Programme names
 
-The programmes read **AI Kickstarter** and **AI Generalist** on every screen,
+The programmes read **AI Kickstarter**, **AI Generalist** and **AI Engineering
+Fellowship - FDE** on every screen,
 and that text is data: `Program.title`, and the batch names built from it
 ("AI Kickstarter · Sept 2026"). A rename is therefore
 `node scripts/renameProgrammes.js` (dry run; `--apply` with `CONFIRM_DB`),

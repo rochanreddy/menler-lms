@@ -309,8 +309,8 @@ export default function Classroom() {
   const railRef = useRef(null);
   const [read, setRead] = useState(0); // 0..1, how far down the reading you are
   const revealActive = () => {
-    const list = railRef.current?.querySelector('.rmod.open .rmod-body');
-    const row = list?.querySelector('.rlesson.active');
+    const list = railRef.current?.querySelector('.rail-mods');
+    const row = list?.querySelector('.rmod.open .rlesson.active') || list?.querySelector('.rmod.open .rmod-head');
     if (!list || !row) return;
     const lr = list.getBoundingClientRect();
     const rr = row.getBoundingClientRect();
@@ -319,6 +319,9 @@ export default function Classroom() {
     if (above < 0) list.scrollTop += above;
     else if (below > 0) list.scrollTop += below;
   };
+  // The list is one scroll now, so closing a long week above can carry the one
+  // just opened out of view.
+  useEffect(() => { revealActive(); }, [openMod]);
   useEffect(() => {
     if (bodyRef.current) bodyRef.current.scrollTop = 0;
     setRead(0);

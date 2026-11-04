@@ -173,10 +173,10 @@ export async function ensureCurriculumPdf(ownerId, filename) {
   return `/uploads/${asset._id}`;
 }
 
-/** Upsert every known ebook and return filename → url. */
-export async function loadCurriculumPdfUrls(ownerId) {
+/** Upsert every known ebook, or one programme's, and return filename → url. */
+export async function loadCurriculumPdfUrls(ownerId, programTitle) {
   const urls = {};
-  for (const file of ruleFiles()) urls[file] = await ensureCurriculumPdf(ownerId, file);
+  for (const file of ruleFiles(programTitle)) urls[file] = await ensureCurriculumPdf(ownerId, file);
   return urls;
 }
 
