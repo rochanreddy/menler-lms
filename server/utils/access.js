@@ -1,5 +1,6 @@
 import { Batch } from '../models/Batch.js';
 import { Program } from '../models/Program.js';
+import { pickActiveBatch } from './studentBatches.js';
 
 const has = (arr, id) => (arr || []).some((x) => x.toString() === id);
 
@@ -54,4 +55,23 @@ export async function myBatchIds(user) {
   // Admin-blocked batches simply disappear from the user's world.
   const blocked = new Set((user.blocked?.batchIds || []).map(String));
   return batches.map((b) => b._id).filter((id) => !blocked.has(id.toString()));
+}
+
+/** The batch a student in several has in view, from the dropdown in the top
+ *  bar. Null for anyone with one batch or none, and for mentors and admins,
+ *  whose pages name their batch. See utils/studentBatches.js. */
+export async function activeBatchId(req) {
+  if (req.user.role !== 'student') return null;
+  const ids = await myBatchIds(req.user);
+  if (ids.length < 2) return null;
+  const batches = await Batch.find({ _id: { $in: ids } }).select('startDate createdAt').lean();
+  return pickActiveBatch(batches, req.get('X-Active-Batch'))?._id || null;
+}
+
+/** myBatchIds narrowed to the batch in view. For what belongs to a cohort:
+ *  classes, notices, attendance. Not for anything a student owes or has
+ *  handed in across both, which stays on myBatchIds. */
+export async function viewBatchIds(req) {
+  const active = await activeBatchId(req);
+  return active ? [active] : myBatchIds(req.user);
 }

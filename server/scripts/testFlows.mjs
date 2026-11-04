@@ -40,12 +40,13 @@ const section = (t) => console.log(`\n\x1b[1m${t}\x1b[0m`);
 // minutes would be told the account is in use — by the previous run.
 const DEVICE = 'flowtest-primary';
 
-async function call(path, { token, method = 'GET', body, device = DEVICE } = {}) {
+async function call(path, { token, method = 'GET', body, device = DEVICE, batch } = {}) {
   const res = await fetch(`${BASE}${path}`, {
     method,
     headers: {
       'Content-Type': 'application/json',
       'X-Device-Id': device,
+      ...(batch ? { 'X-Active-Batch': batch } : {}),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     ...(body ? { body: JSON.stringify(body) } : {}),
@@ -431,6 +432,54 @@ async function run() {
   const pG = await call(`/progress/me?programId=${gen._id}`, { token: sBoth.token });
   ok('dual student has separate progress per programme', pK.status === 200 && pG.status === 200 && pK.json.pct !== undefined && pG.json.pct !== undefined, `K=${pK.json.pct}% G=${pG.json.pct}%`);
 
+  // ────────────────────────────────── STUDENT — two batches of one programme
+  section('STUDENT FLOW, a September student given November too');
+  const beforeWork = (await call('/assignments?scope=mine', { token: sK.token })).json.assignments || [];
+  const beforeGrades = (await call('/grades/me', { token: sK.token })).json.rows || [];
+  const handedIn = beforeWork.find((a) => a.mySubmission);
+  ok('the fixture student has handed work in', !!handedIn);
+  const nextIntake = await call('/batches', { token: admin.token, method: 'POST', body: { programId: kick._id, name: `${FLOW} next intake`, startDate: new Date(Date.now() + 7 * 864e5).toISOString() } });
+  const nextId = nextIntake.json?.batch?._id;
+  const twin = await call('/assignments', { token: admin.token, method: 'POST', body: { batchId: nextId, title: handedIn.title, type: handedIn.type } });
+  const nextOnly = await call('/assignments', { token: admin.token, method: 'POST', body: { batchId: nextId, title: `${FLOW} set for the new intake` } });
+  const nextClass = await call('/sessions', { token: admin.token, method: 'POST', body: { batchId: nextId, title: `${FLOW} new intake class`, startsAt: new Date(Date.now() + 8 * 864e5).toISOString() } });
+  const nextNotice = await call('/announcements', { token: admin.token, method: 'POST', body: { batchId: nextId, title: `${FLOW} new intake notice`, body: 'Hello' } });
+  const added = await call(`/batches/${nextId}/students`, { token: admin.token, method: 'POST', body: { email: 'aarav.sharma@student.menler.in' } });
+  ok('admin adds them to the new batch, keeping the old', added.status < 300 && twin.status === 201 && nextOnly.status === 201 && nextClass.status === 201, `add ${added.status}, class ${nextClass.status}`);
+
+  const twoBatches = await call('/batches', { token: sK.token });
+  ok('they now have two batches, the newest in view', twoBatches.json.batches.length === 2 && String(twoBatches.json.activeBatchId) === String(nextId));
+  const classesOf = async (batch) => ((await call('/sessions', { token: sK.token, batch })).json.sessions || []);
+  const newView = await classesOf(nextId);
+  const oldView = await classesOf(bK.id);
+  ok('the new batch shows only its own classes', newView.length === 1 && newView[0].title === `${FLOW} new intake class`, `got ${newView.length}`);
+  ok('switching shows only the old batch\'s classes', oldView.length > 1 && !oldView.some((s) => s.title === `${FLOW} new intake class`), `got ${oldView.length}`);
+  const noticesOf = async (batch) => ((await call('/announcements', { token: sK.token, batch })).json.announcements || []);
+  ok('notices follow the batch', nextNotice.status === 201 && (await noticesOf(nextId)).length === 1 && !(await noticesOf(bK.id)).some((n) => String(n._id) === String(nextNotice.json?.announcement?._id)), `got ${nextNotice.status}`);
+  const attendanceOf = async (batch) => (await call('/attendance/me', { token: sK.token, batch })).json;
+  ok('attendance follows the batch', (await attendanceOf(nextId)).total === 0 && (await attendanceOf(bK.id)).total > 0);
+  const stranger = await classesOf(bG.id);
+  ok('a batch they are not in widens nothing', stranger.length === 1 && stranger[0].title === `${FLOW} new intake class`, `got ${stranger.length}`);
+  const driveIn = async (batch) => classLinks(await call(`/programs/${kick._id}`, { token: sK.token, batch }));
+  ok('the old batch keeps its recordings, the new one has none yet', (await driveIn(bK.id)).length === sharedLinks.length && (await driveIn(nextId)).length === 0);
+
+  const workIn = async (batch) => (await call('/assignments?scope=mine', { token: sK.token, batch })).json.assignments || [];
+  const workNew = await workIn(nextId);
+  const workOld = await workIn(bK.id);
+  const titles = workNew.map((a) => a.title);
+  ok('each piece of work shows once', new Set(titles).size === titles.length, `${titles.length} rows`);
+  ok('…with the work they handed in still on it', workNew.find((a) => a.title === handedIn.title)?.mySubmission?._id === handedIn.mySubmission._id);
+  ok('…nothing they had is gone, and the new work is added', beforeWork.every((a) => titles.includes(a.title)) && titles.length === beforeWork.length + 1, `${beforeWork.length} → ${titles.length}`);
+  ok('the same list from either batch', workOld.map((a) => a._id).join() === workNew.map((a) => a._id).join());
+  const afterGrades = (await call('/grades/me', { token: sK.token })).json.rows || [];
+  ok('grades carry over, once each', afterGrades.length === beforeGrades.length + 1 && beforeGrades.filter((r) => r.score != null).every((r) => afterGrades.some((x) => String(x.id) === String(r.id) && x.score === r.score)), `${beforeGrades.length} → ${afterGrades.length}`);
+
+  const sKId = bKdetail.json.batch.studentIds.find((s) => s.email === 'aarav.sharma@student.menler.in')?._id;
+  await call(`/batches/${nextId}/members/${sKId}`, { token: admin.token, method: 'DELETE' });
+  if (nextClass.json?.session?._id) await call(`/sessions/${nextClass.json.session._id}`, { token: admin.token, method: 'DELETE' });
+  if (nextId) await call(`/batches/${nextId}`, { token: admin.token, method: 'DELETE' });
+  ok('taken back out, they are as they were', ((await call('/batches', { token: sK.token })).json.batches || []).length === 1);
+
   // ────────────────────────────────── Certificate path
   section('CERTIFICATE PATH');
   const donePK = await call(`/progress/me?programId=${kick._id}`, { token: sDone.token });
@@ -635,6 +684,8 @@ async function run() {
     process.exit(1);
   }
 
+  // Carries a fixture's title on purpose, so the prefix above cannot find it.
+  await Assignment.deleteOne({ _id: twin.json?.assignment?._id });
   const rmSubs = await Submission.deleteMany({ assignmentId: { $in: strayAssignments.map((a) => a._id) } });
   const rmAssign = await Assignment.deleteMany({ _id: { $in: strayAssignments.map((a) => a._id) } });
   const rmDoubts = await Doubt.deleteMany({ text: new RegExp(`^${FLOW}`) });

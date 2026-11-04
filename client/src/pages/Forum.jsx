@@ -58,7 +58,8 @@ export default function Forum() {
   useEffect(() => {
     api('/batches').then((d) => {
       setBatches(d.batches || []);
-      if (d.batches?.[0]) setBatchId(d.batches[0].id);
+      const inView = (d.batches || []).find((b) => String(b.id) === String(d.activeBatchId)) || d.batches?.[0];
+      if (inView) setBatchId(inView.id);
     }).catch(() => {});
   }, []);
 
@@ -73,7 +74,7 @@ export default function Forum() {
           <p>{board.blurb}</p>
         </div>
         <div className="forum-head-controls">
-          {batches.length > 1 && (
+          {batches.length > 1 && user.role !== 'student' && (
             <div className="learn-select">
               <label htmlFor="forum-batch">Batch</label>
               <select id="forum-batch" value={batchId} onChange={(e) => setBatchId(e.target.value)}>

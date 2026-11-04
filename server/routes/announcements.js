@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
 import { Announcement } from '../models/Announcement.js';
 import { Batch } from '../models/Batch.js';
-import { canAccessBatch, isMentorOfBatch, myBatchIds } from '../utils/access.js';
+import { canAccessBatch, isMentorOfBatch, viewBatchIds } from '../utils/access.js';
 import { notifyMany } from '../utils/notify.js';
 
 const router = Router();
@@ -15,7 +15,7 @@ router.get('/', requireAuth, async (req, res) => {
     if (!(await canAccessBatch(req.user, batchId))) return res.status(403).json({ error: 'Forbidden.' });
     filter = { batchId };
   } else {
-    filter = { batchId: { $in: await myBatchIds(req.user) } };
+    filter = { batchId: { $in: await viewBatchIds(req) } };
   }
   const items = await Announcement.find(filter)
     .populate('authorId', 'fullName email role')

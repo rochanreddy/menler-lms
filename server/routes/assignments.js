@@ -6,6 +6,7 @@ import { Batch } from '../models/Batch.js';
 import { canAccessBatch, isMentorOfBatch, myBatchIds, isBlockedFromAssignment } from '../utils/access.js';
 import { notifyMany } from '../utils/notify.js';
 import { attachWorkMaterials } from '../utils/workMaterials.js';
+import { onePerWork } from '../utils/studentBatches.js';
 
 const router = Router();
 
@@ -32,6 +33,12 @@ router.get('/', requireAuth, async (req, res) => {
   if (scope === 'mine') {
     const subs = await Submission.find({ studentId: req.user._id, isDeleted: false, assignmentId: { $in: assignments.map((a) => a._id) } });
     const byId = new Map(subs.map((s) => [s.assignmentId.toString(), s]));
+    // In two batches of a programme, every title has two rows. Not narrowed to
+    // the batch in view: a student's work reads the same from either.
+    if (req.user.role === 'student' && !batchId) {
+      const batches = await Batch.find({ _id: { $in: filter.batchId.$in } }).select('programId startDate createdAt').lean();
+      assignments = onePerWork(assignments, (id) => byId.get(id), batches);
+    }
     const withMedia = await attachWorkMaterials(assignments.map((a) => a.toObject()));
     return res.json({ assignments: withMedia.map((a) => ({ ...a, mySubmission: byId.get(a._id.toString()) || null })) });
   }

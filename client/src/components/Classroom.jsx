@@ -229,7 +229,8 @@ export default function Classroom() {
         }
         setPrograms(list);
         const wantP = params.get('program');
-        const start = (wantP && list.find((p) => p._id === wantP)) ? wantP : list[0]?._id;
+        const inView = bd.batches?.find((b) => String(b.id) === String(bd.activeBatchId))?.programId;
+        const start = (wantP && list.find((p) => p._id === wantP)) ? wantP : (list.find((p) => p._id === inView) || list[0])?._id;
         // Awaited so the skeleton covers the curriculum fetch too, not just
         // the list — otherwise it flashes "Pick a programme to start."
         if (start) await pick(start, params.get('topic'));

@@ -4,6 +4,7 @@ import { Assignment } from '../models/Assignment.js';
 import { Submission } from '../models/Submission.js';
 import { Batch } from '../models/Batch.js';
 import { isMentorOfBatch, myBatchIds } from '../utils/access.js';
+import { onePerWork } from '../utils/studentBatches.js';
 
 const router = Router();
 
@@ -11,12 +12,14 @@ const router = Router();
 // assignment and project across their batches, with their own score/status.
 router.get('/me', requireAuth, async (req, res) => {
   const batchIds = await myBatchIds(req.user);
-  const [assignments, batches] = await Promise.all([
+  const [allAssignments, batches] = await Promise.all([
     Assignment.find({ batchId: { $in: batchIds } }),
-    Batch.find({ _id: { $in: batchIds } }).select('name startDate'),
+    Batch.find({ _id: { $in: batchIds } }).select('name startDate createdAt programId'),
   ]);
-  const subs = await Submission.find({ studentId: req.user._id, assignmentId: { $in: assignments.map((a) => a._id) }, isDeleted: false });
+  const subs = await Submission.find({ studentId: req.user._id, assignmentId: { $in: allAssignments.map((a) => a._id) }, isDeleted: false });
   const subBy = new Map(subs.map((s) => [s.assignmentId.toString(), s]));
+  // The same work as the Assignments tab: each piece once, with its grade.
+  const assignments = req.user.role === 'student' ? onePerWork(allAssignments, (id) => subBy.get(id), batches) : allAssignments;
 
   // In the order the course runs, not the order the rows were written. This
   // used to be newest-first, which read as reverse once the curriculum's work

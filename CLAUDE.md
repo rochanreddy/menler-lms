@@ -549,6 +549,37 @@ nowhere until they do. Only students are filtered, for the same reason as teache
 notes. The two Generalist cohorts were split by
 `node scripts/separateGeneralistDrives.js` (dry run; `--apply` with `CONFIRM_DB`).
 
+### A student in two batches
+
+A September student can be given November too: enrol them on the batch page
+and keep them in September. **Never remove them from September**, because their
+submissions hang off September's rows and would look unsubmitted.
+
+**The dropdown in the top bar** ([BatchSwitcher](client/src/components/BatchSwitcher.jsx))
+appears for a student in two or more batches. The choice lives in the browser
+and travels as `X-Active-Batch`, a preference and not a permission: it is only
+matched against the student's own batches, so a stale id falls back to the
+newest intake rather than refusing or widening anything. Nothing is passed
+page to page; switching remounts the page and the next requests carry it.
+`activeBatchId()` and `viewBatchIds()` in [utils/access.js](server/utils/access.js)
+apply it, and `GET /batches` returns the server's answer so a page never has
+to work out the default for itself.
+
+Follows the dropdown: classes, the Home class card, notices, attendance, the
+forum, teacher notes and the class Drive. **Does not**, on purpose: assignments
+and projects, grades, class reviews owed, doubt sessions, notifications, chat
+(already one room per batch) and search. A new thing that a batch owns uses
+`viewBatchIds(req)`; anything a student owes or has handed in stays on
+`myBatchIds`, or switching would hide it.
+
+**Each piece of work shows once.** Every batch has its own row per title, so
+`onePerWork()` ([utils/studentBatches.js](server/utils/studentBatches.js)) keeps
+one per title per programme: the row holding their work, else the newest
+batch's. Nothing is copied, so a grade stays in the batch it was given in, and
+a new hand-in lands on the newest batch for that batch's mentors. Rules in
+`tests/studentBatches.test.js`. In the mentor's and admin's views of the other
+batch that student still reads as not having handed in, because there it is true.
+
 ### Forgotten passwords
 
 Three steps on the login page itself: `POST /auth/forgot` mails a six-digit

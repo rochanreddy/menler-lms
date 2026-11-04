@@ -3,7 +3,7 @@ import { requireAuth, requireRole } from '../middleware/auth.js';
 import { Session } from '../models/Session.js';
 import { Batch } from '../models/Batch.js';
 import { Attendance } from '../models/Attendance.js';
-import { canAccessBatch, myBatchIds } from '../utils/access.js';
+import { canAccessBatch, viewBatchIds } from '../utils/access.js';
 import { EARLY_MS, isWithinWindow, joinWindow, normMeetingId } from '../utils/sessionTime.js';
 
 const router = Router();
@@ -50,7 +50,7 @@ router.get('/', requireAuth, async (req, res) => {
     if (!(await canAccessBatch(req.user, batchId))) return res.status(403).json({ error: 'Forbidden.' });
     filter = { batchId };
   } else {
-    filter = { batchId: { $in: await myBatchIds(req.user) } };
+    filter = { batchId: { $in: await viewBatchIds(req) } };
   }
   const now = new Date();
   if (scope === 'upcoming') filter.startsAt = { $gte: now };
@@ -70,7 +70,7 @@ router.get('/', requireAuth, async (req, res) => {
 // than the server guessing a timezone. Falls back to the server's own UTC day
 // only if they're missing/invalid (defensive — every real caller sends them).
 router.get('/live', requireAuth, async (req, res) => {
-  const batchIds = await myBatchIds(req.user);
+  const batchIds = await viewBatchIds(req);
   const now = Date.now();
   const mine = { batchId: { $in: batchIds } };
 

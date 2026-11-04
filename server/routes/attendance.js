@@ -3,7 +3,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { Attendance } from '../models/Attendance.js';
 import { Session } from '../models/Session.js';
 import { Batch } from '../models/Batch.js';
-import { isMentorOfBatch, myBatchIds, canAccessBatch } from '../utils/access.js';
+import { activeBatchId, isMentorOfBatch, myBatchIds, canAccessBatch } from '../utils/access.js';
 import { isWithinWindow } from '../utils/sessionTime.js';
 
 const router = Router();
@@ -90,7 +90,8 @@ router.get('/session/:sessionId', requireAuth, async (req, res) => {
 
 // GET /api/lms/attendance/me — the logged-in student's attendance %.
 router.get('/me', requireAuth, async (req, res) => {
-  const rows = await Attendance.find({ studentId: req.user._id });
+  const active = await activeBatchId(req);
+  const rows = await Attendance.find({ studentId: req.user._id, ...(active ? { batchId: active } : {}) });
   const total = rows.length;
   const present = rows.filter((r) => r.status === 'present').length;
   res.json({ present, total, pct: total ? Math.round((present / total) * 100) : 0 });

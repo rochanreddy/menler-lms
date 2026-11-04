@@ -5,6 +5,7 @@ const API = (import.meta.env.VITE_API_URL || 'http://localhost:4100/api/lms').re
 const ACCESS_KEY = 'lms_token';
 const REFRESH_KEY = 'lms_refresh';
 const DEVICE_KEY = 'lms_device';
+const ACTIVE_BATCH_KEY = 'lms_active_batch';
 
 // A stable id for THIS browser, sent on every request as X-Device-Id.
 //
@@ -34,8 +35,19 @@ function baseHeaders() {
   return {
     'Content-Type': 'application/json',
     'X-Device-Id': getDeviceId(),
+    ...(getActiveBatch() ? { 'X-Active-Batch': getActiveBatch() } : {}),
     ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}),
   };
+}
+
+// The batch a student in several has picked in the top bar. A preference, so it
+// outlives logout: the server ignores an id the signed-in student is not in.
+export function getActiveBatch() {
+  return localStorage.getItem(ACTIVE_BATCH_KEY) || '';
+}
+
+export function setActiveBatch(id) {
+  localStorage.setItem(ACTIVE_BATCH_KEY, id);
 }
 
 export function getToken() {

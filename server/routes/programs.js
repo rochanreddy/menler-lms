@@ -9,6 +9,7 @@ import { parseDocToModules } from '../utils/docparse.js';
 import { CURRICULUM_FILE_REFUSAL, MAX_CURRICULUM_BYTES, curriculumFileType, storeCurriculumFile } from '../utils/curriculumFiles.js';
 import { materialInBatch, scopeMaterials } from '../utils/materialScope.js';
 import { scopeClassLinks } from '../utils/classLinks.js';
+import { inView } from '../utils/studentBatches.js';
 
 const router = Router();
 
@@ -90,12 +91,14 @@ function forViewer(program, user, studentBatches) {
   return scopeClassLinks(scopeMaterials(plain, mine), mine);
 }
 
-/** A student's own unblocked batches, with what materialInBatch needs. */
-async function studentBatchesOf(user) {
+/** A student's own unblocked batches, the one in view for a programme they
+ *  are in twice, with what materialInBatch needs. */
+async function studentBatchesOf(req) {
+  const { user } = req;
   if (user.role !== 'student') return [];
   const blocked = new Set((user.blocked?.batchIds || []).map(String));
-  const batches = await Batch.find({ studentIds: user._id }).select('programId createdAt classDriveUrl').lean();
-  return batches.filter((b) => !blocked.has(String(b._id)));
+  const batches = await Batch.find({ studentIds: user._id }).select('programId startDate createdAt classDriveUrl').lean();
+  return inView(batches.filter((b) => !blocked.has(String(b._id))), req.get('X-Active-Batch'));
 }
 
 /**
@@ -128,7 +131,7 @@ router.get('/', requireAuth, async (req, res) => {
   const query = Program.find(visible === null ? {} : { _id: { $in: visible } }).sort({ createdAt: -1 });
   if (summary) query.select('title slug type published');
   const programs = await query;
-  const mine = summary ? [] : await studentBatchesOf(req.user);
+  const mine = summary ? [] : await studentBatchesOf(req);
   res.json({ programs: programs.map((p) => (summary ? withoutBlockedModules(p, req.user) : forViewer(p, req.user, mine))) });
 });
 
@@ -137,7 +140,7 @@ router.get('/:id', requireAuth, async (req, res) => {
   const program = await Program.findById(req.params.id);
   if (!program) return res.status(404).json({ error: 'Program not found.' });
   if (!(await canViewProgram(req.user, program))) return res.status(403).json({ error: 'Forbidden.' });
-  res.json({ program: forViewer(program, req.user, await studentBatchesOf(req.user)) });
+  res.json({ program: forViewer(program, req.user, await studentBatchesOf(req)) });
 });
 
 // POST /api/lms/programs — admin only.

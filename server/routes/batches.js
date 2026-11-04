@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { requireAuth, requireRole, invalidateUser } from '../middleware/auth.js';
 import { Batch } from '../models/Batch.js';
 import { User } from '../models/User.js';
-import { canAccessBatch, myBatchIds } from '../utils/access.js';
+import { activeBatchId, canAccessBatch, myBatchIds } from '../utils/access.js';
 import { hashPassword, DEFAULT_TEMP_PASSWORD } from '../utils/password.js';
 import { trySendMail } from '../utils/email.js';
 import { accountCreatedEmail, loginUrl } from '../utils/emailTemplates.js';
@@ -19,6 +19,7 @@ router.get('/', requireAuth, async (req, res) => {
     .populate('programId', 'title')
     .sort({ createdAt: -1 });
   res.json({
+    activeBatchId: await activeBatchId(req),
     batches: batches.map((b) => ({
       id: b._id, name: b.name, status: b.status,
       program: b.programId?.title || '', programId: b.programId?._id,

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
-import { api } from '../api.js';
+import { api, getActiveBatch } from '../api.js';
 import Empty from '../components/Empty.jsx';
 import LineIcon from '../components/LineIcon.jsx';
 import LiveClassCard from '../components/LiveClassCard.jsx';
@@ -24,7 +24,7 @@ function localDayBounds() {
 // Scoped per user so a shared device never shows one student's cached class
 // to another. Only ever a rendering optimisation: see openLiveClass below for
 // the rule that keeps a click from ever following a stale link.
-const liveCacheKey = (uid) => `lms_live_class_${uid}`;
+const liveCacheKey = (uid) => `lms_live_class_${uid}_${getActiveBatch()}`;
 
 // undefined = no usable cache entry; null = cached "nothing on today", which
 // is a real answer and shouldn't leave the CTA sitting in a loading state.
@@ -160,7 +160,8 @@ export default function StudentHome() {
       setAnnouncements(nd.announcements || []);
       setAtt(at);
 
-      const progId = (bd.batches || [])[0]?.programId;
+      const batches = bd.batches || [];
+      const progId = (batches.find((b) => String(b.id) === String(bd.activeBatchId)) || batches[0])?.programId;
       const p = (pd.programs || []).find((x) => x._id === progId) || (pd.programs || [])[0] || null;
 
       // The list usually carries the curriculum tree already; only pay for the
