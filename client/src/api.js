@@ -274,7 +274,7 @@ export const uploadFile = (file) => postFile('/uploads', file);
 
 // Teacher notes / resources on a week / session / lesson — several PDFs in
 // one push, saved at once. `node` is { moduleId, chapterId?, topicId? };
-// `kind` is 'notes' or 'resource'; `link` is an optional { url, name } to add
+// `kind` is 'notes', 'resource' or 'extra'; `link` is an optional { url, name } to add
 // instead of or alongside the files. `batchId` is the cohort they are for —
 // teacher notes are per batch. Returns { materials, added }.
 export const addMaterials = (programId, node, files = [], link = null, kind = 'notes', batchId = '') =>

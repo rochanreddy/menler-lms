@@ -303,6 +303,11 @@ async function run() {
   ok('student can open a pushed PDF', sOpen.status === 200 && (sOpen.headers.get('content-type') || '').includes('pdf'), `got ${sOpen.status}`);
   const sPush = await pushMaterials(sK.token, kick._id, { moduleId: kMod._id }, [[`${FLOW} student.pdf`, pdfA]]);
   ok('student is refused pushing materials', sPush.status === 403, `got ${sPush.status}`);
+  const extraUrl = 'https://example.com/flow-extra-video';
+  const extraPush = await pushMaterials(admin.token, kick._id, { moduleId: kMod._id, batchId: bK.id, kind: 'extra', url: extraUrl, name: `${FLOW} extra` });
+  const sExtra = await call(`/programs/${kick._id}`, { token: sK.token });
+  const extraMat = (sExtra.json.program?.modules || []).find((m) => String(m._id) === String(kMod._id))?.materials.find((x) => x.url === extraUrl);
+  ok('an extra resource reaches the student as its own kind', extraPush.status === 201 && extraMat?.kind === 'extra', `got ${extraPush.status}`);
 
   // A batch's own class Drive: what the student opens, handed back at the end.
   const classLinks = (r) => (r.json.program?.modules || []).flatMap((m) => m.chapters.flatMap((c) => c.topics.map((t) => t.classLink))).filter(Boolean);
@@ -656,8 +661,8 @@ async function run() {
     const r = await call(`/programs/${kick._id}/materials/${x._id}`, { token: mentorAll.token, method: 'DELETE' });
     if (r.status === 200) removed++;
   }
-  // Two lesson PDFs, the week link and the text handout.
-  ok('mentor removes the pushed materials again', flowMaterials.length === 4 && removed === 4, `found ${flowMaterials.length}, removed ${removed}`);
+  // Two lesson PDFs, the week link, the text handout and the extra resource.
+  ok('mentor removes the pushed materials again', flowMaterials.length === 5 && removed === 5, `found ${flowMaterials.length}, removed ${removed}`);
   const kAfter = await call(`/programs/${kick._id}`, { token: mentorAll.token });
   ok('…and none are left on the tree', !(kAfter.json.program?.modules || []).some((m) => [m, ...m.chapters.flatMap((c) => [c, ...c.topics])].some((n) => (n.materials || []).some((x) => (x.name || '').startsWith(FLOW)))));
 

@@ -472,16 +472,16 @@ function MaterialsField({ items, onChange }) {
       {items.length > 0 && (
         <div className="mm-files">
           {items.map((x, i) => (
-            <span className={`mm-file ${x.kind === 'resource' ? 'is-resource' : ''}`} key={x._id || `${x.url}-${i}`}>
+            <span className={`mm-file ${(x.kind || 'notes') === 'notes' ? '' : 'is-resource'}`} key={x._id || `${x.url}-${i}`}>
               <LessonIcon type={opensInReader(x.url, x.name) ? 'pdf' : 'text'} size={13} />
               <span className="mm-file-name" title={x.name || x.url}>{x.name || x.url}</span>
-              {/* Tap to flip between notes and resource — the student list is split on it. */}
+              {/* Tap to move between notes, resource and extra — each reads differently to a student. */}
               <button
                 type="button"
                 className="mm-file-kind is-btn"
-                title="Notes or resource? Tap to switch."
-                onClick={() => onChange(items.map((y, j) => (j === i ? { ...y, kind: y.kind === 'resource' ? 'notes' : 'resource' } : y)))}
-              >{x.kind === 'resource' ? 'resource' : 'notes'}</button>
+                title="Notes, resource or extra? Tap to switch."
+                onClick={() => onChange(items.map((y, j) => (j === i ? { ...y, kind: { notes: 'resource', resource: 'extra', extra: 'notes' }[y.kind || 'notes'] } : y)))}
+              >{x.kind || 'notes'}</button>
               <button type="button" className="mm-file-x" onClick={() => onChange(items.filter((_, j) => j !== i))} aria-label={`Remove ${x.name || 'file'}`}><LineIcon name="close" size={12} /></button>
             </span>
           ))}

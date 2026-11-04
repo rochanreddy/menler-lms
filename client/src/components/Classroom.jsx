@@ -150,7 +150,7 @@ export default function Classroom() {
     const kind = workKind({ lesson: lesson?.title, chapter: chap?.title });
     const ownName = materialLabels(kind).notes;
     const push = (url, name, from, k = 'notes') => {
-      if (!url || seen.has(url)) return;
+      if (!url || seen.has(url) || k === 'extra') return;
       seen.add(url);
       items.push({ url, name: name || ownName, from, kind: k === 'resource' ? 'resource' : 'notes' });
     };
@@ -167,6 +167,20 @@ export default function Classroom() {
     }
     return items;
   };
+  // Extra resources climb the same way, and stop at a piece of work for the
+  // same reason: on an assignment they would read as part of the brief.
+  const extrasFor = ({ lesson, chap, mod }) => {
+    if (workKind({ lesson: lesson?.title, chapter: chap?.title })) return [];
+    const all = [...(lesson?.materials || []), ...(chap?.materials || []), ...(mod?.materials || [])];
+    return all
+      .filter((x, i) => x.kind === 'extra' && all.findIndex((y) => y.url === x.url) === i)
+      .map((x) => ({ url: x.url, name: x.name || x.url, kind: 'notes' }));
+  };
+  const pageExtras = page ? extrasFor({
+    lesson: { materials: pageLessons.flatMap((f) => f.topic.materials || []) },
+    chap: page.chap,
+    mod: page.mod,
+  }) : [];
   // On a session page: the session's files and the week's. On a week page:
   // the week's, plus what its lessons carry, as the other chips already do.
   const pageNotes = page ? notesListFor({
@@ -391,6 +405,7 @@ export default function Classroom() {
   const readingUrl = inherit('readingUrl');
   const notesUrl = inherit('notesUrl');
   const lessonNotes = topic ? notesListFor({ own: notesUrl, lesson: topic, chap: current?.chapNode, mod: current?.modNode }) : [];
+  const lessonExtras = topic ? extrasFor({ lesson: topic, chap: current?.chapNode, mod: current?.modNode }) : [];
   const showProgress = isStudent && total > 0;
   const min = railMin && !isMobile;
   // The waiting state: no lesson open and no week page on show.
@@ -416,7 +431,7 @@ export default function Classroom() {
   };
   // `kind` renames the two PDF chips where the lesson is a piece of work —
   // see materialLabels(). Everything else about the row is the same.
-  const toolsRow = ({ reading, notes, classLink, video, subtitle, done, kind }) => {
+  const toolsRow = ({ reading, notes, extras, classLink, video, subtitle, done, kind }) => {
     const L = materialLabels(kind);
     return (
     <div className="reader-tools">
@@ -439,6 +454,14 @@ export default function Classroom() {
         <a className="rchip" href={videoRow({ classLink, video })} target="_blank" rel="noreferrer"><LineIcon name="video" size={14} /> Watch class video</a>
       ) : (
         <button className="rchip" disabled title="Your mentor hasn’t posted this class’s video yet"><LineIcon name="video" size={14} /> Video not available yet</button>
+      )}
+      {/* Only where something is attached. Unlike the chips above, most lessons
+          are meant to have none, so a greyed one would promise a file nobody owes. */}
+      {extras.length > 0 && (
+        <button className="rchip" onClick={() => (extras.length === 1 ? openNote(extras[0], subtitle, 'Extra resources') : setPicker({ title: subtitle, items: extras, subtitle, label: 'Extra resources' }))}>
+          <LineIcon name="list" size={14} /> Extra resources
+          {extras.length > 1 && <span className="rchip-caret" aria-hidden="true"><LineIcon name="chevron" size={12} /></span>}
+        </button>
       )}
       {done && <span className="rchip is-done"><LineIcon name="check" size={14} /> Done</span>}
     </div>
@@ -495,7 +518,7 @@ export default function Classroom() {
               </button>
             </div>
             <h1 className="reader-title">{page.title}</h1>
-            {toolsRow({ reading: pageMedia('readingUrl'), notes: pageNotes, classLink: fromLessons('classLink'), video: pageVideo, subtitle: page.crumb, kind: pageKind })}
+            {toolsRow({ reading: pageMedia('readingUrl'), notes: pageNotes, extras: pageExtras, classLink: fromLessons('classLink'), video: pageVideo, subtitle: page.crumb, kind: pageKind })}
             <div className="reader-read" aria-hidden="true"><span style={{ transform: `scaleX(${read})` }} /></div>
           </div>
         ) : (
@@ -514,7 +537,7 @@ export default function Classroom() {
             </button>
           </div>
           <h1 className="reader-title">{topic.title}</h1>
-          {toolsRow({ reading: readingUrl, notes: lessonNotes, classLink: topic.classLink, video: topic.contentType === 'video' ? topic.contentUrl : '', subtitle: topic.title, done: isDone, kind: lessonKind })}
+          {toolsRow({ reading: readingUrl, notes: lessonNotes, extras: lessonExtras, classLink: topic.classLink, video: topic.contentType === 'video' ? topic.contentUrl : '', subtitle: topic.title, done: isDone, kind: lessonKind })}
           {/* How far through the reading you are — fills as the body scrolls. */}
           <div className="reader-read" aria-hidden="true"><span style={{ transform: `scaleX(${read})` }} /></div>
         </div>

@@ -213,7 +213,7 @@ const isOpenableLink = (u) => /^https?:\/\/\S+$/i.test(u) || /^\/uploads\/[a-f0-
 
 // POST /api/lms/programs/:id/materials — multipart: files[] (up to 20; PDF,
 // Word, Excel, PowerPoint, images, text — whatever storeCurriculumFile takes),
-// moduleId, chapterId?, topicId?, kind ('notes' default | 'resource'), and
+// moduleId, chapterId?, topicId?, kind ('notes' default | 'resource' | 'extra'), and
 // optionally url + name for a link instead of (or as well as) files.
 // Returns the node's full list.
 router.post('/:id/materials', requireAuth, requireRole('admin', 'mentor'), (req, res) => {
@@ -235,7 +235,7 @@ router.post('/:id/materials', requireAuth, requireRole('admin', 'mentor'), (req,
 
     const files = req.files || [];
     const link = String(req.body?.url || '').trim();
-    const kind = req.body?.kind === 'resource' ? 'resource' : 'notes';
+    const kind = ['resource', 'extra'].includes(req.body?.kind) ? req.body.kind : 'notes';
     if (!files.length && !link) return res.status(400).json({ error: 'Nothing to add: choose at least one file or paste a link.' });
     // Every file is read before any is stored, so one bad file in a drop of
     // five refuses the drop rather than leaving four of them half-added.

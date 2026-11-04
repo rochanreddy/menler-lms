@@ -166,6 +166,15 @@ carries `materials` across a re-author the way it carries the ebook.
 levels are called on screen: a Kickstarter module (`S01 · …`) is a *session*
 of *parts*, a Generalist module is a *week* of *sessions*.
 
+**Extra resources are the third `kind`** (`extra`, beside `notes` and
+`resource`): optional depth on a topic, a walkthrough video or a worked demo.
+They are left out of the Teacher notes chip and get an **Extra resources** chip
+of their own after the class video, resolved lesson → session → week like
+notes and never on a piece of work. Unlike the other chips it does not show
+greyed: most lessons are meant to have none. One item opens straight away; more
+open the list. **Add extra** on a Teacher notes row pushes one, per batch like
+any other note.
+
 **Teacher notes are per batch.** They live on the curriculum, which every
 batch of a programme shares, so a new intake used to open Week 1 and find
 the last cohort's mentor's decks. A material now carries `batchIds`: the

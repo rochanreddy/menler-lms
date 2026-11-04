@@ -92,7 +92,7 @@ export default function MaterialsManager({ programId, onClose }) {
     const { materials, added } = await addMaterials(programId, idsFor(pos), files, link, kind, batchId);
     setNodeMaterials(pos, materials);
     const n = added;
-    const what = kind === 'resource' ? (n === 1 ? 'resource' : 'resources') : (n === 1 ? 'notes file' : 'notes files');
+    const what = `${{ resource: 'resource', extra: 'extra resource' }[kind] || 'notes file'}${n === 1 ? '' : 's'}`;
     flash(n === 0 ? 'Already attached there.' : `Added ${n} ${what} to ${label}. Students in ${batch?.name || 'this batch'} can open ${n === 1 ? 'it' : 'them'} now.`);
   }
 
@@ -269,6 +269,9 @@ function MaterialRow({ kind, label, title, hint, ebook, materials, onAdd, onRemo
         <button type="button" className="btn sm quiet mm-add" onClick={() => pick('resource')} disabled={busy} title="A notice, a template, further reading">
           <LineIcon name="upload" size={14} /> Add resources
         </button>
+        <button type="button" className="btn sm quiet mm-add" onClick={() => pick('extra')} disabled={busy} title="Optional depth: gets its own Extra resources button beside the class video">
+          <LineIcon name="upload" size={14} /> Add extra
+        </button>
         <button type="button" className="mm-linkbtn" onClick={() => setLinking((v) => !v)} disabled={busy} title="Add a link instead of a file">
           {linking ? 'cancel' : 'or a link'}
         </button>
@@ -281,6 +284,7 @@ function MaterialRow({ kind, label, title, hint, ebook, materials, onAdd, onRemo
           <span>{pending.length === 1 ? pending[0].name : `${pending.length} files`} — what are they?</span>
           <button type="button" className="btn sm" onClick={() => { const fs = pending; setPending(null); take(fs, 'notes'); }}>Notes</button>
           <button type="button" className="btn sm quiet" onClick={() => { const fs = pending; setPending(null); take(fs, 'resource'); }}>Resources</button>
+          <button type="button" className="btn sm quiet" onClick={() => { const fs = pending; setPending(null); take(fs, 'extra'); }}>Extra</button>
           <button type="button" className="mm-linkbtn" onClick={() => setPending(null)}>cancel</button>
         </div>
       )}
@@ -292,6 +296,7 @@ function MaterialRow({ kind, label, title, hint, ebook, materials, onAdd, onRemo
           <select className="ce-field mm-kind-select" value={linkKind} onChange={(e) => setLinkKind(e.target.value)} aria-label="Notes or resource">
             <option value="notes">Notes</option>
             <option value="resource">Resource</option>
+            <option value="extra">Extra resource</option>
           </select>
           <button className="btn sm" disabled={busy || !link.trim()}>Add link</button>
         </form>
@@ -305,10 +310,10 @@ function MaterialRow({ kind, label, title, hint, ebook, materials, onAdd, onRemo
             </span>
           )}
           {materials.map((x) => (
-            <span className={`mm-file ${x.kind === 'resource' ? 'is-resource' : ''}`} key={x._id || x.url}>
+            <span className={`mm-file ${x.kind === 'notes' ? '' : 'is-resource'}`} key={x._id || x.url}>
               <LessonIcon type={opensInReader(x.url, x.name) ? 'pdf' : 'text'} size={13} />
               <span className="mm-file-name" title={x.name || x.url}>{x.name || x.url}</span>
-              <span className="mm-file-kind">{x.kind === 'resource' ? 'resource' : 'notes'}</span>
+              <span className="mm-file-kind">{x.kind || 'notes'}</span>
               <button type="button" className="mm-file-x" onClick={() => drop(x)} aria-label={`Remove ${x.name || 'file'}`} disabled={busy}><LineIcon name="close" size={12} /></button>
             </span>
           ))}

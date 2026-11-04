@@ -19,8 +19,9 @@ const materialSchema = new mongoose.Schema(
     name: { type: String, default: '' },
     // What it is to the student: 'notes' (the deck, what was taught) or a
     // 'resource' (a notice, a template, further reading). The mentor says
-    // which at upload; the student's list is split on it.
-    kind: { type: String, enum: ['notes', 'resource'], default: 'notes' },
+    // which at upload; the student's list is split on it. 'extra' is optional
+    // depth on a topic, and has a chip of its own beside the class video.
+    kind: { type: String, enum: ['notes', 'resource', 'extra'], default: 'notes' },
     addedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     addedAt: { type: Date, default: Date.now },
     // The batches it was pushed to. A student sees it only through one of
