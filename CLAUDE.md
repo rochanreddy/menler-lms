@@ -24,6 +24,15 @@ cd server && node scripts/dedupeCurriculumPdfs.js          # dry run; --apply to
 cd server && node scripts/liftCurriculumEbooks.js          # dry run; --apply to move ebooks
                                # copied onto every lesson up to the week/session
                                # they cover (needs CONFIRM_DB to apply)
+cd server && node scripts/pushWeek56Files.mjs             # dry run; --apply to write
+                               # brings Generalist Weeks 2-6 on a live database into
+                               # the Week 1-2 shape: reading on the week, brief and
+                               # solution on the Weekly Assignment and Milestone
+                               # chapters. Only writes empty slots or slots holding
+                               # one of the repo's own PDFs (needs CONFIRM_DB to apply).
+cd server && node scripts/welcomeMailStatus.js 14          # read-only: did students added
+                               # in the last N days (default 7) get their login mail?
+                               # Joins lms_users and lms_batches to Resend's log.
 cd server && node scripts/syncCurriculumAssignments.js     # dry run; --apply to write
                                # puts a curriculum's work into every one of its batches'
                                # Assignments & Projects tab: Generalist 6 weekly
