@@ -991,9 +991,9 @@ openings live in `lms_job_postings` instead, so a bug here cannot damage data
 Skeo also reads. Unset, the tab shows hand-posted openings and says the feed
 is not connected; nothing else is affected.
 
-**It is 750 jobs, not the feed.** The feed holds ~35,000 live listings; Skeo
-shows all of them. Menler shows the 750 that best fit what it teaches, fifty
-a page, and every filter narrows *within* the 750 rather than reaching back
+**It is 1,000 jobs, not the feed.** The feed holds ~35,000 live listings; Skeo
+shows all of them. Menler shows the 1,000 that best fit what it teaches, fifty
+a page, and every filter narrows *within* the 1,000 rather than reaching back
 into the rest. [utils/jobShortlist.js](server/utils/jobShortlist.js) picks them:
 
 - **Syllabus first.** The pipeline stores four scores per job. Skeo sorts on
@@ -1005,7 +1005,7 @@ into the rest. [utils/jobShortlist.js](server/utils/jobShortlist.js) picks them:
   came out nearly all AI and ML: the syllabus vocabulary is AI vocabulary, so
   a product manager or a founder's office intern scores low however good a
   first job it is (4 and 18 cleared the gate, against 539 AI roles). Now each
-  kind of job has a lane (`LANES`) with a share of the 750 and its own
+  kind of job has a lane (`LANES`) with a share of the 1,000 and its own
   relevance bar: AI 30% at relevance 30 plus a matched term, freelance 15%,
   product and founder's office 8% each with no bar (their titles decide),
   then full stack, data, design, marketing, content at 15 and sales and
@@ -1033,13 +1033,14 @@ into the rest. [utils/jobShortlist.js](server/utils/jobShortlist.js) picks them:
   so each gig is its own employer, carries no penalty, and its card says
   "Client on Freelancer.com". Without that, 3,000 gigs shared five slots.
 
-Measured after all of it: 636 of 750 in India, 114 freelance, 566 employers,
-AI 300 of 750, page one spanning ten domains. `npm run test:jobs` covers every
+Measured after all of it (7 Nov 2026, from 10,541 candidates): 839 of 1,000
+in India, 151 freelance, 745 employers, AI 300 of 1,000, 252 early-applicant
+jobs leading the board. `npm run test:jobs` covers every
 rule without a network or database.
 
 The shortlist is cached for ten minutes: the feed changes once a day, and a
-student paging through fifteen pages should see one consistent list. The admin's
-hand-posted openings lead page one and **count toward the 750**. Each card
+student paging through twenty pages should see one consistent list. The admin's
+hand-posted openings lead page one and **count toward the 1,000**. Each card
 says why it made the list (`rankReasons`), and its Apply button is the
 card's `row-link`, so the whole card opens the posting. Only http(s) is ever
 rendered as an href or an `<img src>`, and `POST /jobs` refuses any other

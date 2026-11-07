@@ -27,8 +27,8 @@ const router = Router();
 // The job board: Students and admins. Mentors get no tab - they are not job
 // hunting, and a board a student reads is not one a mentor needs to police.
 //
-// Not the whole feed. utils/jobShortlist.js picks the 750 postings that best
-// fit what Menler teaches, lane by lane, and the board is those 750 - fifteen
+// Not the whole feed. utils/jobShortlist.js picks the 1,000 postings that best
+// fit what Menler teaches, lane by lane, and the board is those 1,000 - twenty
 // pages of fifty - with every filter narrowing within them rather than
 // reaching back into the 35,000 behind. See that file for how they are chosen.
 
@@ -44,7 +44,7 @@ const freshSince = () => new Date(Date.now() - FRESH_DAYS * DAY_MS);
  *
  * The feed changes once a day, when the pipeline runs at 6 am, so recomputing
  * on every page flip would be work for nothing. Ten minutes means a student
- * paging through fifteen pages sees one consistent list, and a fresh morning run
+ * paging through twenty pages sees one consistent list, and a fresh morning run
  * is on the board within ten minutes of landing.
  */
 const CACHE_MS = 10 * 60 * 1000;
@@ -138,7 +138,7 @@ const shapeScraped = (job) => ({
   workType: job.workType || 'unspecified',
   experienceLevel: job.experienceLevel || 'unspecified',
   postedAt: job.postedAt || job.fetchedAt || null,
-  // Why it made the 750 - "internship · Bengaluru · direct apply · matches
+  // Why it made the 1,000 - "internship · Bengaluru · direct apply · matches
   // claude". Without it a curated list looks like an arbitrary one.
   reasons: job.rankReasons?.length ? job.rankReasons : job.matchedSkills || [],
   description: '',
@@ -169,7 +169,7 @@ router.get('/', requireAuth, requireRole('student', 'admin'), async (req, res) =
 
   // The team's own postings lead. There are a handful of them, and they are
   // the ones somebody chose to put in front of these particular students. They
-  // count toward the 750, so the board never grows past it.
+  // count toward the 1,000, so the board never grows past it.
   const manualRows = await JobPosting.find({ postedAt: { $gte: freshSince() } })
     .sort({ postedAt: -1 })
     .limit(50)

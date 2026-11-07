@@ -2,7 +2,7 @@
 //
 //   npm run test:jobs
 //
-// Everything that decides WHICH 750 jobs a Menler student sees lives in
+// Everything that decides WHICH 1,000 jobs a Menler student sees lives in
 // utils/jobShortlist.js as pure functions, so it can be proved here: the
 // weighting, the gates, the lanes, the exclusions, the de-duplication and the
 // per-employer cap. If the board ever starts showing a senior role, a Spanish-speaker
@@ -194,9 +194,9 @@ ok(sameJobKey(job({ title: 'AI Intern', company: 'Acme Ltd.' })) === sameJobKey(
   ok(tie[0]?.title === 'Newer AI Engineer', 'on a tie, the newer posting leads');
 }
 {
-  const flood = Array.from({ length: 900 }, (_, i) => job({ title: `AI Engineer ${i}`, company: `Co ${i}` }));
+  const flood = Array.from({ length: 1200 }, (_, i) => job({ title: `AI Engineer ${i}`, company: `Co ${i}` }));
   ok(curate(flood).length === SHORTLIST_SIZE, `never more than ${SHORTLIST_SIZE}, however many qualify`);
-  ok(SHORTLIST_SIZE === 750 && SHORTLIST_SIZE / PAGE_SIZE === 15, `${SHORTLIST_SIZE} at ${PAGE_SIZE} a page is fifteen pages`);
+  ok(SHORTLIST_SIZE === 1000 && SHORTLIST_SIZE / PAGE_SIZE === 20, `${SHORTLIST_SIZE} at ${PAGE_SIZE} a page is twenty pages`);
 }
 ok(curate([job({ title: 'Spanish Search Quality Rater' })]).length === 0, 'an excluded title never reaches the list');
 
@@ -252,7 +252,7 @@ for (const t of ["Kids' Stories & Grammar Worksheets", 'Updating AI Data Pipelin
 
 {
   // A flood of strong AI jobs cannot crowd out the rest.
-  const aiFlood = Array.from({ length: 900 }, (_, i) => job({ title: `AI Engineer ${i}`, company: `AI Co ${i}`, relevance: 90 }));
+  const aiFlood = Array.from({ length: 1200 }, (_, i) => job({ title: `AI Engineer ${i}`, company: `AI Co ${i}`, relevance: 90 }));
   const pms = Array.from({ length: 10 }, (_, i) =>
     job({ title: `Associate Product Manager ${i}`, company: `PM Co ${i}`, domain: 'product', relevance: 0, matchedSkills: [] }));
   const list = curate([...aiFlood, ...pms]);
@@ -376,7 +376,7 @@ for (const t of ["Kids' Stories & Grammar Worksheets", 'Updating AI Data Pipelin
   ok(list.filter((j) => j.early).length === 2, 'each job carries whether it is early');
 }
 
-// ── filters narrow within the 750 ───────────────────────────────────────────
+// ── filters narrow within the 1,000 ───────────────────────────────────────────
 {
   const list = [
     job({ title: 'A', domain: 'ai-ml', country: 'India', isRemote: false }),

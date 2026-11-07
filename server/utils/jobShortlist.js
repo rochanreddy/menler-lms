@@ -1,9 +1,9 @@
-// Which 750 jobs a Menler student sees, and in what order.
+// Which 1,000 jobs a Menler student sees, and in what order.
 //
 // The feed holds ~35,000 live listings. Skeo shows all of them; Menler shows a
 // shortlist, because a board of 35,000 is a search engine and what a student
 // finishing the AI Generalist or the Kickstarter needs is an editor. Every
-// rule below exists to make the 750 the RIGHT 750, not a random slice of the
+// rule below exists to make the 1,000 the RIGHT 1,000, not a random slice of the
 // top of an unrelated sort.
 //
 // The pipeline stores four scores on every job (pipeline/ranking.js):
@@ -29,7 +29,7 @@
 // Menler graduate goes into product, founder's office, freelance AI work and
 // AI-heavy marketing and content as often as into an AI engineering title.
 //
-// So the 750 are filled lane by lane (LANES below). Each lane has a share of
+// So the 1,000 are filled lane by lane (LANES below). Each lane has a share of
 // the board and its own relevance bar, and within a lane the Menler score
 // still decides the order, so the AI-flavoured marketing role still beats the
 // plain one. The lanes are then interleaved, so page one is a cross-section of
@@ -168,7 +168,7 @@ export function displayCompany(job) {
 }
 
 /** How many listings the board ever shows. Fifteen pages of fifty. */
-export const SHORTLIST_SIZE = 750;
+export const SHORTLIST_SIZE = 1000;
 
 /**
  * At most this many from one employer.
@@ -226,7 +226,7 @@ const isProductRole = (job) =>
  * The board, by kind of job. A job joins the FIRST lane it matches, so a
  * freelance AI gig counts as freelance and an AI product manager as product.
  *
- *   share         its part of the 750; the shares sum to 1
+ *   share         its part of the 1,000; the shares sum to 1
  *   minRelevance  its own syllabus bar. 30 for the AI lane, as before. 15 for
  *                 the work the course feeds into, where it means "names an AI
  *                 tool or skill" and keeps the AI-flavoured ones. 10 for sales
@@ -239,7 +239,7 @@ const isProductRole = (job) =>
  *                 and earn TITLE_BOOST inside it
  *
  * A lane short of its share does not leave a hole: curate() fills the rest
- * of the 750 from the best jobs left over in any lane.
+ * of the 1,000 from the best jobs left over in any lane.
  */
 export const LANES = [
   { key: 'product', label: 'Product', share: 0.08, minRelevance: 0, title: PRODUCT_TITLE, match: isProductRole },
@@ -276,7 +276,7 @@ export const LANES = [
 /**
  * How many places each lane gets on a board of `size`. Largest remainder, so
  * they add up to `size` exactly: rounding each share on its own gives 752 for
- * a board of 750, and the last lane in the list would quietly lose two.
+ * a board of 1,000, and the last lane in the list would quietly lose two.
  */
 export function laneTargets(size, lanes = LANES) {
   const exact = lanes.map((lane) => ({ key: lane.key, raw: lane.share * size }));
@@ -483,7 +483,7 @@ export function curate(
 
   // Early-applicant jobs lead: today's, then yesterday's, then the day
   // before's, each day in the order above so it is still a cross-section;
-  // then the rest in the order above. Which jobs make the 750 does not
+  // then the rest in the order above. Which jobs make the 1,000 does not
   // change - only that a student opening the board sees first the roles they
   // can still be among the first to apply for.
   const ordered = placed.map((p, i) => {
@@ -523,8 +523,8 @@ export function laneCounts(jobs) {
 }
 
 /**
- * Narrows a list by the board's filters. Runs over the 750 in memory rather
- * than in Mongo, because the 750 is already in hand and a filter should
+ * Narrows a list by the board's filters. Runs over the 1,000 in memory rather
+ * than in Mongo, because the 1,000 is already in hand and a filter should
  * narrow the shortlist, not re-open the whole feed behind it.
  */
 export function applyFilters(jobs, f) {

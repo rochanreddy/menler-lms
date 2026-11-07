@@ -7,10 +7,10 @@ import { Alert, Button, Checkbox, Input, Select, Skeleton, Textarea } from '../c
 // The job board. Students and admins read the same list; only the admin can
 // post an opening by hand, and remove one they posted.
 //
-// It is NOT the whole feed. The server picks the 750 postings that best fit
+// It is NOT the whole feed. The server picks the 1,000 postings that best fit
 // what Menler teaches (server/utils/jobShortlist.js) - lane by lane, so
 // product, founder's office, freelance and non-tech roles sit beside the AI
-// ones - and this page is those 750, fifty to a page. Every filter narrows
+// ones - and this page is those 1,000, fifty to a page. Every filter narrows
 // within them. A board of 35,000 is a search engine; a student finishing the
 // course needs an editor.
 //
@@ -367,11 +367,11 @@ export default function Jobs() {
               four lines and pushed the first job below the fold. */}
           <p className="jobs-intro-long">
             {isAdmin
-              ? 'Every morning we scan tens of thousands of live listings and keep the 750 that match what Menler teaches. Post an opening and it goes straight to the top of page one.'
-              : "Every morning we scan tens of thousands of live listings and keep only the 750 that match what you're learning: AI, product, founder's office, freelance and more. Apply while they're fresh."}
+              ? 'Every morning we scan tens of thousands of live listings and keep the 1,000 that match what Menler teaches. Post an opening and it goes straight to the top of page one.'
+              : "Every morning we scan tens of thousands of live listings and keep only the 1,000 that match what you're learning: AI, product, founder's office, freelance and more. Apply while they're fresh."}
           </p>
           <p className="jobs-intro-short">
-            {isAdmin ? '750 matched roles, fresh every morning.' : '750 roles matched to your skills. Fresh every morning.'}
+            {isAdmin ? '1,000 matched roles, fresh every morning.' : '1,000 roles matched to your skills. Fresh every morning.'}
           </p>
         </div>
         {isAdmin && !postOpen && (
