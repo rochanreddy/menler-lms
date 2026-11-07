@@ -314,7 +314,11 @@ export function passesLane(job, lane) {
 export function candidateFilter(since) {
   const lowestBar = Math.min(...LANES.filter((lane) => lane.minRelevance > 0).map((lane) => lane.minRelevance));
   return {
-    isActive: { $ne: false },
+    // Equality, not { $ne: false }: every row the pipeline writes carries the
+    // flag, and only equality lets Mongo walk the { isActive, postedAt }
+    // index instead of scanning the collection, which the Indeed sweep has
+    // roughly doubled. The same change took Skeo's board from ~4s to ~80ms.
+    isActive: true,
     indiaFit: { $gte: GATES.minIndiaFit },
     achievability: { $gte: GATES.minAchievability },
     $and: [

@@ -82,7 +82,7 @@ ok(f.indiaFit.$gte === GATES.minIndiaFit, `indiaFit gate at ${GATES.minIndiaFit}
 ok(GATES.minIndiaFit > 12 && GATES.minIndiaFit <= 48, 'the indiaFit gate sits between onsite-abroad and remote-unstated');
 ok(f.achievability.$gte === GATES.minAchievability, `achievability gate at ${GATES.minAchievability}`);
 ok(f.$and[0].$or[0].postedAt.$gte === since && f.$and[0].$or[1].postedAt === null, 'the ten-day window, with the first-seen fallback');
-ok(f.isActive.$ne === false, 'withdrawn listings are excluded');
+ok(f.isActive === true, 'withdrawn listings are excluded, by an equality the index can serve');
 ok(f.$and[1].$or[0].relevance.$gte === 10, 'the read is narrowed to relevance 10, the lowest bar a domain lane sets');
 ok(f.$and[1].$or.some((c) => c.title instanceof RegExp && c.title.test("Founder's Office Intern")),
   "but a founder's office title is read whatever its relevance");
