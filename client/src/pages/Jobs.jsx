@@ -362,14 +362,17 @@ export default function Jobs() {
       <div className="page-head" ref={topRef}>
         <div>
           <div className="eyebrow">Jobs</div>
-          <h1>{isAdmin ? 'Job board' : 'Jobs picked for you'}</h1>
+          <h1>{isAdmin ? 'Where students find their next role' : 'Your next role starts here'}</h1>
           {/* Two versions of the line, because on a phone the long one took
               four lines and pushed the first job below the fold. */}
           <p className="jobs-intro-long">
-            The 750 openings that best fit what Menler teaches, across AI, product, founder's office,
-            freelance and more. Chosen from every live listing and refreshed each morning.
+            {isAdmin
+              ? 'Every morning we scan tens of thousands of live listings and keep the 750 that match what Menler teaches. Post an opening and it goes straight to the top of page one.'
+              : "Every morning we scan tens of thousands of live listings and keep only the 750 that match what you're learning: AI, product, founder's office, freelance and more. Apply while they're fresh."}
           </p>
-          <p className="jobs-intro-short">750 best-fit openings, refreshed every morning.</p>
+          <p className="jobs-intro-short">
+            {isAdmin ? '750 matched roles, fresh every morning.' : '750 roles matched to your skills. Fresh every morning.'}
+          </p>
         </div>
         {isAdmin && !postOpen && (
           <Button onClick={() => setPostOpen(true)}>Post an opening</Button>
