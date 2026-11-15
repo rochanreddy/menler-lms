@@ -50,6 +50,9 @@ export default function CurriculumEditor({ programId, batch, onClose }) {
   const [msg, setMsg] = useState('');
   const [importing, setImporting] = useState(false);
   const fileRef = useRef(null);
+  // The batch's own class Drive (Batch.classDriveUrl): null = it opens the
+  // lessons' shared link, '' = its own with nothing posted, a URL = its own.
+  const [drive, setDrive] = useState(batch ? (batch.classDriveUrl ?? null) : null);
 
   useEffect(() => {
     api(`/programs/${programId}`).then(({ program: p }) => {
@@ -315,9 +318,22 @@ export default function CurriculumEditor({ programId, batch, onClose }) {
                 </>
               ))}
 
+              {/* Opened from a batch, the recording the admin came here to set is
+                  THAT batch's. The lesson's class link below is shared by every
+                  cohort, and a batch with its own Drive never opens it — so
+                  typing a November folder there did nothing for November and
+                  replaced September's recording instead. */}
+              {batch && !VDOCIPHER_ENABLED && (
+                <BatchDriveField batch={batch} drive={drive} onSaved={setDrive} hasClass={!!selTopic.classLink} />
+              )}
+
               {/* Independent of content type — a reading lesson can still have
                   had a live class about it. */}
-              <label className="ce-label">Class link <span className="muted">(Zoom while it's live, then the Google Drive or YouTube recording. Leave empty and students see "Video not available yet". A batch with its own class Drive opens that instead)</span></label>
+              {batch && drive != null ? (
+                <label className="ce-label">Shared class link <span className="muted">(every batch of {program.title} that has no Drive of its own, not {batch.name}. Keep it filled on class lessons: it marks which lessons had a class)</span></label>
+              ) : (
+                <label className="ce-label">Class link <span className="muted">(Zoom while it's live, then the Google Drive or YouTube recording. Shared by every batch of {program.title}. Leave empty and students see "Video not available yet". A batch with its own class Drive opens that instead)</span></label>
+              )}
               <input
                 className="ce-field"
                 placeholder="https://zoom.us/j/… or https://drive.google.com/…"
@@ -582,6 +598,57 @@ function PdfUrlField({ value, onChange, fieldKey }) {
 
       {err && <p className="pdf-err">{err}</p>}
     </div>
+  );
+}
+
+// ONE batch's class recordings: Batch.classDriveUrl, the same value as
+// "Class recordings" on the batch page. One folder for the whole cohort, so it
+// saves on its own, straight away, rather than with the tree, and the same
+// value shows on every lesson of this batch.
+function BatchDriveField({ batch, drive, onSaved, hasClass }) {
+  const [url, setUrl] = useState(drive || '');
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState('');
+  useEffect(() => setUrl(drive || ''), [drive]);
+  const unchanged = url.trim() === (drive || '');
+
+  async function save(e) {
+    e.preventDefault();
+    if (unchanged || busy) return;
+    setBusy(true);
+    setMsg('');
+    try {
+      const { batch: b } = await api(`/batches/${batch.id}`, { method: 'PATCH', body: { classDriveUrl: url.trim() } });
+      onSaved(b.classDriveUrl ?? null);
+      setMsg(b.classDriveUrl ? `Saved. Students in ${batch.name} open this on every class lesson.` : `Removed. Students in ${batch.name} see "Video not available yet".`);
+    } catch (e2) { setMsg(e2.message); }
+    setBusy(false);
+  }
+
+  return (
+    <>
+      <label className="ce-label">Class recordings for {batch.name} <span className="muted">(one Google Drive folder for this batch, opened from every class lesson. Other batches are not affected)</span></label>
+      <form className="row" onSubmit={save}>
+        <input
+          className="ce-field"
+          style={{ flex: 1, width: 'auto', minWidth: 0 }}
+          type="url"
+          placeholder="https://drive.google.com/drive/folders/…"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+        />
+        <button className="btn sm" disabled={unchanged || busy}>{busy ? 'Saving…' : 'Save'}</button>
+      </form>
+      <p className="muted">
+        {msg || (drive == null
+          ? `${batch.name} opens the shared class link below. Paste a folder here to give it its own.`
+          : drive
+            ? `Students in ${batch.name} open this folder.`
+            : `No folder yet, so students in ${batch.name} see "Video not available yet".`)}
+        {' '}Share it as <strong>Anyone with the link → Viewer</strong>.
+        {drive && !hasClass && ' This lesson has no shared class link, so it shows no video: the shared link marks which lessons had a class.'}
+      </p>
+    </>
   );
 }
 

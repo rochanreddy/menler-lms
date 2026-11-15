@@ -551,7 +551,11 @@ link posted for November would have replaced September's.
 `tests/classLinks.test.js`): `null` keeps the curriculum's link (the cohorts from
 before this), `''` is its own with nothing posted yet, a URL is its own and opens
 on every class lesson. The admin sets it under **Class recordings** on the batch
-page, and a batch created from now on starts at `''`, so a new intake inherits
+page, or from the curriculum editor opened through a batch's **Lesson videos →**
+(`BatchDriveField`, the same value). That second door matters: it is where an
+admin goes to set one cohort's recordings, and it used to offer only the lesson's
+shared class link, so a November folder typed there did nothing for November
+(its `''` wins) and replaced September's recording on that lesson. A batch created from now on starts at `''`, so a new intake inherits
 nothing. The curriculum's link still marks WHICH lessons had a class, so a
 programme whose lessons carry none (the Fellowship, today) shows a batch's Drive
 nowhere until they do. Only students are filtered, for the same reason as teacher

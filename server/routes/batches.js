@@ -26,6 +26,9 @@ router.get('/', requireAuth, async (req, res) => {
       startDate: b.startDate, endDate: b.endDate, createdAt: b.createdAt,
       mentorIds: b.mentorIds.map(String),
       mentorCount: b.mentorIds.length, studentCount: b.studentIds.length,
+      // null = on the curriculum's class link, '' = its own with none yet.
+      // The curriculum editor opened from a batch edits this, not the lesson's.
+      classDriveUrl: b.classDriveUrl ?? null,
     })),
   });
 });
