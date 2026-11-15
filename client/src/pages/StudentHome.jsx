@@ -4,6 +4,7 @@ import { api, getActiveBatch } from '../api.js';
 import Empty from '../components/Empty.jsx';
 import LineIcon from '../components/LineIcon.jsx';
 import LiveClassCard from '../components/LiveClassCard.jsx';
+import BatchSwitcher from '../components/BatchSwitcher.jsx';
 import DoubtSessionBanner from '../components/DoubtSessionBanner.jsx';
 import { loadLearning } from '../nav.jsx';
 
@@ -71,7 +72,7 @@ function writeLiveCache(uid, liveClass) {
 // The path is indicative, never gating — every station stays clickable.
 // Adult learners revisit material, and locking that is hostile.
 export default function StudentHome() {
-  const { user } = useOutletContext();
+  const { user, switchBatch } = useOutletContext();
   const navigate = useNavigate();
   const [program, setProgram] = useState(null);
   const [progress, setProgress] = useState({ completedTopics: [], total: 0, pct: 0 });
@@ -282,6 +283,10 @@ export default function StudentHome() {
   return (
     <div>
       <div className="path-wrap">
+        {/* First, because the class card under it is what changes with it. Only
+            for a student in two or more batches; renders nothing otherwise. */}
+        <BatchSwitcher onSwitch={switchBatch} label="Your batch" />
+
         {/* Above the hero, before anything else — the class is the thing a
             student is most likely to have opened this page for. Gated on its
             own one-request fetch, not the rest of the dashboard, so a slow

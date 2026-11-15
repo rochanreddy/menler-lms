@@ -567,8 +567,9 @@ submissions hang off September's rows and would look unsubmitted.
 **The dropdown beside the programme's name in Learning**
 ([BatchSwitcher](client/src/components/BatchSwitcher.jsx)) appears for a student
 in two or more batches, and is how a student in two programmes moves between
-them too. It is the only place the choice is made; Home and every other page
-read it. The forum keeps its own Batch select, for that page alone. The choice lives in the browser
+them too. The same dropdown sits at the top of Home, labelled **Your batch**,
+above the class card it changes; both write the one choice, and every other
+page reads it. The forum keeps its own Batch select, for that page alone. The choice lives in the browser
 and travels as `X-Active-Batch`, a preference and not a permission: it is only
 matched against the student's own batches, so a stale id falls back to the
 newest intake rather than refusing or widening anything. Nothing is passed

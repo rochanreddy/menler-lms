@@ -1217,6 +1217,8 @@ a.wchip { text-decoration: none; max-width: 100%; overflow: hidden; text-overflo
 .rail-title-row .rail-title { min-width: 0; max-width: 100%; }
 .batch-switch { min-width: 0; max-width: 100%; padding: 3px 6px; border: 1px solid var(--line); border-radius: 8px; font-family: var(--font); font-weight: 600; font-size: 12.5px; color: var(--ink); background: var(--card); text-overflow: ellipsis; cursor: pointer; }
 .batch-switch:focus { outline: none; border-color: var(--violet); box-shadow: var(--ring); }
+.batch-switch-row { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; font-size: 13px; font-weight: 600; color: var(--muted); }
+.batch-switch-row .batch-switch { padding: 7px 10px; font-size: 14px; }
 .rail-pick { width: 100%; padding: 5px 8px; border: 1px solid var(--line); border-radius: 8px; font-family: var(--display); font-weight: 700; font-size: 14px; color: var(--ink); background: var(--card); }
 .rail-pick:focus { outline: none; border-color: var(--violet); box-shadow: var(--ring); }
 .rail-sub { font-size: 12px; color: var(--muted); margin-top: 3px; font-variant-numeric: tabular-nums; }
