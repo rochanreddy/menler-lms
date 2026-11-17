@@ -139,14 +139,15 @@ router.get('/:id', requireAuth, requireRole('admin'), async (req, res) => {
 });
 
 
-// POST /api/lms/certificates/issue { batchId, send } — issue to a whole cohort.
+// POST /api/lms/certificates/issue { batchId, studentId?, send } — issue to a
+// whole cohort, or one enrolled student.
 //
 // Issuing and emailing are separate switches on purpose. Issuing is reversible
 // in practice (nobody has seen the code yet); sending is not — once thirty
 // people have the mail you cannot unsend it. So the default is to mint the
 // certificates, let the admin read the list back, and send as a second act.
 router.post('/issue', requireAuth, requireRole('admin'), async (req, res) => {
-  const { batchId, send = false, mentorName, mentorRole } = req.body || {};
+  const { batchId, studentId, send = false, mentorName, mentorRole } = req.body || {};
   if (!batchId) return res.status(400).json({ error: 'batchId is required.' });
   const signer = {
     name: String(mentorName || '').trim().slice(0, 120),
@@ -161,7 +162,18 @@ router.post('/issue', requireAuth, requireRole('admin'), async (req, res) => {
   if (!batch) return res.status(404).json({ error: 'Batch not found.' });
   if (!batch.programId) return res.status(400).json({ error: 'That batch has no programme.' });
 
-  const students = batch.studentIds || [];
+  const enrolledStudents = batch.studentIds || [];
+  /* A student-specific issue still has to belong to this cohort. Apart from
+     preventing an accidental certificate for the wrong programme, this keeps
+     the certificate's frozen batch line honest. Using the populated roster
+     rather than looking up an arbitrary account is intentional. */
+  const student = studentId
+    ? enrolledStudents.find((candidate) => String(candidate._id) === String(studentId))
+    : null;
+  if (studentId && !student) {
+    return res.status(400).json({ error: 'That student is not enrolled in this batch.' });
+  }
+  const students = student ? [student] : enrolledStudents;
   if (!students.length) return res.json({ ok: true, issued: 0, sent: 0, results: [] });
 
   /* An edited signing line is saved back onto the mentor, so the next cohort
@@ -236,6 +248,7 @@ router.post('/issue', requireAuth, requireRole('admin'), async (req, res) => {
     ok: true,
     batch: batch.name,
     programme: batch.programId.title,
+    studentId: student ? String(student._id) : null,
     issued: results.filter((r) => r.created).length,
     existing: results.filter((r) => !r.created).length,
     sent,

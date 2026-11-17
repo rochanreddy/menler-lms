@@ -117,6 +117,31 @@ export default function AdminCertificates() {
     }
   }
 
+  // The batch action remains useful at the end of a programme. These row
+  // actions cover late joins, corrections and one-off certificates without
+  // making an admin issue (or email) every other learner again.
+  async function runForStudent(row, send) {
+    const action = send ? 'email' : 'issue';
+    setBusy(`${action}:${row.key}`);
+    setErr('');
+    try {
+      setReport(await api('/certificates/issue', {
+        method: 'POST',
+        body: {
+          batchId,
+          studentId: row.key,
+          send,
+          mentorName: signer.name,
+          mentorRole: signer.role,
+        },
+      }));
+    } catch (e) {
+      setErr(e.message || 'That did not work.');
+    } finally {
+      setBusy('');
+    }
+  }
+
   async function openPreview(row) {
     setErr('');
     try {
@@ -140,7 +165,7 @@ export default function AdminCertificates() {
     }
   }
 
-  const columns = useMemo(() => ([
+  const columns = [
     {
       key: 'name',
       header: 'Student',
@@ -181,11 +206,31 @@ export default function AdminCertificates() {
               seeing what was issued is exactly what you want when deciding
               whether a revocation was right. */}
           <Button size="sm" variant="ghost" onClick={() => openPreview(r.cert)}>View</Button>
+          {!r.cert.revoked && !r.cert.sentAt && (
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => runForStudent(r, true)}
+              disabled={Boolean(busy)}
+              loading={busy === `email:${r.key}`}
+            >
+              Email
+            </Button>
+          )}
           {!r.cert.revoked && <Button size="sm" variant="ghost" onClick={() => revoke(r.cert)}>Revoke</Button>}
         </div>
-      ) : null),
+      ) : (
+        <Button
+          size="sm"
+          onClick={() => runForStudent(r, false)}
+          disabled={!r.enrolled || Boolean(busy)}
+          loading={busy === `issue:${r.key}`}
+        >
+          Issue
+        </Button>
+      )),
     },
-  ]), []);
+  ];
 
   if (!batches.length && !err) {
     return <Empty icon="programs" title="No batches yet." hint="Create a batch and enrol students before issuing certificates." />;
@@ -238,7 +283,7 @@ export default function AdminCertificates() {
             {roster.length} {roster.length === 1 ? 'student' : 'students'} in this batch · {issued} issued · {sent} emailed.
             A certificate stays hidden from the student until it is emailed — so issue first, open one
             with <strong>View</strong> to check it reads correctly, then email. Issuing again is safe:
-            anyone who already has one keeps the same code.
+            anyone who already has one keeps the same code. Use <strong>Issue</strong> or <strong>Email</strong> on a student row for an individual certificate.
           </Text>
 
           {/* Stack is column-only; the app-wide .row is what puts two

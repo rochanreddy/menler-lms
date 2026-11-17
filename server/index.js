@@ -96,7 +96,7 @@ app.use((_req, res, next) => {
 // editing this file.
 const normalizeOrigin = (s) => (s || '').trim().replace(/\/+$/, '');
 const allowedOrigins = new Set(
-  [process.env.LMS_APP_URL, 'http://localhost:5174', 'https://lms.menler.in', 'https://app.menler.in']
+  [process.env.LMS_APP_URL, 'http://localhost:5174', 'http://127.0.0.1:5174', 'https://lms.menler.in', 'https://app.menler.in']
     .flatMap((v) => (v ? v.split(',') : []))
     .map(normalizeOrigin)
     .filter(Boolean),
