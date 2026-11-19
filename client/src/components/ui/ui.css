@@ -320,6 +320,11 @@
 /* Numbers align on their digits or they cannot be compared down a column. */
 .ui-table [data-numeric='true'] { text-align: right; font-variant-numeric: tabular-nums; font-family: var(--font-mono); }
 .ui-table__slot { padding: var(--space-8) var(--space-4); }
+/* A column of row actions stays on screen when the table is wider than its
+   card: the wrap scrolls sideways, and without this the buttons sit past the
+   right edge with nothing to say they are there. */
+.ui-table__actions { position: sticky; right: 0; background: var(--card); white-space: nowrap; box-shadow: -10px 0 12px -12px rgba(0, 0, 0, 0.18); }
+.ui-table__actions .row { flex-wrap: nowrap; }
 
 /* ── Tabs ─────────────────────────────────────────────────────────────────── */
 .ui-tabs { display: flex; gap: var(--space-5); border-bottom: var(--border-hairline) solid var(--border); }

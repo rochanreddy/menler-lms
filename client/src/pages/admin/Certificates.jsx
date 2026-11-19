@@ -200,6 +200,7 @@ export default function AdminCertificates() {
     {
       key: 'actions',
       header: '',
+      className: 'ui-table__actions',
       cell: (r) => (r.cert ? (
         <div className="row">
           {/* View comes first and is available on revoked certificates too —

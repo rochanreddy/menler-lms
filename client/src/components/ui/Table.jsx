@@ -61,7 +61,7 @@ export default function Table({
     body = rows.map((row, i) => (
       <tr key={rowKey(row, i)}>
         {columns.map((c) => (
-          <td key={c.key} data-numeric={c.numeric ? 'true' : undefined}>
+          <td key={c.key} className={c.className} data-numeric={c.numeric ? 'true' : undefined}>
             {c.cell ? c.cell(row) : row[c.key]}
           </td>
         ))}
@@ -76,7 +76,7 @@ export default function Table({
         <thead>
           <tr>
             {columns.map((c) => (
-              <th key={c.key} scope="col" data-numeric={c.numeric ? 'true' : undefined}>
+              <th key={c.key} scope="col" className={c.className} data-numeric={c.numeric ? 'true' : undefined}>
                 {c.header}
               </th>
             ))}
