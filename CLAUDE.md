@@ -61,6 +61,12 @@ cd server && node scripts/fillMissingNames.js              # dry run; --apply to
                                # on the Students page. Never overwrites a name. New
                                # accounts get the same rule (utils/names.js) when
                                # created without one (needs CONFIRM_DB to apply).
+cd server && node scripts/resendCertificates.js a@x.com b@y.com   # dry run; --apply
+                               # re-sends the certificate email to the addresses named
+                               # (the admin page's Email button only shows on an unsent
+                               # one). Writes nothing. Refuses to send while
+                               # LMS_APP_URL is localhost — set it to
+                               # https://lms.menler.in (needs CONFIRM_DB to apply).
 cd server && node scripts/backfillBatchJoins.js           # dry run; --apply to write
                                # a join date onto every student membership that has
                                # none, from their first attendance row in that batch
