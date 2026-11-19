@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import anthropicLogo from '../assets/certificate/anthropic.png';
 import msmeLogo from '../assets/certificate/msme.png';
 import sarvamLogo from '../assets/certificate/sarvam.png';
@@ -71,11 +73,36 @@ const PARTNERS = [
   { src: startupIndiaLogo, alt: 'Startup India', h: 17 },
 ];
 
+/* The sheet has one layout: landscape, designed at this width. A narrow screen
+   gets the same sheet scaled down rather than a reflowed portrait version, so
+   what a student sees on their phone is what prints and what they share. */
+const SHEET_WIDTH = 940;
+const OVERLAY_GUTTER = 40; // .cert-overlay's padding, both sides
+
+function useSheetScale() {
+  const fit = () => (typeof window === 'undefined'
+    ? 1
+    : Math.min(1, Math.max(0.2, (window.innerWidth - OVERLAY_GUTTER) / SHEET_WIDTH)));
+  const [scale, setScale] = useState(fit);
+  useEffect(() => {
+    const onResize = () => setScale(fit());
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+  return scale;
+}
+
 function CertificateModal({ cert, onClose }) {
-  return (
+  const scale = useSheetScale();
+  /* Portalled to <body> so print can drop everything else outright. Hiding the
+     page with `visibility` kept its height, which printed as three pages, and
+     a fixed overlay prints on every one of them — three copies of the sheet. */
+  return createPortal(
     <div className="cert-overlay" onClick={onClose}>
-      <div className="cert" onClick={(e) => e.stopPropagation()}>
-        <div className="cert-inner">
+      {/* Only the sheet is scaled: the buttons under it stay full size, or on a
+          phone they would shrink to a third of a tap target. */}
+      <div className="cert" style={{ width: SHEET_WIDTH * scale }} onClick={(e) => e.stopPropagation()}>
+        <div className="cert-inner" style={{ zoom: scale }}>
 
           <header className="cert-head">
             <div className="cert-brandblock">
@@ -149,7 +176,8 @@ function CertificateModal({ cert, onClose }) {
           <button className="btn ghost" onClick={onClose}>Close</button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

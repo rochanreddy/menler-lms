@@ -802,7 +802,7 @@ a:focus-visible,
   --c-accent: #A99BF5;      /* the kicker and the programme name */
   background: var(--c-ground); border-radius: 16px; overflow: hidden;
   box-shadow: 0 24px 70px rgba(10,7,26,.55);
-  max-width: 940px; width: 100%;
+  width: 940px; flex: none;
 }
 .cert-inner {
   background: var(--c-card); border: 1px solid var(--c-line); border-radius: 12px;
@@ -871,13 +871,9 @@ a:focus-visible,
 
 .cert-actions { display: flex; gap: 10px; justify-content: flex-end; padding: 0 18px 18px; }
 
-@media (max-width: 720px) {
-  .cert-inner { padding: 26px 22px 24px; }
-  .cert-name { font-size: 36px; }
-  .cert-kicker { letter-spacing: .2em; font-size: 11.5px; }
-  .cert-foot { gap: 22px; }
-  .cert-signs { gap: 20px; }
-}
+/* No phone layout on purpose: a narrow screen scales the landscape sheet down
+   (useSheetScale in CertificateModal) instead of reflowing it into a second,
+   portrait-shaped certificate. */
 
 
 /* The signing line on the issue screen. Boxed so it reads as one decision
@@ -923,9 +919,20 @@ a:focus-visible,
    with the inverted partner logos turning invisible. A credential printed that
    way is not a lighter version of the design, it is a broken one. */
 @media print {
-  body * { visibility: hidden; }
-  .cert, .cert * { visibility: visible; }
-  .cert { position: absolute; inset: 0; box-shadow: none; max-width: none; }
+  /* One sheet, one page. Everything but the certificate is taken out of the
+     layout (display, not visibility, or its height still prints as blank
+     pages), and the overlay stops being fixed, which browsers repeat on every
+     printed page. */
+  body:has(> .cert-overlay) > :not(.cert-overlay) { display: none !important; }
+  .cert-overlay { position: static; display: block; padding: 0; background: none; backdrop-filter: none; overflow: visible; }
+  .cert {
+    width: 277mm !important; height: 190mm; /* A4 landscape less the 10mm margins */
+    box-shadow: none; border-radius: 0;
+    break-inside: avoid; page-break-inside: avoid;
+    display: flex; flex-direction: column;
+  }
+  .cert-inner { zoom: 1 !important; flex: 1; display: flex; flex-direction: column; }
+  .cert-foot { margin-top: auto; padding-top: 24px; }
   .cert-actions { display: none; }
   .cert, .cert-inner, .cert-partners img, .cert-qr {
     -webkit-print-color-adjust: exact; print-color-adjust: exact;
