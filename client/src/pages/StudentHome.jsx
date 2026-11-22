@@ -20,6 +20,30 @@ function localDayBounds() {
   return { dayStart: start.toISOString(), dayEnd: end.toISOString() };
 }
 
+// One-off: Sunday 22 Nov's class moved to Wednesday 25 Nov. Shown above the
+// class card until 7 pm IST on the 22nd, then gone by itself (a timer flips it
+// for a page left open). Delete this once the date has passed.
+const POSTPONED_UNTIL = new Date('2026-11-22T19:00:00+05:30').getTime();
+
+function PostponedNotice() {
+  const [visible, setVisible] = useState(() => Date.now() < POSTPONED_UNTIL);
+  useEffect(() => {
+    if (!visible) return undefined;
+    const t = setTimeout(() => setVisible(false), POSTPONED_UNTIL - Date.now());
+    return () => clearTimeout(t);
+  }, [visible]);
+  if (!visible) return null;
+  return (
+    <div className="live-cta is-replay" role="status">
+      <span className="live-cta-mark"><LineIcon name="clock" size={18} /></span>
+      <div className="live-cta-copy">
+        <div className="live-cta-eyebrow">Class postponed</div>
+        <div className="live-cta-title">Today's class has been postponed to Wednesday, 25 Nov at 6:55 pm.</div>
+      </div>
+    </div>
+  );
+}
+
 // localStorage cache for the Join Live Class CTA only — lets it paint on the
 // very first frame of a repeat visit instead of waiting on a round trip.
 // Scoped per user so a shared device never shows one student's cached class
@@ -291,6 +315,8 @@ export default function StudentHome() {
             student is most likely to have opened this page for. Gated on its
             own one-request fetch, not the rest of the dashboard, so a slow
             assignments/announcements/attendance response never holds it back. */}
+        <PostponedNotice />
+
         {!liveClassLoading && liveClass && <LiveClassCard liveClass={liveClass} onOpen={openLiveClass} />}
 
         {/* Below the class, above the path: booking a doubt slot matters this
